@@ -1,0 +1,283 @@
+<script setup lang="ts">
+import PageHeader from '@/Components/UI/PageHeader.vue'
+import Card from '@/Components/UI/Card.vue'
+import AdminLayout from '@/Layouts/AdminLayout.vue'
+import { ref } from 'vue'
+import UserFormModal from '@/Components/Admin/UserFormModal.vue'
+import UploadUserModal from '@/Components/Admin/UploadUserModal.vue'
+import DeleteUserModal from '@/Components/Admin/DeleteUserModal.vue'
+import { router, useForm } from '@inertiajs/vue3'
+import { route } from 'ziggy-js'
+import Pagination from '@/Components/UI/Pagination.vue'
+
+const showUserModal = ref(false)
+
+const modalTitle = ref('Add User')
+
+const selectedUser = ref<User | null>(null)
+
+const showUploadModal = ref(false)
+
+const showDeleteModal = ref(false)
+
+function uploadUsers(file: File | null) {
+    console.log(file)
+
+    showUploadModal.value = false
+}
+
+function openDeleteModal(user: any) {
+    selectedUser.value = user
+
+    showDeleteModal.value = true
+}
+
+interface User {
+    id: number
+    employee_id: string | null
+    name: string
+    email: string
+    type: string
+    gender: string
+}
+
+function openAddModal() {
+    modalTitle.value = 'Add User'
+    selectedUser.value = null
+    showUserModal.value = true
+}
+
+function openEditModal(user: any) {
+    modalTitle.value = 'Edit User'
+
+    selectedUser.value = user
+
+    showUserModal.value = true
+}
+
+function saveUser(payload: any) {
+    const options = {
+        onSuccess: () => {
+            showUserModal.value = false
+            selectedUser.value = null
+        },
+    }
+
+    if (!selectedUser.value) {
+        router.post(
+            route('admin.credentials.store'),
+            payload,
+            options,
+        )
+
+        return
+    }
+
+    router.put(
+        route(
+            'admin.credentials.update',
+            selectedUser.value.id,
+        ),
+        payload,
+        options,
+    )
+}
+
+function deleteUser() {
+    if (!selectedUser.value) {
+        return
+    }
+
+    router.delete(
+        route(
+            'admin.credentials.destroy',
+            selectedUser.value.id,
+        ),
+        {
+            onSuccess: () => {
+                showDeleteModal.value = false
+                selectedUser.value = null
+            },
+        },
+    )
+}
+
+const props = defineProps<{
+    users: {
+        data: User[]
+        links: any[]
+        meta: any
+    }
+
+    filters: {
+        search?: string
+    }
+}>()
+
+
+const filter = useForm({
+    search: props.filters.search ?? '',
+})
+
+function applyFilter() {
+    router.get(
+        route('admin.credentials'),
+        filter.data(),
+        {
+            preserveState: true,
+            replace: true,
+            only: ['users'],
+        },
+    )
+}
+</script>
+
+<template>
+    <AdminLayout>
+        <PageHeader
+            title="Credentials Database"
+            description="Manage non-HRIS users and imported accounts."
+        >
+            <template #actions>
+                <div class="flex gap-2">
+                    <input
+                        v-model="filter.search"
+                        type="text"
+                        placeholder="Search user..."
+                        class="rounded-md border border-border px-3 py-2"
+                        @input="applyFilter"
+                    />
+                    <button
+                        class="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary"
+                        @click="showUploadModal = true"
+                    >
+                        Upload Users
+                    </button>
+
+                    <button
+                        class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+                        @click="openAddModal"
+                    >
+                        Add User
+                    </button>
+                </div>
+            </template>
+        </PageHeader>
+
+        <Card>
+            <div class="table-container">
+                <table class="table-custom">
+                    <thead>
+                        <tr
+                            class="border-b border-border text-left text-xs uppercase text-slate-500"
+                        >
+                            <th class="py-3">
+                                No
+                            </th>
+
+                            <th class="py-3">
+                                Name
+                            </th>
+
+                            <th class="py-3">
+                                Email
+                            </th>
+
+                            <th class="py-3">
+                                Action
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody v-if="props.users.data.length">
+                        <tr
+                            v-for="(user, index) in props.users.data"
+                            :key="user.id"
+                            class="border-b border-slate-100"
+                        >
+                            <td class="py-4 font-medium">
+                                {{ index + 1 }}
+                            </td>
+
+                            <td class="py-4">
+                               <div class="font-medium">
+                                    {{ user.name }}
+                                </div>
+
+                                <div
+                                    v-if="user.employee_id"
+                                    class="text-xs text-slate-500"
+                                >
+                                    {{ user.employee_id }}
+                                </div>
+                            </td>
+
+                            <td class="py-4">
+                                {{ user.email }}
+                            </td>
+
+                            <td class="py-4">
+                                <div
+                                    v-if="user.type === 'non_employee'"
+                                    class="flex gap-2"
+                                >
+                                    <button
+                                        class="rounded-md border border-slate-300 px-3 py-1 text-sm"
+                                        @click="openEditModal(user)"
+                                    >
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        class="rounded-md border border-red-300 px-3 py-1 text-sm text-red-600"
+                                        @click="openDeleteModal(user)"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+
+                                <span
+                                    v-else
+                                    class="text-xs text-slate-400"
+                                >
+                                    -
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tbody v-else>
+                        <tr>
+                            <td
+                                colspan="5"
+                                class="py-10 text-center text-slate-500"
+                            >
+                                No users found.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <Pagination
+                        :links="props.users.links"
+                    />
+        </Card>
+        <UserFormModal
+            :show="showUserModal"
+            :title="modalTitle"
+            :user="selectedUser"
+            @close="showUserModal = false"
+            @save="saveUser"
+        />
+        <UploadUserModal
+            :show="showUploadModal"
+            @close="showUploadModal = false"
+            @upload="uploadUsers"
+        />
+        <DeleteUserModal
+            :show="showDeleteModal"
+            :user-name="selectedUser?.name"
+            @close="showDeleteModal = false"
+            @delete="deleteUser"
+        />
+    </AdminLayout>
+</template>
