@@ -24,29 +24,24 @@ class CoiDeclarationService
             $type
         ) {
             $declaration = CoiDeclaration::query()
-                ->firstOrCreate(
-                    [
-                        'user_id' => $user->id,
-                        'period' => $period,
-                    ],
-                    [
-                        'status' => DeclarationStatus::Draft,
-                        'type' => $type,
-                    ]
-                );
+                ->where('user_id', $user->id)
+                ->where('period', $period)
+                ->where('status', DeclarationStatus::Draft)
+                ->first();
 
-            $declaration->update([
-                'type' => $type,
-            ]);
-
-            $declaration->responses()->delete();
-
-            foreach ($responses as $key => $response) {
-                $declaration->responses()->create([
-                    'question_key' => $key,
-                    'response_value' => $response,
+            if (! $declaration) {
+                $declaration = CoiDeclaration::create([
+                    'user_id' => $user->id,
+                    'period' => $period,
+                    'status' => DeclarationStatus::Draft,
+                    'type' => $type,
                 ]);
             }
+
+            $this->syncResponses(
+                declaration: $declaration,
+                responses: $responses,
+            );
 
             return $declaration;
         });
@@ -58,20 +53,46 @@ class CoiDeclarationService
         int $period,
         string $type
     ): CoiDeclaration {
-        $declaration = $this->saveDraft(
-            user: $user,
-            responses: $responses,
-            period: $period,
-            type: $type,
-        );
+        return DB::transaction(function () use (
+            $user,
+            $responses,
+            $period,
+            $type
+        ) {
+            $declaration = CoiDeclaration::create([
+                'user_id' => $user->id,
+                'period' => $period,
+                'status' => DeclarationStatus::Submitted,
+                'submitted_at' => now(),
+                'type' => $type,
+            ]);
 
-        $declaration->update([
-            'status' => DeclarationStatus::Submitted,
-            'submitted_at' => now(),
-            'type' => $type,
-        ]);
+            $this->syncResponses(
+                declaration: $declaration,
+                responses: $responses,
+            );
 
-        return $declaration;
+            CoiDeclaration::query()
+                ->where('user_id', $user->id)
+                ->where('period', $period)
+                ->where('status', DeclarationStatus::Draft)
+                ->delete();
+
+            return $declaration;
+        });
     }
 
+    private function syncResponses(
+        CoiDeclaration $declaration,
+        array $responses,
+    ): void {
+        $declaration->responses()->delete();
+
+        foreach ($responses as $key => $response) {
+            $declaration->responses()->create([
+                'question_key' => $key,
+                'response_value' => $response,
+            ]);
+        }
+    }
 }

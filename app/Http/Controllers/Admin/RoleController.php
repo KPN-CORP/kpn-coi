@@ -15,6 +15,7 @@ use App\Models\Location;
 use App\Models\User;
 use Faker\Provider\Company;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
@@ -22,13 +23,34 @@ class RoleController extends Controller
     public function index(): Response
     {
         $roles = Role::query()
-            ->with([
-                'permissions',
-                'users:id,name,email',
-            ])
+            ->with('permissions')
             ->withCount('users')
             ->latest()
             ->paginate(10);
+
+        $userIdsByRole = DB::connection('mysql')
+            ->table('model_has_roles')
+            ->where('model_type', User::class)
+            ->get()
+            ->groupBy('role_id');
+
+        $users = User::query()
+            ->select('id', 'name', 'email')
+            ->get()
+            ->keyBy('id');
+
+        $roles->getCollection()->transform(function ($role) use ($userIdsByRole, $users) {
+
+            $role->setRelation(
+                'users',
+                collect($userIdsByRole[$role->id] ?? [])
+                    ->map(fn ($pivot) => $users[$pivot->model_id] ?? null)
+                    ->filter()
+                    ->values()
+            );
+
+            return $role;
+        });
 
         return Inertia::render(
             'Admin/Roles',

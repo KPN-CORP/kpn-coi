@@ -81,9 +81,10 @@ class DeclarationController extends Controller
             [
                 'locale' => $locale,
 
-                'draft' => $draft
-                    ? new DeclarationResource($draft)
-                    : null,
+                // 'draft' => $draft
+                //     ? new DeclarationResource($draft)
+                //     : null,
+                'draft' => null,
 
                 'declaration' => $this->buildDeclarationData($authUser),
             ]
