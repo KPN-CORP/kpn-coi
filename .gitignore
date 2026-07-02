@@ -7,7 +7,6 @@
 .phpunit.result.cache
 .editorconfig
 .npmrc
-.composer.json
 .composer.lock
 /.codex
 /.cursor/
@@ -28,6 +27,5 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
-composer.lock
 package-lock.json
 tests/
