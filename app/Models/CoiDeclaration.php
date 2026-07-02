@@ -33,9 +33,14 @@ class CoiDeclaration extends Model
         'status' => DeclarationStatus::class,
     ];
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function nonEmployeeUser()
+    {
+        return $this->belongsTo(NonEmployeeUser::class, 'user_id');
     }
 
     public function employee(): BelongsTo

@@ -13,6 +13,7 @@ use App\Models\CoiDeclaration;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Services\CoiDeclarationService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,16 +22,21 @@ use Inertia\Response;
 
 class DeclarationController extends Controller
 {
-    public function __construct(
-        private readonly CoiDeclarationService $service
-    ) {}
+    protected $authUser;
+
+    public function __construct(private readonly CoiDeclarationService $service) {
+
+    $this->authUser = Auth::guard('web')->user()
+            ?? Auth::guard('non_employee')->user();
+
+    }
 
     public function saveDraft(
         SaveDraftRequest $request
     ): RedirectResponse {
         
         $this->service->saveDraft(
-            user: $request->user(),
+            user: $this->authUser,
             responses: $request->validated('responses'),
             period: now()->year,
             type: $this->resolveDeclarationType($request->user()),
@@ -62,7 +68,8 @@ class DeclarationController extends Controller
 
     public function create(Request $request): Response
     {
-        $authUser = Auth::user();
+        $authUser = Auth::guard('web')->user()
+            ?? Auth::guard('non_employee')->user();
 
         $locale = $request->string('locale', 'en');
 
@@ -73,7 +80,15 @@ class DeclarationController extends Controller
             'type',
             $this->resolveDeclarationType($authUser)
         )
+        ->where('status', 'draft')
         ->where('period', now()->year)
+        ->first();
+
+        $previousDeclaration = CoiDeclaration::query()
+        ->with('responses')
+        ->where('user_id', $authUser->id)
+        ->where('status', 'submitted')
+        ->latest('created_at')
         ->first();
 
         return Inertia::render(
@@ -81,13 +96,55 @@ class DeclarationController extends Controller
             [
                 'locale' => $locale,
 
-                // 'draft' => $draft
-                //     ? new DeclarationResource($draft)
-                //     : null,
-                'draft' => null,
+                'draft' => $draft
+                    ? new DeclarationResource($draft)
+                    : null,
+                // 'draft' => null,
 
                 'declaration' => $this->buildDeclarationData($authUser),
+
+                'previousDeclaration' => $previousDeclaration,
             ]
+        );
+    }
+
+    public function downloadPdf(Request $request, CoiDeclaration $declaration)
+    {
+        $authUser = Auth::guard('web')->user()
+            ?? Auth::guard('non_employee')->user();
+
+        $locale = $request->string('locale', 'en');
+
+        abort_unless(
+            $authUser && $declaration->user_id === $authUser->id,
+            403
+        );
+
+        $declaration->load([
+            'responses',
+            'user.employee',
+        ]);
+
+        $locale = request()->string('locale')->toString();
+
+        if (! in_array($locale, ['en', 'id'])) {
+            $locale = 'en';
+        }
+
+        $pdf = Pdf::loadView(
+            'pdf.declaration',
+            [
+                'declaration' => $declaration,
+                'locale' => $locale,
+            ]
+        );
+
+        return $pdf->download(
+            sprintf(
+                'COI-Declaration-%s-%s.pdf',
+                $declaration->period,
+                $declaration->created_at->format('Ymd_His')
+            )
         );
     }
 
@@ -117,9 +174,10 @@ class DeclarationController extends Controller
         };
     }
 
-    private function resolveDeclarationType(User $user): string
-    {
-        return $user->employee
+    private function resolveDeclarationType(
+        User|NonEmployeeUser $user
+    ): string {
+        return $user instanceof User
             ? 'employee'
             : 'non_employee';
     }

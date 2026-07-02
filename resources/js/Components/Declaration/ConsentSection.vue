@@ -1,5 +1,13 @@
-<script setup>
-const model = defineModel()
+<script setup lang="ts">
+import { locales } from '@/Config/locales'
+
+const model = defineModel<boolean>()
+
+const props = defineProps<{
+    locale: 'en' | 'id'
+}>()
+
+const locale = locales[props.locale]
 </script>
 
 <template>
@@ -18,9 +26,7 @@ const model = defineModel()
             <span
                 class="text-sm font-semibold text-red-700"
             >
-                I confirm that this declaration
-                is completed by myself and all
-                information provided is true.
+                {{ locale.declaration.consent }}
             </span>
         </label>
     </div>

@@ -6,9 +6,14 @@ import StatCard from '@/Components/UI/StatCard.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Declaration } from '@/Config/declaration'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import Chart from 'chart.js/auto'
 import { useForm, router } from '@inertiajs/vue3'
+import type { Chart as ChartInstance } from 'chart.js'
+import Swal from 'sweetalert2'
+
+const statusChart = ref<ChartInstance | null>(null)
+const barChart = ref<ChartInstance | null>(null)
 
 interface DashboardStats {
     total: number
@@ -17,29 +22,186 @@ interface DashboardStats {
     conflict: number
 }
 
+interface BarChart {
+    title: string
+    labels: string[]
+    datasets: {
+        label: string
+        data: number[]
+        backgroundColor: string | string[]
+        borderRadius: number
+    }[]
+}
+
 const statusChartRef = ref<HTMLCanvasElement | null>(
     null,
 )
 
-const businessUnitChartRef =
+function renderStatusChart() {
+    if (!statusChartRef.value) {
+        return
+    }
+
+    statusChart.value?.destroy()
+
+    statusChart.value = new Chart(statusChartRef.value, {
+        type: 'doughnut',
+
+        data: {
+            labels: ['Submitted', 'Pending'],
+
+            datasets: [{
+                data: [
+                    props.stats.submitted,
+                    props.stats.pending,
+                ],
+
+                backgroundColor: [
+                    '#2f855a',
+                    '#cbd5e1',
+                ],
+
+                borderWidth: 0,
+            }],
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                },
+            },
+        },
+    })
+}
+
+const barChartRef =
     ref<HTMLCanvasElement | null>(null)
+
+function renderBarChart() {
+
+    if (!barChartRef.value) {
+        return
+    }
+
+    barChart.value?.destroy()
+
+    barChart.value = new Chart(
+        barChartRef.value,
+        {
+            type: 'bar',
+
+            data: {
+
+                labels: props.barChart.labels,
+
+                datasets: props.barChart.datasets,
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    title: {
+
+                        display: true,
+
+                        text: props.barChart.title,
+
+                    },
+
+                    legend: {
+
+                        position: 'bottom',
+
+                    },
+
+                },
+
+                scales: {
+
+                    x: {
+
+                        grid: {
+
+                            display: false,
+
+                        },
+
+                    },
+
+                    y: {
+
+                        beginAtZero: true,
+
+                        border: {
+
+                            display: false,
+
+                        },
+
+                    },
+
+                },
+
+            },
+
+        }
+    )
+}
+
+function getStatusChartImage(): string | null {
+    return statusChartRef.value
+        ? canvasToImage(statusChartRef.value, 420, 420)
+        : null
+}
+
+function getBarChartImage(): string | null {
+    return barChartRef.value
+        ? canvasToImage(barChartRef.value, 900, 420)
+        : null
+}
 
 const props = defineProps<{
     declarations: {
         data: Declaration[],
         links: any[]
     }
+    employeeDeclarations: {
+    data: Declaration[]
+    }
+
+    nonEmployeeDeclarations: {
+        data: Declaration[]
+    }
     stats: DashboardStats
     periods: number[]
+    businessUnitOptions: string[]
 
-    filters: {
-        period?: string
-        status?: string
-    }
-}>()
+    barChart: BarChart
+
+        filters: {
+            period?: string
+            status?: string
+            business_unit?: string
+            type?: string
+        }
+    }>()
 
 const filter = useForm({
     period: props.filters.period ?? '',
+    status: props.filters.status ?? '',
+    business_unit: props.filters.business_unit ?? '',
+    type: props.filters.type ?? 'employee',
 })
 
 function applyFilter() {
@@ -47,9 +209,13 @@ function applyFilter() {
         route('admin.dashboard'),
         {
             period: filter.period,
+            status: filter.status,
+            business_unit: filter.business_unit,
+            type: filter.type,
         },
         {
             preserveState: true,
+            preserveScroll: true,
             replace: true,
         },
     )
@@ -58,169 +224,199 @@ function applyFilter() {
 interface ReportFilters {
     period?: string | number
     status?: string
+    type?: string
+    business_unit?: string
     search?: string
     pending?: boolean | number
     conflict?: boolean | number
 }
 
+async function downloadDashboardPdf() {
+
+    const form = document.createElement('form')
+
+    form.method = 'POST'
+
+    form.action = route('admin.dashboard.pdf')
+
+    form.target = '_blank'
+
+    form.style.display = 'none'
+
+    function append(name: string, value: any) {
+
+        const input = document.createElement('input')
+
+        input.type = 'hidden'
+
+        input.name = name
+
+        input.value = value ?? ''
+
+        form.appendChild(input)
+    }
+
+    append('_token', document
+        .querySelector('meta[name="csrf-token"]')
+        ?.getAttribute('content'))
+
+    append('period', filter.period)
+
+    append('status', filter.status)
+
+    append(
+        'business_unit',
+        filter.business_unit
+    )
+
+    append(
+        'type',
+        filter.type
+    )
+
+    append(
+        'status_chart',
+        getStatusChartImage()
+    )
+
+    append(
+        'business_unit_chart',
+        getBarChartImage()
+    )
+
+    document.body.appendChild(form)
+
+    form.submit()
+
+    document.body.removeChild(form)
+}
+
+function exportExcel() {
+
+    window.open(
+
+        route(
+            'admin.dashboard.excel',
+            {
+                period: filter.period,
+                status: filter.status,
+                type: filter.type,
+                business_unit: filter.business_unit,
+            },
+        ),
+
+        '_blank',
+    )
+}
+
+function canvasToImage(
+    canvas: HTMLCanvasElement,
+    width: number,
+    height: number,
+): string {
+    const exportCanvas = document.createElement('canvas')
+
+    exportCanvas.width = width
+    exportCanvas.height = height
+
+    const ctx = exportCanvas.getContext('2d')
+
+    if (!ctx) {
+        return ''
+    }
+
+    ctx.drawImage(
+        canvas,
+        0,
+        0,
+        width,
+        height,
+    )
+
+    return exportCanvas.toDataURL(
+        'image/png',
+        1.0,
+    )
+}
+
+function onTypeChanged() {
+    filter.business_unit = ''
+    applyFilter()
+}
+
 function openReport(
     filters: ReportFilters = {},
 ) {
+    let total = props.stats.total
+
+    switch (filters.status) {
+        case 'submitted':
+            total = props.stats.submitted
+            break
+
+        case 'pending':
+            total = props.stats.pending
+            break
+
+        case 'conflict':
+            total = props.stats.conflict
+            break
+    }
+
+    if (total === 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'No Data',
+            text: 'There is no data available for the selected filter.',
+            confirmButtonText: 'OK',
+        })
+
+        return
+    }
+
     window.open(
         route(
             'admin.report',
             {
                 period: filter.period,
+                status: filter.status,
+                type: filter.type,
+                business_unit: filter.business_unit,
                 ...filters,
             },
         ),
         '_blank',
     )
 }
-
 onMounted(() => {
-    if (statusChartRef.value) {
-        new Chart(
-            statusChartRef.value,
-            {
-                type: 'doughnut',
 
-                data: {
-                    labels: [
-                        'Submitted',
-                        'Pending',
-                    ],
-
-                    datasets: [
-                        {
-                            data: [
-                                props.stats.submitted,
-
-                                props.stats.total -
-                                    props.stats.submitted,
-                            ],
-
-                            backgroundColor: [
-                                '#2f855a',
-                                '#cbd5e1',
-                            ],
-
-                            borderWidth: 0,
-                        },
-                    ],
-                },
-
-                options: {
-                    responsive: true,
-
-                    maintainAspectRatio:
-                        false,
-
-                    cutout: '75%',
-
-                    plugins: {
-                        legend: {
-                            position:
-                                'bottom',
-                        },
-                    },
-                },
-            },
-        )
+    if (props.barChart.labels.length) {
+        renderBarChart()
     }
+
+    renderStatusChart()
+
 })
 
-onMounted(() => {
-    if (businessUnitChartRef.value) {
-        new Chart(
-            businessUnitChartRef.value,
-            {
-                type: 'bar',
+watch(
+    () => props.stats,
+    () => {
+        renderStatusChart()
+    },
+    {
+        deep: true,
+    },
+)
 
-                data: {
-                    labels: [
-                        'Corporation',
-                        'Property',
-                        'Plantations',
-                        'Downstream',
-                        'Cement',
-                    ],
-
-                    datasets: [
-                        {
-                            label:
-                                'Submitted',
-
-                            data: [
-                                450,
-                                310,
-                                892,
-                                312,
-                                143,
-                            ],
-
-                            backgroundColor:
-                                '#AB2F2B',
-
-                            borderRadius: 4,
-                        },
-
-                        {
-                            label:
-                                'Pending',
-
-                            data: [
-                                12,
-                                40,
-                                156,
-                                8,
-                                64,
-                            ],
-
-                            backgroundColor:
-                                '#e2e8f0',
-
-                            borderRadius: 4,
-                        },
-                    ],
-                },
-
-                options: {
-                    responsive: true,
-
-                    maintainAspectRatio:
-                        false,
-
-                    plugins: {
-                        legend: {
-                            position:
-                                'bottom',
-                        },
-                    },
-
-                    scales: {
-                        x: {
-                            grid: {
-                                display:
-                                    false,
-                            },
-                        },
-
-                        y: {
-                            beginAtZero:
-                                true,
-
-                            border: {
-                                display:
-                                    false,
-                            },
-                        },
-                    },
-                },
-            },
-        )
-    }
-})
+watch(
+    () => props.barChart,
+    () => {
+        renderBarChart()
+    },
+    {
+        deep: true,
+    },
+)
 </script>
 
 <template>
@@ -229,27 +425,138 @@ onMounted(() => {
             title="Compliance Dashboard"
             description="Real-time overview of declaration submissions."
         />
-        <Card class="mb-6">
-            <div class="flex items-center gap-1">
-                <select
-                    v-model="filter.period"
-                    class="rounded-md border border-border px-3 py-2 text-sm"
-                    @change="applyFilter"
-                >
-                    <option value="">
-                        All Periods
-                    </option>
+        <div class="mb-4 flex items-end justify-between">
+            <div class="flex flex-wrap items-end gap-4">
 
-                    <option
-                        v-for="period in periods"
-                        :key="period"
-                        :value="period"
+                <!-- Reporting Period -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        Reporting Period
+                    </label>
+
+                    <select
+                        v-model="filter.period"
+                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        @change="applyFilter"
                     >
-                        {{ period }}
-                    </option>
-                </select>
+                        <option value="">
+                            All Period
+                        </option>
+
+                        <option
+                            v-for="period in periods"
+                            :key="period"
+                            :value="period"
+                        >
+                            {{ period }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Declaration Type -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        Declaration Type
+                    </label>
+
+                    <select
+                        v-model="filter.type"
+                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        @change="onTypeChanged"
+                    >
+                        <option value="employee">
+                            Employee
+                        </option>
+
+                        <option value="non_employee">
+                            Non Employee
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Organization -->
+                <div :class="[
+                        'flex flex-col gap-2',
+                        filter.type === 'employee' ? '' : 'hidden'
+                    ]">
+                    <label class="text-sm font-medium text-slate-700">
+                        Business Unit
+                    </label>
+
+                    <select
+                        v-model="filter.business_unit"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                        @change="applyFilter"
+                    >
+                        <option value="">
+                            {{
+                                filter.type === 'employee'
+                                    ? 'All Business Unit'
+                                    : 'All Company'
+                            }}
+                        </option>
+
+                        <option
+                            v-for="item in businessUnitOptions"
+                            :key="item"
+                            :value="item"
+                        >
+                            {{ item }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Status -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        Status
+                    </label>
+
+                    <select
+                        v-model="filter.status"
+                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        @change="applyFilter"
+                    >
+                        <option value="">
+                            All Status
+                        </option>
+
+                        <option value="submitted">
+                            Submitted
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                        <option value="conflict">
+                            Has Conflict
+                        </option>
+                    </select>
+                </div>
+
             </div>
-        </Card>
+
+            <div class="flex items-center gap-2">
+
+                <button
+                    class="btn-sm btn-primary-custom"
+                    @click="downloadDashboardPdf"
+                >
+                    <i class="fa-solid fa-file-pdf mr-2" />
+                    Download PDF
+                </button>
+
+                <button
+                    class="btn-sm btn-secondary"
+                    @click="exportExcel"
+                >
+                    <i class="fa-solid fa-file-excel mr-2" />
+                    Export Excel
+                </button>
+
+            </div>
+        </div>
 
         <!-- KPI CARDS -->
 
@@ -259,7 +566,9 @@ onMounted(() => {
                     {{ stats.total }}
                 </div>
                 <div class="stat-title">
-                    TOTAL EMPLOYEES
+                    TOTAL {{ filter.type === 'employee'
+                            ? 'Employee'
+                            : 'Non Employee' }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'submitted',})">
@@ -315,7 +624,7 @@ onMounted(() => {
                 </div>
 
                 <div class="h-[320px]">
-                    <canvas ref="businessUnitChartRef" />
+                    <canvas ref="barChartRef" />
                 </div>
             </Card>
         </div>
@@ -325,48 +634,89 @@ onMounted(() => {
         <Card class="card-custom">
             <div class="mb-4">
                 <h2 class="font-semibold">
-                    Recent Submissions
+                    Recent Employee Submissions
                 </h2>
             </div>
 
             <div class="table-container">
                 <table class="table-custom">
                     <thead>
-                        <tr
-                            class="border-b border-border text-left text-xs uppercase text-slate-500"
-                        >
-                            <th class="py-3">
-                                Employee
-                            </th>
-
-                            <th class="py-3">
-                                Period
-                            </th>
-
-                            <th class="py-3">
-                                Status
-                            </th>
+                        <tr class="border-b border-border text-left text-xs uppercase text-slate-500">
+                            <th class="py-3 w-2/6">Employee</th>
+                            <th class="py-3 w-1/6">Period</th>
+                            <th class="py-3 w-1/6">Status</th>
                         </tr>
                     </thead>
 
-                    <tbody v-if="declarations.data.length">
+                    <tbody>
                         <tr
-                            v-for="declaration in declarations.data"
+                            v-if="employeeDeclarations.data.length"
+                            v-for="declaration in employeeDeclarations.data"
                             :key="declaration.id"
                             class="border-b border-slate-100"
                         >
-                             <td class="py-4 font-medium">
+                            <td class="py-4 font-medium">
+                                {{ declaration.employee.name }} <p class="text-sm text-slate-400">({{ declaration.employee.employee_id }})</p>
+                            </td>
+
+                            <td class="py-4">
+                                {{ declaration.period }}
+                            </td>
+
+                            <td class="py-4">
+                                <StatusBadge :status="declaration.status" />
+                            </td>
+                        </tr>
+
+                        <tr v-else>
+                            <td colspan="4" class="py-10 text-center text-slate-500">
+                                No employee declarations available.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+        <Card class="card-custom mt-6">
+            <div class="mb-4">
+                <h2 class="font-semibold">
+                    Recent Non Employee Submissions
+                </h2>
+            </div>
+
+            <div class="table-container">
+                <table class="table-custom">
+                    <thead>
+                        <tr class="border-b border-border text-left text-xs uppercase text-slate-500">
+                            <th class="py-3 w-2/6">Full Name</th>
+                            <th class="py-3 w-1/6">Period</th>
+                            <th class="py-3 w-1/6">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr
+                            v-if="nonEmployeeDeclarations.data.length"
+                            v-for="declaration in nonEmployeeDeclarations.data"
+                            :key="declaration.id"
+                            class="border-b border-slate-100"
+                        >
+                            <td class="py-4 font-medium">
                                 {{ declaration.employee.name }}
                             </td>
 
                             <td class="py-4">
-                                {{ declaration.employee.employee_id }}
+                                {{ declaration.period }}
                             </td>
 
                             <td class="py-4">
-                                <StatusBadge
-                                    :status="declaration.status"
-                                />
+                                <StatusBadge :status="declaration.status" />
+                            </td>
+                        </tr>
+
+                        <tr v-else>
+                            <td colspan="4" class="py-10 text-center text-slate-500">
+                                No non employee declarations available.
                             </td>
                         </tr>
                     </tbody>

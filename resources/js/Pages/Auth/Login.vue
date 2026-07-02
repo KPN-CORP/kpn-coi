@@ -20,7 +20,7 @@ function submit() {
         <h1
             class="mb-6 text-center text-2xl font-bold"
         >
-            COI Declaration System
+            Compliance System
         </h1>
 
         <form

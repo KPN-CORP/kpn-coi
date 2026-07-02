@@ -120,6 +120,16 @@ function formatDate(date: string | null) {
 
     return `${day}-${month}-${year}, ${hours}:${minutes}:${seconds}`
 }
+
+const downloadPdf = (id: number, declaration: any) => {
+    window.open(
+        route('employee.declarations.pdf', {
+            declaration: id,
+            locale: declaration.locale ?? 'id',
+        }),
+        '_blank'
+    )
+}
 </script>
 
 <template>
@@ -249,9 +259,12 @@ function formatDate(date: string | null) {
                                     </button>
 
                                     <button
-                                        v-if="declaration.status === 'approved'"
-                                        class="btn btn-primary btn-sm"
+                                        v-if="declaration.status === 'submitted'"
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.id, declaration)"
                                     >
+                                        <i class="fa-solid fa-download" />
                                         PDF
                                     </button>
                                 </div>

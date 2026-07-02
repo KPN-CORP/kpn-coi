@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::middleware(['auth'])->prefix('employee')
+Route::middleware(['auth:web,non_employee'])->prefix('employee')
     ->name('employee.')
     ->group(function () {
 
@@ -41,9 +41,14 @@ Route::middleware(['auth'])->prefix('employee')
             ]);
         })->name('language');
 
+        Route::get(
+            '/declarations/{declaration}/pdf',
+            [DeclarationController::class, 'downloadPdf']
+        )->name('declarations.pdf');
+
     });
 
-Route::middleware(['auth','manager'])->prefix('manager')
+Route::middleware(['auth:web,non_employee','manager'])->prefix('manager')
     ->name('manager.')
     ->group(function () {
 
@@ -57,8 +62,7 @@ Route::middleware(['auth','manager'])->prefix('manager')
     })->name('review');
 });
 
-
-Route::middleware(['auth'])->prefix('admin')
+Route::middleware(['auth:web,non_employee'])->prefix('admin')
 ->name('admin.')
 ->group(function () {
     
@@ -74,6 +78,14 @@ Route::middleware(['auth'])->prefix('admin')
             '/dashboard',
             [DashboardController::class, 'index']
         )->name('dashboard');
+
+    Route::post(
+        '/dashboard/pdf',
+        [DashboardController::class, 'downloadDashboardPdf']
+    )->name('dashboard.pdf');
+
+    Route::get('/dashboard/excel', [DashboardController::class, 'exportExcel'])
+        ->name('dashboard.excel');
 
 
     Route::get(

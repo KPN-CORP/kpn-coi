@@ -12,6 +12,7 @@ import { Link, useForm, usePage, router } from '@inertiajs/vue3'
 import { ref, watch, computed } from 'vue'
 import { route } from 'ziggy-js'
 import Swal from 'sweetalert2'
+import { locales } from '@/Config/locales'
 
 import { coiQuestions } from '@/Config/coiQuestions'
 
@@ -26,9 +27,10 @@ const props = defineProps<{
     draft?: any | null
     declaration: DeclarationData
     errors: Record<string, string>
-
+    previousDeclaration: any | null
 }>()
 
+const locale = computed(() => locales[props.locale])
 
 const submitted = ref(false)
 const clientErrors = ref<Record<string, string>>({})
@@ -88,6 +90,48 @@ const flash = computed(() => page.props.flash as {
     success?: string
     error?: string
 })
+
+const usePreviousData = async () => {
+    if (!props.previousDeclaration?.responses?.length) {
+        await Swal.fire({
+            icon: 'info',
+            title: 'No Previous Declaration',
+            text: 'No submitted declaration was found from the previous period.',
+        })
+
+        return
+    }
+
+    const result = await Swal.fire({
+        title: 'Use Previous Declaration?',
+        text: 'This will replace all current answers with your previous submitted declaration.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Use Data',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ab2f2b',
+        reverseButtons: true,
+    })
+
+    if (!result.isConfirmed) {
+        return
+    }
+
+    props.previousDeclaration.responses.forEach((response: any) => {
+        Object.assign(
+            form.responses[response.question_key],
+            JSON.parse(JSON.stringify(response.response_value))
+        )
+    })
+
+    await Swal.fire({
+        icon: 'success',
+        title: 'Data Loaded',
+        text: 'Previous declaration data has been successfully loaded.',
+        timer: 1500,
+        showConfirmButton: false,
+    })
+}
 
 watch(
     () => flash.value.error,
@@ -236,8 +280,8 @@ function onAnswerChanged(questionKey: string) {
 <template>
     <EmployeeLayout>
         <PageHeader
-            title="Create Declaration"
-            description="Complete the potential conflicts of interest objectively."
+            :title="locale.declaration.title"
+            :description="locale.declaration.description"
         />
 
         <!-- Darwinbox Notice -->
@@ -249,7 +293,7 @@ function onAnswerChanged(questionKey: string) {
                 />
 
                 <span class="text-sm font-bold">
-                    Please update your personal data profile via Darwinbox if there are any discrepancies below.
+                    {{ locale.declaration.warning }}
                 </span>
             </div>
 
@@ -258,7 +302,7 @@ function onAnswerChanged(questionKey: string) {
             <div class="grid gap-4 md:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
-                        Full Name
+                        {{ locale.declaration.fullname }}
                     </label>
 
                     <input
@@ -270,7 +314,7 @@ function onAnswerChanged(questionKey: string) {
 
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
-                        National ID (KTP)
+                        {{ locale.declaration.ktp }}
                     </label>
 
                     <input
@@ -282,7 +326,7 @@ function onAnswerChanged(questionKey: string) {
 
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
-                        Registered Address
+                        {{ locale.declaration.address }}
                     </label>
 
                     <input
@@ -300,19 +344,20 @@ function onAnswerChanged(questionKey: string) {
             <div class="flex w-full items-center justify-between">
                 <div class="flex items-center gap-2">
                     <p class="font-bold">
-                        Pre-fill Data:
+                        {{ locale.declaration.prefillTitle }}:
                     </p>
 
                     <p class="text-slate-500">
-                        Use previous declaration data.
+                        {{ locale.declaration.prefillDescription }}
                     </p>
                 </div>
 
                 <button
                     type="button"
                     class="btn-primary text-sm"
+                    @click="usePreviousData"
                 >
-                    Use Data
+                    {{ locale.declaration.useData }}
                 </button>
             </div>
         </div>
@@ -332,7 +377,7 @@ function onAnswerChanged(questionKey: string) {
                         type="radio"
                         @change="onAnswerChanged(question.key)"
                     >
-                    <span>No</span>
+                    <span>{{ locale.common.no }}</span>
                 </label>
 
                 <label class="flex items-center gap-2">
@@ -342,7 +387,7 @@ function onAnswerChanged(questionKey: string) {
                         type="radio"
                         @change="onAnswerChanged(question.key)"
                     >
-                    <span>Yes</span>
+                    <span>{{ locale.common.yes }}</span>
                 </label>
             </div>
 
@@ -365,6 +410,7 @@ function onAnswerChanged(questionKey: string) {
         <Card class="mb-6 bg-slate-50 card-custom">
             <ConsentSection
                 v-model="form.consent"
+                :locale="props.locale"
             />
     
             <div

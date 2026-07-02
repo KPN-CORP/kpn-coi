@@ -30,11 +30,10 @@ class ReportController extends Controller
         )->getDeclarations(
             period: $period,
             status: $request->status,
+            type: $request->type,
             search: $request->search,
             user: Auth::user(),
         );
-
-        // dd($records);
 
         return Inertia::render(
             'Admin/Report',
@@ -44,15 +43,15 @@ class ReportController extends Controller
                 'filters' => [
                     'period' => $request->period,
                     'status' => $request->status,
+                    'type' => $request->type,
                     'search' => $request->search,
                 ],
 
-                'periods' => collect(
-                    range(
-                        now()->year,
-                        now()->year - 5
-                    )
-                ),
+                'periods' => CoiDeclaration::query()
+                    ->distinct()
+                    ->orderByDesc('period')
+                    ->pluck('period')
+                    ->values(),
             ]
         );
     }

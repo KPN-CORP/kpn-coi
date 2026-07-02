@@ -187,7 +187,7 @@ class CredentialController extends Controller
             $user
         ) {
 
-            $user->nonEmployee()
+            $user->employee()
                 ->delete();
 
             $user->delete();

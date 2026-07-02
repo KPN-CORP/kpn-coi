@@ -31,7 +31,12 @@ const emit = defineEmits<{
             class="flex items-center justify-between border-b border-border px-6 py-4"
         >
             <h2 class="text-lg font-bold">
-                Review Submitted Declaration
+                Submitted Declaration - 
+                {{
+                    declaration.type === 'employee'
+                        ? 'Employee'
+                        : 'Non Employee'
+                }}
             </h2>
 
             <button
@@ -72,7 +77,7 @@ const emit = defineEmits<{
                         </label>
 
                         <input
-                            :value="declaration.type==='employee' ? declaration.employee.employee_id : declaration.employee.ktp"
+                            :value="declaration.employee.employee_id"
                             disabled
                             class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
                         >

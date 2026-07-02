@@ -15,12 +15,13 @@ class ReportService
         int $period,
         ?string $status,
         ?string $search,
+        ?string $type,
         User $user
     ) {
         $employees = $this->employeeRecords(
             $period
         );
-
+        
         $nonEmployees = $this->nonEmployeeRecords(
             $period
         );
@@ -49,6 +50,13 @@ class ReportService
             );
         }
 
+        if ($type) {
+            $records = $records->where(
+                'type',
+                $type
+            );
+        }
+
         if ($status === 'pending') {
             $records = $records->where(
                 'status',
@@ -74,82 +82,71 @@ class ReportService
             20
         );
     }
+
+    
     private function employeeRecords(
         int $period
     ): Collection {
     
         return Employee::query()
             ->with([
-                'user',
-                'user.declarations' => fn ($query)
-                    => $query
-                        ->where(
-                            'period',
-                            $period
-                        )
-                        ->where('type', 'employee')
-                        ->with('responses'),
+                'coiDeclaration' => fn ($query) => $query
+                    ->where('period', $period)
+                    ->with('responses')
+                    ->latest(),
             ])
-            ->where('deleted_at', null)
+            ->whereNull('deleted_at')
             ->get()
-            ->map(function ($employee) use ($period) {
-    
-                $declaration =
-                    $employee
-                        ->user
-                        ?->declarations
-                        ?->first();
-    
-                $hasConflict = $declaration?->responses?->contains(
-                    fn ($response) => data_get($response->response_value, 'answer') === true
-                ) ?? false;
-    
-                return [
-                    'id' => $employee->id,
+            ->flatMap(function ($employee) use ($period) {
 
-                    'type' => 'employee',
-
-                    'period' => $declaration->period ?? $period,
-
-                    'row_id' => "employee-{$employee->id}",
-
-                    'name' => $employee->fullname,
-
-                    'ktp' => $employee->ktp,
-
-                    'employee_id' => $employee->employee_id,
-
-                    'status' => $declaration
-                        ? 'submitted'
-                        : 'pending',
-
-                    'has_conflict' => $hasConflict,
-
-                    'submitted_at' => $declaration?->submitted_at,
-
-                    'declaration' => $declaration
-                    ? [
-                        'id' => $declaration->id,
-
+                if ($employee->coiDeclaration->isEmpty()) {
+                    return [[
+                        'id' => $employee->id,
                         'type' => 'employee',
+                        'period' => $period,
+                        'row_id' => "employee-{$employee->id}",
+                        'name' => $employee->fullname,
+                        'ktp' => $employee->ktp,
+                        'employee_id' => $employee->employee_id,
+                        'status' => 'pending',
+                        'has_conflict' => false,
+                        'submitted_at' => null,
+                        'declaration' => null,
+                    ]];
+                }
 
+                return $employee->coiDeclaration->map(function ($declaration) use ($employee) {
+
+                    $hasConflict = $declaration->responses->contains(
+                        fn ($response) => data_get($response->response_value, 'answer') === true
+                    );
+
+                    return [
+                        'id' => $declaration->id,
+                        'type' => 'employee',
                         'period' => $declaration->period,
-
-                        'employee' => [
-                            'id' => $employee->id,
-                            'name' => $employee?->fullname,
-                            'employee_id' => $employee?->employee_id,
-                        ],
-
-
-                        'status' => $declaration->status,
-
+                        'row_id' => "employee-{$employee->id}-{$declaration->id}",
+                        'name' => $employee->fullname,
+                        'ktp' => $employee->ktp,
+                        'employee_id' => $employee->employee_id,
+                        'status' => 'submitted',
+                        'has_conflict' => $hasConflict,
                         'submitted_at' => $declaration->submitted_at,
-
-                        'responses' => $declaration->responses,
-                    ]
-                    : null,
-                ];
+                        'declaration' => [
+                            'id' => $declaration->id,
+                            'type' => 'employee',
+                            'period' => $declaration->period,
+                            'employee' => [
+                                'id' => $employee->id,
+                                'name' => $employee->fullname,
+                                'employee_id' => $employee->employee_id,
+                            ],
+                            'status' => $declaration->status,
+                            'submitted_at' => $declaration->submitted_at,
+                            'responses' => $declaration->responses,
+                        ],
+                    ];
+                });
             });
     }
     
@@ -159,23 +156,16 @@ class ReportService
     
         return NonEmployee::query()
             ->with([
-                'user',
-                'user.declarations' => fn ($query)
-                    => $query
-                        ->where(
-                            'period',
-                            $period
-                        )
-                        ->where('type', 'non_employee')
-                        ->with('responses'),
+                'coiDeclaration' => fn ($query) => $query
+                    ->where('period', $period)
+                    ->with('responses'),
             ])
             ->get()
             ->map(function ($employee) use ($period) {
-    
+
                 $declaration =
                     $employee
-                        ->user
-                        ?->declarations
+                        ->coiDeclaration
                         ?->first();
     
                 $hasConflict = $declaration?->responses?->contains(

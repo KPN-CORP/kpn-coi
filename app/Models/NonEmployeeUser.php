@@ -25,7 +25,10 @@ class NonEmployeeUser extends Authenticatable
 
     public function declarations(): HasMany
     {
-        return $this->hasMany(CoiDeclaration::class, 'user_id', 'id');
+        return $this->hasMany(
+            CoiDeclaration::class,
+            'user_id'
+        )->where('type', 'non_employee');
     }
 
     public function employee(): BelongsTo

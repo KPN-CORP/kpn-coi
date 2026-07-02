@@ -406,6 +406,38 @@ a {
     color: #fff;
 }
 
+.btn-outline-primary-custom {
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    font-size: .875rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    cursor: pointer;
+}
+
+.btn-outline-primary-custom:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.btn-outline-primary-custom:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    outline-offset: 2px;
+}
+
+.btn-outline-primary-custom:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+
 .btn-secondary {
     display: inline-flex;
     align-items: center;

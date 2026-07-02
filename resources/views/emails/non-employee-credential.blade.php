@@ -14,7 +14,7 @@ Your account has been successfully created.
 | Password | **{{ $password }}** |
 
 <x-mail::button :url="$appUrl">
-Login to COI System
+Login to Compliance System
 </x-mail::button>
 
 ### Security Notice

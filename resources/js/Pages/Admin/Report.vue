@@ -42,14 +42,18 @@ const props = defineProps<{
     filters: {
         period?: string
         status?: string
+        type?: string
         search?: string
     }
 }>()
 
 
+console.log(props.filters)
+
 const filter = useForm({
     period: props.filters.period ?? '',
     status: props.filters.status ?? '',
+    type: props.filters.type ?? '',
     search: props.filters.search ?? '',
 })
 
@@ -130,7 +134,7 @@ function formatDate(date: string | null) {
     <AdminLayout>
         <PageHeader
             title="Reports"
-            description="Monitor and export COI declarations."
+            description="Monitor and export declarations."
         >
             <template #actions>
                 <button
@@ -151,7 +155,7 @@ function formatDate(date: string | null) {
                     @change="applyFilter"
                 >
                     <option value="">
-                        All Periods
+                        Select Periods
                     </option>
 
                     <option
@@ -184,6 +188,25 @@ function formatDate(date: string | null) {
                         Has Conflict
                     </option>
                 </select>
+
+                <select
+                    v-model="filter.type"
+                    class="rounded-md border border-border px-3 py-2"
+                    @change="applyFilter"
+                >
+                    <option value="">
+                        All Types
+                    </option>
+
+                    <option value="employee">
+                        Employee
+                    </option>
+
+                    <option value="non_employee">
+                        Non Employee
+                    </option>
+                </select>
+                
                 <input
                         v-model="filter.search"
                         type="text"
@@ -207,8 +230,8 @@ function formatDate(date: string | null) {
                             <th class="py-3">Status</th>
                             <th class="py-3">Full Name</th>
                             <th class="py-3">Employee ID / Citizenship ID</th>
-                            <th class="py-3">COI Status</th>
-                            <th class="py-3">COI Indicator</th>
+                            <th class="py-3">Declaration Status</th>
+                            <th class="py-3">Conflict Indicator</th>
                             <th class="py-3">Submitted At</th>
                             <th class="py-3">Action</th>
                         </tr>

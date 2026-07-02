@@ -39,6 +39,15 @@ class Employee extends Model
         );
     }
 
+    public function coiDeclaration()
+    {
+        return $this->hasMany(
+            CoiDeclaration::class,
+            'user_id',
+            'id'
+        );
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'id');

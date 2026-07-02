@@ -167,8 +167,8 @@ function getQuestionTitle(key: string) {
                             <th class="py-3">Designation</th>
                             <th class="py-3">Level</th>
                             <th class="py-3">Business Unit</th>
-                            <th class="py-3">COI Status</th>
-                            <th class="py-3">COI Indicator</th>
+                            <th class="py-3">Declaration Status</th>
+                            <th class="py-3">Conflict Indicator</th>
                             <th class="py-3">Action</th>
                         </tr>
                     </thead>

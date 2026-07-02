@@ -74,7 +74,7 @@ const menus = useNavigation()
             <div
                 class="text-xs text-slate-400"
             >
-                KPN COI Management
+                KPN Compliance System
             </div>
 
             <div

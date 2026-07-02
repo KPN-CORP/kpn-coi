@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\NonEmployeeUser;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,25 +13,50 @@ class TeamDeclarationResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $owner = $this->type === 'employee'
+            ? User::find($this->user_id)
+            : NonEmployeeUser::find($this->user_id);
+
         return [
+
             'id' => $this->id,
 
             'period' => $this->period,
 
-            'status' => $this->status,
+            'type' => $this->type,
+
+            'status' => $this->status->value,
 
             'submitted_at' => $this->submitted_at,
 
-            'type' => $this->type,
-
             'employee' => [
-                'id' => $this->user?->id,
-                'name' => $this->employee?->fullname,
-                'ktp' => $this->employee?->ktp,
-                'employee_id' => $this->employee?->employee_id,
-                'designation' => $this->employee?->designation_name,
-                'level' => $this->employee?->job_level,
-                'business_unit' => $this->employee?->group_company,
+
+                'id' => $owner?->id,
+
+                'name' => $this->type === 'employee'
+                    ? $owner?->fullname
+                    : $owner?->name,
+
+                'employee_id' => $this->type === 'employee'
+                    ? $owner?->employee_id
+                    : null,
+
+                'ktp' => $this->type === 'employee'
+                    ? $owner?->ktp
+                    : $owner?->ktp,
+
+                'designation' => $this->type === 'employee'
+                    ? $owner?->designation_name
+                    : null,
+
+                'level' => $this->type === 'employee'
+                    ? $owner?->job_level
+                    : null,
+
+                'business_unit' => $this->type === 'employee'
+                    ? $owner?->group_company
+                    : null,
+
             ],
 
             'has_conflict' => $this->responses

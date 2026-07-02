@@ -6,13 +6,14 @@ namespace App\Services;
 
 use App\Enums\DeclarationStatus;
 use App\Models\CoiDeclaration;
+use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class CoiDeclarationService
 {
     public function saveDraft(
-        User $user,
+        User|NonEmployeeUser $user,
         array $responses,
         int $period,
         string $type
@@ -25,6 +26,7 @@ class CoiDeclarationService
         ) {
             $declaration = CoiDeclaration::query()
                 ->where('user_id', $user->id)
+                ->where('type', $type)
                 ->where('period', $period)
                 ->where('status', DeclarationStatus::Draft)
                 ->first();
@@ -48,7 +50,7 @@ class CoiDeclarationService
     }
 
     public function submit(
-        User $user,
+        User|NonEmployeeUser $user,
         array $responses,
         int $period,
         string $type
@@ -74,6 +76,7 @@ class CoiDeclarationService
 
             CoiDeclaration::query()
                 ->where('user_id', $user->id)
+                ->where('type', $type)
                 ->where('period', $period)
                 ->where('status', DeclarationStatus::Draft)
                 ->delete();

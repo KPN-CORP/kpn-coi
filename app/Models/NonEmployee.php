@@ -22,11 +22,14 @@ class NonEmployee extends Model
 
     public function coiDeclaration()
     {
-        return $this->hasMany(CoiDeclaration::class, 'user_id', 'id');
+        return $this->hasMany(
+            CoiDeclaration::class,
+            'user_id'
+        )->where('type', 'non_employee');
     }
 
     public function user()
     {
-        return $this->belongsTo(NonEmployeeUser::class, 'id');
+        return $this->belongsTo(NonEmployeeUser::class);
     }
 }

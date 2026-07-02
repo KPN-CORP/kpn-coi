@@ -49,17 +49,12 @@ class HandleInertiaRequests extends Middleware
                     : false,
             ],
 
-            'role' => $request->user()
-                ? $request->user()
-                    ->getRoleNames()
-                    ->first()
+            'role' => $user && method_exists($user, 'getRoleNames')
+                ? $user->getRoleNames()->first()
                 : null,
 
-            'permissions' => $request->user()
-                ? $request->user()
-                    ->getAllPermissions()
-                    ->pluck('name')
-                    ->values()
+            'permissions' => $user && method_exists($user, 'getAllPermissions')
+                ? $user->getAllPermissions()->pluck('name')->values()
                 : [],
 
             'flash' => [
