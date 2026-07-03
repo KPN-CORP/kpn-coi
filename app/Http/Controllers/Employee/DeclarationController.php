@@ -137,7 +137,11 @@ class DeclarationController extends Controller
                 'declaration' => $declaration,
                 'locale' => $locale,
             ]
-        );
+        )->setOptions([
+            'isPhpEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isHtml5ParserEnabled' => true,
+        ]);
 
         return $pdf->download(
             sprintf(

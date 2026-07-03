@@ -1,38 +1,28 @@
-<div class="mt-5">
+@php
+    $footer = config('coi.pdf_footer');
+@endphp
 
-    <table>
+@foreach($footer['paragraphs'] as $paragraph)
 
-        <tr>
+    <p class="{{ $loop->first ? 'mt-4' : 'mt-3' }}" style="text-align: justify;">
+        {{ $paragraph[$locale] ?? $paragraph['en'] }}
+    </p>
 
-            <td width="40">
+@endforeach
 
-                Full Name
+<div class="signature">
 
-            </td>
+    {{ $locale === 'id' ? 'Dibuat oleh,' : 'Declared by,' }}
 
-            <td>
+    <br><br><br><br>
+    {{ $locale === 'id' ? 'Nama Lengkap' : 'Full Name' }} :
+    <strong>
+        {{ $declaration->user->employee->fullname }}
+    </strong>
 
-                : {{ $declaration->user->employee->fullname }}
+    <br>
 
-            </td>
-
-        </tr>
-        <tr>
-
-            <td width="70">
-
-                Date
-
-            </td>
-
-            <td>
-
-                : {{ $declaration->updated_at->format('d F Y') }}
-
-            </td>
-
-        </tr>
-
-    </table>
+    {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
+    {{ $declaration->created_at->format('d F Y') }}
 
 </div>

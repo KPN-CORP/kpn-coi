@@ -9,7 +9,7 @@
 
     <style>
         @page {
-            margin: 18mm 16mm;
+            margin: 18mm 16mm 20mm 16mm;
         }
 
         body {
@@ -104,11 +104,28 @@
 
 @include('pdf.partials.questions')
 
-@include('pdf.partials.footer')
-{{-- @include('pdf.partials.consent') --}}
+@include('pdf.partials.consent')
+
+<script type="text/php">
+    if (isset($pdf)) {
+
+        $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
+
+        $pdf->page_text(
+            535,
+            $pdf->get_height() - 18,
+            "Page {PAGE_NUM} of {PAGE_COUNT}",
+            $font,
+            9,
+            [0, 0, 0]
+        );
+
+    }
+</script>
 
 @include('pdf.partials.appendix')
 
+{{-- @include('pdf.partials.footer') --}}
 
 </body>
 </html>

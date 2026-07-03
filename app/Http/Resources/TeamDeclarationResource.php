@@ -34,7 +34,7 @@ class TeamDeclarationResource extends JsonResource
                 'id' => $owner?->id,
 
                 'name' => $this->type === 'employee'
-                    ? $owner?->fullname
+                    ? $owner?->employee->fullname
                     : $owner?->name,
 
                 'employee_id' => $this->type === 'employee'
@@ -42,8 +42,8 @@ class TeamDeclarationResource extends JsonResource
                     : null,
 
                 'ktp' => $this->type === 'employee'
-                    ? $owner?->ktp
-                    : $owner?->ktp,
+                    ? $owner?->employee->ktp
+                    : $owner?->employee->ktp,
 
                 'designation' => $this->type === 'employee'
                     ? $owner?->designation_name

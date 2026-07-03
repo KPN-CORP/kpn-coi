@@ -77,7 +77,7 @@ const emit = defineEmits<{
                         </label>
 
                         <input
-                            :value="declaration.employee.employee_id"
+                            :value="declaration.employee.employee_id ?? declaration.employee.citizenship_id"
                             disabled
                             class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
                         >
