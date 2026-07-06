@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\CredentialImportErrorExport;
+use App\Exports\CredentialTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Mail\NonEmployeeCredentialMail;
+use App\Mail\ResetPasswordMail;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
+use App\Imports\NonEmployeeUserImport;
+use App\Services\CredentialImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -21,6 +26,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CredentialController extends Controller
 {
@@ -56,6 +62,7 @@ class CredentialController extends Controller
             ->map(fn ($user) => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'employee_id' => null,
                 'type' => 'non_employee',
                 'email' => $user->email,
                 'citizen_number' => $user->employee->ktp,
@@ -117,20 +124,20 @@ class CredentialController extends Controller
                 ]);
 
                 DB::afterCommit(function () use ($user, $password) {
-                    // Mail::to($user)
-                    //     ->queue(
-                    //         new NonEmployeeCredentialMail(
-                    //             $user,
-                    //             $password,
-                    //         )
-                    //     );
-                    Mail::to('alfian.azis@kpn-corp.com')
-                    ->queue(
-                        new NonEmployeeCredentialMail(
-                            $user,
-                            $password,
-                        )
-                    );
+                    Mail::to($user)
+                        ->queue(
+                            new NonEmployeeCredentialMail(
+                                $user,
+                                $password,
+                            )
+                        );
+                    // Mail::to('alfian.azis@kpn-corp.com')
+                    // ->queue(
+                    //     new NonEmployeeCredentialMail(
+                    //         $user,
+                    //         $password,
+                    //     )
+                    // );
                 });
             });
 
@@ -158,7 +165,7 @@ class CredentialController extends Controller
             ]);
 
             $employee->update([
-                    'fullname' => $request->fullname,
+                    'fullname' => $request->name,
 
                     'email' => $request->email,
 
@@ -179,6 +186,27 @@ class CredentialController extends Controller
         );
     }
 
+    public function resetPassword(NonEmployeeUser $user): RedirectResponse
+    {
+        $password = Str::password(12);
+
+        $user->update([
+            'password' => Hash::make($password),
+        ]);
+
+        Mail::to($user->email)->send(
+            new ResetPasswordMail(
+                $user,
+                $password,
+            )
+        );
+
+        return back()->with(
+            'success',
+            'Password has been reset successfully.'
+        );
+    }
+
     public function destroy(
         NonEmployeeUser $user
     ): RedirectResponse {
@@ -196,6 +224,64 @@ class CredentialController extends Controller
         return back()->with(
             'success',
             'User deleted successfully.'
+        );
+    }
+
+    public function import(
+        Request $request
+    ): RedirectResponse
+    {
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:xlsx,xls',
+            ],
+        ]);
+
+        Excel::import(
+            new NonEmployeeUserImport(
+                app(CredentialImportService::class)
+            ),
+            $request->file('file')
+        );
+
+        return back()->with(
+            'success',
+            'Users imported successfully.'
+        );
+    }
+
+    public function downloadImportError()
+    {
+        $errors = collect(
+            session(
+                'credential_import_errors',
+                []
+            )
+        );
+
+        abort_if(
+            $errors->isEmpty(),
+            404
+        );
+
+        return Excel::download(
+
+            new CredentialImportErrorExport(
+                $errors
+            ),
+
+            'Credential Import Errors.xlsx'
+
+        );
+    }
+
+    public function downloadTemplate()
+    {
+        return Excel::download(
+            new CredentialTemplateExport(),
+            'Compliance-NonEmployee-User-Import-Template.xlsx'
         );
     }
 }

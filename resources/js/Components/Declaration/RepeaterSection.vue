@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 
+interface FieldOption {
+    value: string
+    label: string
+    requires?: Field[]
+}
+
 interface Field {
     key: string
     label: string
+    type?: 'text' | 'select' | 'number' | 'date' | 'date_range' 
+    options?: FieldOption[]
 }
 
 const model = defineModel<Record<string, any>[]>({
@@ -24,17 +32,53 @@ const emit = defineEmits<{
 watch(
     model,
     (newVal) => {
+
         newVal.forEach((row, index) => {
+
             props.fields.forEach(field => {
-                if (row[field.key]?.trim()) {
-                    const key = `responses.${props.questionKey}.details.${index}.${field.key}`
-                    emit('clearError', key)
+
+                const value = row[field.key]
+
+                if (
+                    value !== null &&
+                    value !== undefined &&
+                    value !== ''
+                ) {
+
+                    emit(
+                        'clearError',
+                        `responses.${props.questionKey}.details.${index}.${field.key}`
+                    )
+
                 }
+
             })
+
         })
+
     },
-    { deep: true }
+    {
+        deep: true,
+    },
 )
+
+function isVisible(
+    row: Record<string, any>,
+    field: Field,
+) {
+    return true
+}
+
+function getRequiredFields(
+    field: Field,
+    value: string,
+) {
+    return field.options
+        ?.find(
+            option => option.value === value
+        )
+        ?.requires ?? []
+}
 
 function addRow() { model.value.push({}) }
 function removeRow(index: number) { model.value.splice(index, 1) }
@@ -55,32 +99,131 @@ function onInput(index: number, fieldKey: string) {
             class="mb-4 border-b border-slate-200 pb-4 last:mb-0 last:border-0"
         >
             <div class="grid gap-4 md:grid-cols-2">
-                <div v-for="field in fields" :key="field.key">
+                <div
+                    v-for="field in fields"
+                    :key="field.key"
+                >
+
                     <label class="mb-1 block text-xs font-semibold">
                         {{ field.label }}
                     </label>
 
+                    <!-- Select -->
+
+                    <select
+                        v-if="field.type === 'select'"
+                        v-model="row[field.key]"
+                        :class="[
+                            'w-full rounded-md border px-3 py-2 text-sm',
+                            getError(index, field.key)
+                                ? 'border-red-500 bg-red-50'
+                                : 'border-border'
+                        ]"
+                        @change="onInput(index, field.key)"
+                    >
+
+                        <option value="" selected disabled>
+                            Select...
+                        </option>
+
+                        <option
+                            v-for="option in field.options"
+                            :key="option.value"
+                            :value="option.value"
+                        >
+                            {{ option.label }}
+                        </option>
+
+                    </select>
+
+                    <!-- Date Range -->
+
+                    <div
+                        v-else-if="field.type === 'date_range'"
+                        class="grid grid-cols-[1fr_auto_1fr] gap-2 items-end"
+                    >
+
+                        <div>
+
+                            <input
+                                v-model="row[`${field.key}_from`]"
+                                type="date"
+                                :class="[
+                                    'w-full rounded-md border px-3 py-2 text-sm',
+                                    getError(index, `${field.key}_from`)
+                                        ? 'border-red-500 bg-red-50'
+                                        : 'border-border'
+                                ]"
+                                @input="onInput(index, `${field.key}_from`)"
+                            >
+
+                        </div>
+
+                        <div class="pb-2 text-sm text-slate-500">
+                            to
+                        </div>
+
+                        <div>
+
+                            <input
+                                v-model="row[`${field.key}_to`]"
+                                type="date"
+                                :class="[
+                                    'w-full rounded-md border px-3 py-2 text-sm',
+                                    getError(index, `${field.key}_to`)
+                                        ? 'border-red-500 bg-red-50'
+                                        : 'border-border'
+                                ]"
+                                @input="onInput(index, `${field.key}_to`)"
+                            >
+
+                        </div>
+
+                    </div>
+
+                    <!-- Text -->
+
                     <input
+                        v-else
                         v-model="row[field.key]"
                         type="text"
                         :class="[
-                            'w-full rounded-md border px-3 py-2 text-sm transition-colors',
+                            'w-full rounded-md border px-3 py-2 text-sm',
                             getError(index, field.key)
-                                ? 'border-red-500 bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-500'
-                                : 'border-border focus:outline-none focus:ring-1 focus:ring-primary'
+                                ? 'border-red-500 bg-red-50'
+                                : 'border-border'
                         ]"
                         @input="onInput(index, field.key)"
-                    />
+                    >
 
                     <p
                         v-if="getError(index, field.key)"
-                        class="mt-1 flex items-center gap-1 text-xs text-red-500"
+                        class="mt-1 text-xs text-red-500"
                     >
-                        <svg class="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="currentColor">
-                            <path d="M6 1a5 5 0 1 0 0 10A5 5 0 0 0 6 1zm0 3a.75.75 0 0 1 .75.75v2a.75.75 0 0 1-1.5 0v-2A.75.75 0 0 1 6 4zm0 5a.75.75 0 1 1 0-1.5A.75.75 0 0 1 6 9z"/>
-                        </svg>
                         {{ getError(index, field.key) }}
                     </p>
+
+                    <!-- Dynamic Requires -->
+
+                    <div
+                        v-for="requiredField in getRequiredFields(field, row[field.key])"
+                        :key="requiredField.key"
+                        class="mt-3"
+                    >
+
+                        <label class="mb-1 block text-xs font-semibold">
+                            {{ requiredField.label }}
+                        </label>
+
+                        <input
+                            v-model="row[requiredField.key]"
+                            type="text"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                            @input="onInput(index, requiredField.key)"
+                        >
+
+                    </div>
+
                 </div>
             </div>
 

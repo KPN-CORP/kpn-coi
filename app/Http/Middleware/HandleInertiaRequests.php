@@ -57,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                 ? $user->getAllPermissions()->pluck('name')->values()
                 : [],
 
+            'coiQuestions' => fn () => config('coi.questions'),
+
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

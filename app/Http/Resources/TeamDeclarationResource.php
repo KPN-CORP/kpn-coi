@@ -28,6 +28,7 @@ class TeamDeclarationResource extends JsonResource
             'status' => $this->status->value,
 
             'submitted_at' => $this->submitted_at,
+            'created_at' => $this->created_at,
 
             'employee' => [
 

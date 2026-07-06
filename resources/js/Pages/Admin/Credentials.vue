@@ -9,6 +9,7 @@ import DeleteUserModal from '@/Components/Admin/DeleteUserModal.vue'
 import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import Pagination from '@/Components/UI/Pagination.vue'
+import Swal from 'sweetalert2'
 
 const showUserModal = ref(false)
 
@@ -20,10 +21,79 @@ const showUploadModal = ref(false)
 
 const showDeleteModal = ref(false)
 
-function uploadUsers(file: File | null) {
-    console.log(file)
+const serverErrors = ref<Record<string, string>>({})
 
-    showUploadModal.value = false
+function uploadUsers(file: File | null) {
+
+    if (!file) {
+        return
+    }
+
+    const form = new FormData()
+
+    form.append(
+        'file',
+        file,
+    )
+
+    router.post(
+        route('admin.credentials.import'),
+        form,
+        {
+            forceFormData: true,
+
+            preserveScroll: true,
+
+            onSuccess: () => {
+
+                showUploadModal.value = false
+
+                Swal.fire({
+
+                    icon: 'success',
+
+                    title: 'Import Completed',
+
+                    text: 'Users imported successfully.',
+
+                    confirmButtonColor: '#ab2f2b',
+
+                })
+
+            },
+
+            onError: (errors) => {
+
+                const message =
+                    errors.file ??
+                    Object.values(errors)[0]
+
+                Swal.fire({
+
+                    icon: 'error',
+
+                    title: 'Import Failed',
+
+                    html: `
+                        <p>${message}</p>
+
+                        <br>
+
+                        <a
+                            href="${route('admin.credentials.import.error')}"
+                            class="text-primary underline"
+                        >
+                            Download Error Report
+                        </a>
+                    `,
+
+                    confirmButtonColor: '#ab2f2b',
+
+                })
+
+            },
+        },
+    )
 }
 
 function openDeleteModal(user: any) {
@@ -38,6 +108,8 @@ interface User {
     name: string
     email: string
     type: string
+    citizen_number: string
+    address: string
     gender: string
 }
 
@@ -55,15 +127,80 @@ function openEditModal(user: any) {
     showUserModal.value = true
 }
 
-function saveUser(payload: any) {
-    const options = {
-        onSuccess: () => {
-            showUserModal.value = false
-            selectedUser.value = null
-        },
+async function saveUser(payload: any) {
+
+    const isEdit = !!selectedUser.value
+
+    if (!isEdit) {
+
+        const result = await Swal.fire({
+
+            title: 'Create User?',
+
+            text: 'A new account will be created and the login credentials will be sent to the user email.',
+
+            icon: 'question',
+
+            showCancelButton: true,
+
+            confirmButtonText: 'Create User',
+
+            cancelButtonText: 'Cancel',
+
+            confirmButtonColor: '#ab2f2b',
+
+            reverseButtons: true,
+
+        })
+
+        if (!result.isConfirmed) {
+            return
+        }
+
     }
 
-    if (!selectedUser.value) {
+    const options = {
+
+        preserveScroll: true,
+
+        onSuccess: () => {
+
+            showUserModal.value = false
+
+            selectedUser.value = null
+
+            Swal.fire({
+
+                icon: 'success',
+
+                title: 'Success',
+
+                text: isEdit
+                    ? 'User updated successfully.'
+                    : 'User created successfully. Login credentials have been sent to the user email.',
+
+                confirmButtonColor: '#ab2f2b',
+
+            })
+
+        },
+
+        onError: (errors: Record<string, string>) => {
+
+    serverErrors.value = errors
+
+    Swal.fire({
+        icon: 'error',
+        title: 'Validation Failed',
+        text: Object.values(errors)[0],
+        confirmButtonColor: '#ab2f2b',
+    })
+},
+
+    }
+
+    if (!isEdit) {
+
         router.post(
             route('admin.credentials.store'),
             payload,
@@ -71,19 +208,57 @@ function saveUser(payload: any) {
         )
 
         return
+
     }
 
     router.put(
         route(
             'admin.credentials.update',
-            selectedUser.value.id,
+            selectedUser.value!.id,
         ),
         payload,
         options,
     )
+
+}
+async function resetPassword() {
+
+    if (!selectedUser.value) {
+        return
+    }
+
+    router.post(
+        route(
+            'admin.credentials.reset-password',
+            selectedUser.value.id,
+        ),
+        {},
+        {
+            preserveScroll: true,
+
+            onSuccess: () => {
+
+                Swal.fire({
+
+                    icon: 'success',
+
+                    title: 'Password Reset',
+
+                    text: 'A new password has been generated and sent to the user email.',
+
+                    confirmButtonColor: '#ab2f2b',
+
+                })
+
+            },
+
+        },
+    )
+
 }
 
 function deleteUser() {
+
     if (!selectedUser.value) {
         return
     }
@@ -94,12 +269,31 @@ function deleteUser() {
             selectedUser.value.id,
         ),
         {
+            preserveScroll: true,
+
             onSuccess: () => {
+
                 showDeleteModal.value = false
+
                 selectedUser.value = null
+
+                Swal.fire({
+
+                    icon: 'success',
+
+                    title: 'Success',
+
+                    text: 'User deleted successfully.',
+
+                    confirmButtonColor: '#ab2f2b',
+
+                })
+
             },
+
         },
     )
+
 }
 
 const props = defineProps<{
@@ -267,6 +461,8 @@ function applyFilter() {
             :user="selectedUser"
             @close="showUserModal = false"
             @save="saveUser"
+            @reset-password="resetPassword"
+            :server-errors="serverErrors"
         />
         <UploadUserModal
             :show="showUploadModal"

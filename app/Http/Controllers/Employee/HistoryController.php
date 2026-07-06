@@ -26,6 +26,7 @@ class HistoryController extends Controller
                 )
             )
             ->latest('period')
+            ->latest('updated_at')
             ->paginate(10)
             ->withQueryString();
 

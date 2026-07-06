@@ -16,10 +16,12 @@ class ReportService
         ?string $status,
         ?string $search,
         ?string $type,
+        ?string $businessUnit,
         User $user
     ) {
         $employees = $this->employeeRecords(
-            $period
+            $period,
+            $businessUnit
         );
         
         $nonEmployees = $this->nonEmployeeRecords(
@@ -30,24 +32,58 @@ class ReportService
             ->concat($nonEmployees);
 
         if ($search) {
+
+            $keyword = strtolower($search);
+
             $records = $records->filter(
+
                 fn ($item) =>
+
                     str_contains(
-                        strtolower(
-                            $item['name']
-                        ),
-                        strtolower(
-                            $search
-                        )
+                        strtolower($item['name']),
+                        $keyword
                     )
+
+                    ||
+
+                    str_contains(
+                        strtolower($item['employee_id']),
+                        $keyword
+                    )
+
             );
+
         }
 
-        if ($status === 'submitted') {
-            $records = $records->where(
-                'status',
-                'submitted'
-            );
+        if ($status) {
+
+            $records = match ($status) {
+
+                'submitted' =>
+
+                    $records->where(
+                        'status',
+                        'submitted'
+                    ),
+
+                'pending' =>
+
+                    $records->where(
+                        'status',
+                        'pending'
+                    ),
+
+                'conflict' =>
+
+                    $records->where(
+                        'has_conflict',
+                        true
+                    ),
+
+                default => $records,
+
+            };
+
         }
 
         if ($type) {
@@ -85,7 +121,8 @@ class ReportService
 
     
     private function employeeRecords(
-        int $period
+        int $period,
+        ?string $businessUnit
     ): Collection {
     
         return Employee::query()
@@ -95,6 +132,13 @@ class ReportService
                     ->with('responses')
                     ->latest(),
             ])
+            ->when(
+                filled($businessUnit),
+                fn ($query) => $query->where(
+                    'group_company',
+                    $businessUnit
+                )
+            )
             ->whereNull('deleted_at')
             ->get()
             ->flatMap(function ($employee) use ($period) {

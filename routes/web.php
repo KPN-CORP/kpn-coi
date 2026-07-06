@@ -60,9 +60,12 @@ Route::middleware(['auth:web,non_employee','manager'])->prefix('manager')
     Route::get('/manager/review', function () {
         return Inertia::render('Manager/DeclarationReview');
     })->name('review');
+
+    Route::get('/team-history/excel', [TeamHistoryController::class, 'exportExcel'])
+        ->name('team-history.excel');
 });
 
-Route::middleware(['auth:web,non_employee'])->prefix('admin')
+Route::middleware(['auth:web,admin'])->prefix('admin')
 ->name('admin.')
 ->group(function () {
     
@@ -112,6 +115,31 @@ Route::middleware(['auth:web,non_employee'])->prefix('admin')
         '/roles/{role}/assign-users',
         [RoleController::class, 'assignUsers']
     )->name('roles.assign-users');
+
+    Route::get(
+        '/report/excel',
+        [ReportController::class, 'exportExcel']
+    )->name('report.excel');
+
+    Route::post(
+        '/credentials/{user}/reset-password',
+        [CredentialController::class, 'resetPassword']
+    )->name('credentials.reset-password');
+
+    Route::post(
+        '/credentials/import',
+        [CredentialController::class, 'import']
+    )->name('credentials.import');
+
+    Route::get(
+        '/credentials/import/error',
+        [CredentialController::class, 'downloadImportError']
+    )->name('credentials.import.error');
+
+    Route::get(
+        '/credentials/template',
+        [CredentialController::class, 'downloadTemplate']
+    )->name('credentials.template');
 });
 
 Route::fallback(function () {

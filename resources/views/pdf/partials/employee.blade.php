@@ -2,7 +2,7 @@
 
 <tr>
 
-<td width="80">
+<td width="120">
 
 {{ $locale === 'id' ? 'Nama' : 'Name' }}
 

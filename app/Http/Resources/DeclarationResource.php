@@ -16,6 +16,7 @@ class DeclarationResource extends JsonResource
             'period' => $this->period,
             'status' => $this->status,
             'submitted_at' => $this->submitted_at,
+            'created_at' => $this->created_at,
             'responses_count' => $this->responses_count,
             'responses' => $this->responses
                 ->mapWithKeys(fn ($response) => [

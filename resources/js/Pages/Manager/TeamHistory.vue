@@ -2,13 +2,18 @@
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
-import { router } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { router, usePage, useForm } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
 import DeclarationReviewModal from '@/Components/Declaration/DeclarationReviewModal.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
-import { coiQuestions } from '@/Config/coiQuestions'
 
+
+const page = usePage()
+
+const coiQuestions = computed(
+    () => page.props.coiQuestions
+)
 
 const showReviewModal = ref(false)
 
@@ -63,8 +68,21 @@ const props = defineProps<{
     periods: number[]
     filters: {
         period?: string
+        status: string[]
+        business_unit?: string
     }
+    businessUnitOptions: string[]
 }>()
+
+const filter = useForm({
+
+    period: props.filters.period ?? '',
+
+    status: props.filters.status ?? '',
+
+    business_unit: props.filters.business_unit ?? '',
+
+})
 
 function getQuestionTitle(key: string) {
     const question = coiQuestions.find(
@@ -72,6 +90,53 @@ function getQuestionTitle(key: string) {
     )
 
     return question?.title?.en ?? key
+}
+
+function applyFilter() {
+
+    router.get(
+
+        route('manager.team-history'),
+        
+
+        {
+
+            period: filter.period,
+
+            status: filter.status,
+
+            business_unit: filter.business_unit,
+
+        },
+
+        {
+
+            preserveState: true,
+
+            preserveScroll: true,
+
+            replace: true,
+
+        },
+
+    )
+
+}
+function exportExcel() {
+
+    window.open(
+
+        route(
+            'manager.team-history.excel',
+            {
+                period: filter.period,
+                status: filter.status,
+                business_unit: filter.business_unit,
+            },
+        ),
+
+        '_blank',
+    )
 }
 </script>
 
@@ -82,35 +147,21 @@ function getQuestionTitle(key: string) {
             description="Direct reportees conflict of interest declarations tracking."
         />
 
-        <Card class="mb-6">
-            <div
-                class="grid gap-4 md:grid-cols-3"
-            >
-                <div>
-                    <label
-                        class="mb-1 block text-xs font-semibold"
-                    >
-                        Period
+        <div class="mb-4 flex items-end justify-between">
+            <div class="flex flex-wrap items-end gap-4 mb-6">
+
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        Declaration Period
                     </label>
 
                     <select
-                        class="w-full rounded-md border border-border px-3 py-2"
-                        :value="filters.period"
-                        @change="
-                            router.get(
-                                route('manager.team-history'),
-                                {
-                                    period: $event.target.value,
-                                },
-                                {
-                                    preserveState: true,
-                                    replace: true,
-                                },
-                            )
-                        "
+                        v-model="filter.period"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        @change="applyFilter"
                     >
                         <option value="">
-                            All Periods
+                            All Period
                         </option>
 
                         <option
@@ -123,37 +174,73 @@ function getQuestionTitle(key: string) {
                     </select>
                 </div>
 
-                <div>
-                    <label
-                        class="mb-1 block text-xs font-semibold"
-                    >
-                        Form Status
-                    </label>
-
-                    <select
-                        class="w-full rounded-md border border-border px-3 py-2"
-                    >
-                        <option>All</option>
-                        <option>Submitted</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label
-                        class="mb-1 block text-xs font-semibold"
-                    >
+                <!-- Business Unit -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
                         Business Unit
                     </label>
 
                     <select
-                        class="w-full rounded-md border border-border px-3 py-2"
+                        v-model="filter.business_unit"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                        @change="applyFilter"
                     >
-                        <option>All BU</option>
-                        <option>KPN Corporation</option>
+                        <option value="">
+                            All Business Unit
+                        </option>
+
+                        <option
+                            v-for="unit in businessUnitOptions"
+                            :key="unit"
+                            :value="unit"
+                        >
+                            {{ unit }}
+                        </option>
                     </select>
                 </div>
+
+                <!-- Form Status -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        Form Status
+                    </label>
+
+                    <select
+                        v-model="filter.status"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        @change="applyFilter"
+                    >
+                        <option value="">
+                            All Status
+                        </option>
+
+                        <option value="pending">
+                            Pending
+                        </option>
+
+                        <option value="submitted">
+                            Submitted
+                        </option>
+
+                        <option value="conflict">
+                            Has Conflict
+                        </option>
+                    </select>
+                </div>
+
             </div>
-        </Card>
+            <div class="flex items-center gap-2">
+
+                <button
+                    class="btn-sm btn-secondary"
+                    @click="exportExcel"
+                >
+                    <i class="fa-solid fa-file-excel mr-2" />
+                    Export Excel
+                </button>
+
+            </div>
+        </div>
 
         <Card>
             <div class="table-container">
@@ -169,7 +256,7 @@ function getQuestionTitle(key: string) {
                             <th class="py-3">Business Unit</th>
                             <th class="py-3">Declaration Status</th>
                             <th class="py-3">Conflict Indicator</th>
-                            <th class="py-3">Action</th>
+                            <!-- <th class="py-3">Action</th> -->
                         </tr>
                     </thead>
 
@@ -228,7 +315,7 @@ function getQuestionTitle(key: string) {
                                 </span>
                             </td>
 
-                            <td class="py-4">
+                            <!-- <td class="py-4">
                                 <button
                                     v-if="declaration.status !== 'pending'"
                                     class="btn btn-outline-secondary btn-sm"
@@ -244,7 +331,7 @@ function getQuestionTitle(key: string) {
                                 >
                                     No Submission
                                 </span>
-                            </td>
+                            </td> -->
                         </tr>
                     </tbody>
                 </table>

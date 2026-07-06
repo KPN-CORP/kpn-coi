@@ -61,33 +61,128 @@ $noLabel = $locale === 'id' ? 'Tidak' : 'No';
 
                     <p style="font-style: italic">{{ $locale === 'id' ? 'Jika Ya, mohon jelaskan:' : 'If Yes, please specify:' }}</p>
 
-                    @php
-                        $detail = $value['details'][0];
-                    @endphp
+                    @foreach($value['details'] as $index => $detail)
 
-                    <table width="100%" style="margin-top:8px;">
+                        @if($index > 0)
+                            <hr style="margin:10px 0;">
+                        @endif
 
-                        @foreach($question['fields'] as $field)
+                        <table width="100%" style="margin-top:8px;">
 
-                            <tr>
+                            @foreach($question['fields'] as $field)
 
-                                <td width="180">
+                                @php
 
-                                    {{ $field['label'][$locale] ?? $field['label']['en'] }}
+                                    $display = '-';
 
-                                </td>
+                                    if (($field['type'] ?? 'text') === 'date_range') {
 
-                                <td>
+                                        $from = data_get(
+                                            $detail,
+                                            $field['key'].'_from'
+                                        );
 
-                                    : {{ data_get($detail, $field['key'], '-') }}
+                                        $to = data_get(
+                                            $detail,
+                                            $field['key'].'_to'
+                                        );
 
-                                </td>
+                                        $display =
+                                            $from && $to
+                                                ? \Carbon\Carbon::parse($from)->format('d/m/Y')
+                                                    .' - '.
+                                                \Carbon\Carbon::parse($to)->format('d/m/Y')
+                                                : '-';
 
-                            </tr>
+                                    } elseif (($field['type'] ?? 'text') === 'select') {
 
-                        @endforeach
+                                        $valueSelected = data_get(
+                                            $detail,
+                                            $field['key']
+                                        );
 
-                    </table>
+                                        $option = collect(
+                                            $field['options'] ?? []
+                                        )->firstWhere(
+                                            'value',
+                                            $valueSelected
+                                        );
+
+                                        $display =
+                                            $option['label'][$locale]
+                                            ?? $option['label']['en']
+                                            ?? '-';
+
+                                    } else {
+
+                                        $display = data_get(
+                                            $detail,
+                                            $field['key'],
+                                            '-'
+                                        );
+
+                                    }
+
+                                @endphp
+
+                                <tr>
+
+                                    <td width="220">
+
+                                        {{ $field['label'][$locale] ?? $field['label']['en'] }}
+
+                                    </td>
+
+                                    <td>
+
+                                        : {{ $display }}
+
+                                    </td>
+
+                                </tr>
+
+                                {{-- Conditional fields (requires) --}}
+
+                                @if(($field['type'] ?? '') === 'select')
+
+                                    @php
+
+                                        $selected = collect(
+                                            $field['options'] ?? []
+                                        )->firstWhere(
+                                            'value',
+                                            data_get($detail, $field['key'])
+                                        );
+
+                                    @endphp
+
+                                    @foreach($selected['requires'] ?? [] as $required)
+
+                                        <tr>
+
+                                            <td width="220">
+
+                                                {{ $required['label'][$locale] ?? $required['label']['en'] }}
+
+                                            </td>
+
+                                            <td>
+
+                                                : {{ data_get($detail, $required['key'], '-') }}
+
+                                            </td>
+
+                                        </tr>
+
+                                    @endforeach
+
+                                @endif
+
+                            @endforeach
+
+                        </table>
+
+                    @endforeach
 
                     @if(count($value['details']) > 1)
 

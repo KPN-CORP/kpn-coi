@@ -3,13 +3,19 @@ import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { useForm, router, usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
-import { coiQuestions } from '@/Config/coiQuestions'
+import debounce from 'lodash/debounce'
 
+
+const page = usePage()
+
+const coiQuestions = computed(
+    () => page.props.coiQuestions
+)
 
 interface Declaration {
     id: number
@@ -26,6 +32,7 @@ interface Declaration {
     has_conflict: boolean
 
     declaration?: any | null
+    business_unit?: string | null
 }
 
 const props = defineProps<{
@@ -36,7 +43,8 @@ const props = defineProps<{
         last_page: number
         total: number
     }
-
+    
+    businessUnitOptions: string[]
     periods: number[]
 
     filters: {
@@ -44,6 +52,7 @@ const props = defineProps<{
         status?: string
         type?: string
         search?: string
+        business_unit?: string
     }
 }>()
 
@@ -51,10 +60,11 @@ const props = defineProps<{
 console.log(props.filters)
 
 const filter = useForm({
-    period: props.filters.period ?? '',
+    period: props.filters.period ?? new Date().getFullYear(),
     status: props.filters.status ?? '',
     type: props.filters.type ?? '',
     search: props.filters.search ?? '',
+    business_unit: props.filters.business_unit ?? '',
 })
 
 const showReviewModal = ref(false)
@@ -128,6 +138,44 @@ function formatDate(date: string | null) {
 
     return `${day}-${month}-${year}, ${hours}:${minutes}:${seconds}`
 }
+
+function onTypeChanged() {
+
+    filter.business_unit = ''
+
+    applyFilter()
+
+}
+
+watch(
+
+    () => filter.search,
+
+    debounce(() => {
+
+        applyFilter()
+
+    }, 500)
+
+)
+
+function exportExcel() {
+
+    window.open(
+
+        route(
+
+            'admin.report.excel',
+
+            filter.data()
+
+        ),
+
+        '_blank'
+
+    )
+
+}
 </script>
 
 <template>
@@ -139,6 +187,7 @@ function formatDate(date: string | null) {
             <template #actions>
                 <button
                     class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+                    @click="exportExcel"
                 >
                     Export Report
                 </button>
@@ -148,73 +197,131 @@ function formatDate(date: string | null) {
         <!-- FILTERS -->
 
         <Card class="mb-6">
-            <div class="grid gap-4 md:grid-cols-3">
-                <select
-                    v-model="filter.period"
-                    class="rounded-md border border-border px-3 py-2"
-                    @change="applyFilter"
-                >
-                    <option value="">
-                        Select Periods
-                    </option>
 
-                    <option
-                        v-for="period in periods"
-                        :key="period"
-                        :value="period"
+            <div class="flex flex-wrap items-end justify-between gap-4">
+
+                <div class="flex flex-wrap items-end gap-4">
+
+                    <!-- Reporting Period -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            Reporting Period
+                        </label>
+
+                        <select
+                            v-model="filter.period"
+                            class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                            @change="applyFilter"
+                        >
+                            <option
+                                v-for="period in periods"
+                                :key="period"
+                                :value="period"
+                            >
+                                {{ period }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Declaration Type -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            Declaration Type
+                        </label>
+
+                        <select
+                            v-model="filter.type"
+                            class="rounded-md border border-border px-3 py-2 text-sm min-w-44"
+                            @change="onTypeChanged"
+                        >
+                            <option value="">
+                                All Types
+                            </option>
+                            <option value="employee">
+                                Employee
+                            </option>
+
+                            <option value="non_employee">
+                                Non Employee
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Business Unit -->
+                    <div
+                        v-if="filter.type === 'employee'"
+                        class="flex flex-col gap-2"
                     >
-                        {{ period }}
-                    </option>
-                </select>
+                        <label class="text-sm font-medium text-slate-700">
+                            Business Unit
+                        </label>
 
-                <select
-                    v-model="filter.status"
-                    class="rounded-md border border-border px-3 py-2"
-                    @change="applyFilter"
-                >
-                    <option value="">
-                        All Status
-                    </option>
+                        <select
+                            v-model="filter.business_unit"
+                            class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                            @change="applyFilter"
+                        >
+                            <option value="">
+                                All Business Unit
+                            </option>
 
-                    <option value="submitted">
-                        Submitted
-                    </option>
+                            <option
+                                v-for="item in businessUnitOptions"
+                                :key="item"
+                                :value="item"
+                            >
+                                {{ item }}
+                            </option>
+                        </select>
+                    </div>
 
-                    <option value="pending">
-                        Pending
-                    </option>
+                    <!-- Status -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            Form Status
+                        </label>
 
-                    <option value="conflict">
-                        Has Conflict
-                    </option>
-                </select>
+                        <select
+                            v-model="filter.status"
+                            class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                            @change="applyFilter"
+                        >
+                            <option value="">
+                                All Status
+                            </option>
 
-                <select
-                    v-model="filter.type"
-                    class="rounded-md border border-border px-3 py-2"
-                    @change="applyFilter"
-                >
-                    <option value="">
-                        All Types
-                    </option>
+                            <option value="submitted">
+                                Submitted
+                            </option>
 
-                    <option value="employee">
-                        Employee
-                    </option>
+                            <option value="pending">
+                                Pending
+                            </option>
 
-                    <option value="non_employee">
-                        Non Employee
-                    </option>
-                </select>
-                
-                <input
-                        v-model="filter.search"
-                        type="text"
-                        placeholder="Search user..."
-                        class="rounded-md border border-border px-3 py-2"
-                        @input="applyFilter"
-                    />
+                            <option value="conflict">
+                                Has Conflict
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            Search
+                        </label>
+
+                        <input
+                            v-model="filter.search"
+                            type="text"
+                            placeholder="Employee Name / Employee ID"
+                            class="rounded-md border border-border px-3 py-2 text-sm min-w-64"
+                        >
+                    </div>
+
+                </div>
+
             </div>
+
         </Card>
 
         <!-- TABLE -->
@@ -233,7 +340,7 @@ function formatDate(date: string | null) {
                             <th class="py-3">Declaration Status</th>
                             <th class="py-3">Conflict Indicator</th>
                             <th class="py-3">Submitted At</th>
-                            <th class="py-3">Action</th>
+                            <!-- <th class="py-3">Action</th> -->
                         </tr>
                     </thead>
 
@@ -301,7 +408,7 @@ function formatDate(date: string | null) {
                                 {{ formatDate(declaration.submitted_at) }}
                             </td>
 
-                            <td class="py-4">
+                            <!-- <td class="py-4">
                                 <button
                                     v-if="declaration.status !== 'pending'"
                                     class="btn btn-outline-secondary btn-sm"
@@ -317,7 +424,7 @@ function formatDate(date: string | null) {
                                 >
                                     No Submission
                                 </span>
-                            </td>
+                            </td> -->
                         </tr>
                     </tbody>
 

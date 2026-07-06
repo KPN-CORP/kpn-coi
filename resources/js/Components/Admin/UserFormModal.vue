@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, watch, reactive } from 'vue'
+import { watch, reactive, ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/UI/Modal.vue'
+import Swal from 'sweetalert2'
 
 interface User {
+    id?: number
     name: string
     email: string
     citizen_number: string
@@ -14,20 +16,14 @@ interface User {
 const props = defineProps<{
     show: boolean
     title: string
-    user?: User | null
+    user?: User |null
+    serverErrors: Record<string, string>
 }>()
-
-function submit() {
-    if (!validate()) {
-        return
-    }
-
-    emit('save', form.data())
-}
 
 const emit = defineEmits<{
     close: []
     save: [value: User]
+    resetPassword: []
 }>()
 
 const form = useForm({
@@ -40,21 +36,7 @@ const form = useForm({
     gender: '',
 })
 
-watch(
-    () => props.user,
-    (user) => {
-        form.defaults({
-            name: user?.name ?? '',
-            email: user?.email ?? '',
-            citizen_number: user?.citizen_number ?? '',
-            address: user?.address ?? '',
-            gender: user?.gender ?? '',
-        })
-
-        form.reset()
-    },
-    { immediate: true }
-)
+const resettingPassword = ref(false)
 
 const errors = reactive({
     name: '',
@@ -64,7 +46,38 @@ const errors = reactive({
     gender: '',
 })
 
+watch(
+    () => props.user,
+    (user) => {
+
+        form.defaults({
+            name: user?.name ?? '',
+            email: user?.email ?? '',
+            citizen_number: user?.citizen_number ?? '',
+            address: user?.address ?? '',
+            gender: user?.gender ?? '',
+        })
+
+        form.reset()
+
+        form.clearErrors()
+
+        resettingPassword.value = false
+
+        Object.keys(errors).forEach(
+            key => errors[key as keyof typeof errors] = ''
+        )
+
+    },
+    {
+        immediate: true,
+    },
+)
+
 function validate() {
+
+    form.clearErrors()
+
     errors.name = ''
     errors.email = ''
     errors.citizen_number = ''
@@ -73,37 +86,150 @@ function validate() {
 
     let valid = true
 
-    if (!form.name) {
+    if (!form.name.trim()) {
+
         errors.name = 'Full Name is required.'
+
         valid = false
+
     }
 
-    if (!form.email) {
+    const email = form.email.trim()
+
+    if (!email) {
+
         errors.email = 'Email is required.'
+
         valid = false
+
+    } else {
+
+        const emailRegex =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+        if (!emailRegex.test(email)) {
+
+            errors.email =
+                'Please enter a valid email address.'
+
+            valid = false
+
+        }
+
     }
 
-    if (
-        !form.citizen_number
-    ) {
-        errors.citizen_number = 'Citizenship Number is required.'
+    if (!form.citizen_number.trim()) {
+
+        errors.citizen_number =
+            'Citizenship Number is required.'
+
         valid = false
+
     }
-    if (
-        !form.gender
-    ) {
-        errors.address = 'Gender is required.'
+
+    if (!form.gender) {
+
+        errors.gender =
+            'Gender is required.'
+
         valid = false
+
     }
-    if (
-        !form.address
-    ) {
-        errors.address = 'Address is required.'
+
+    if (!form.address.trim()) {
+
+        errors.address =
+            'Address is required.'
+
         valid = false
+
     }
 
     return valid
+
 }
+
+function submit() {
+
+    if (!validate()) {
+        return
+    }
+
+    emit(
+        'save',
+        form.data()
+    )
+
+}
+
+async function resetPassword() {
+
+    if (resettingPassword.value) {
+        return
+    }
+
+    const result = await Swal.fire({
+
+        title: 'Reset Password?',
+
+        text: 'A new password will be generated and sent to the user email.',
+
+        icon: 'warning',
+
+        showCancelButton: true,
+
+        confirmButtonText: 'Reset Password',
+
+        cancelButtonText: 'Cancel',
+
+        confirmButtonColor: '#ab2f2b',
+
+        reverseButtons: true,
+
+    })
+
+    if (!result.isConfirmed) {
+        return
+    }
+
+    resettingPassword.value = true
+
+    emit('resetPassword')
+
+}
+
+function hasError(field: string) {
+    return !!errors[field] || !!props.serverErrors[field]
+}
+
+function getError(field: string) {
+    return errors[field] || props.serverErrors[field]
+}
+
+watch(() => form.name, () => {
+    errors.name = ''
+    form.clearErrors('name')
+})
+
+watch(() => form.email, () => {
+    errors.email = ''
+    form.clearErrors('email')
+})
+
+watch(() => form.citizen_number, () => {
+    errors.citizen_number = ''
+    form.clearErrors('citizen_number')
+})
+
+watch(() => form.gender, () => {
+    errors.gender = ''
+    form.clearErrors('gender')
+})
+
+watch(() => form.address, () => {
+    errors.address = ''
+    form.clearErrors('address')
+})
 
 watch(() => form.name, () => errors.name = '')
 watch(() => form.email, () => errors.email = '')
@@ -129,7 +255,7 @@ watch(() => form.gender, () => errors.gender = '')
 
             <button
                 type="button"
-                class="rounded-md p-2 hover:bg-slate-100"
+                class="rounded-md p-2 transition hover:bg-slate-100"
                 @click="emit('close')"
             >
                 <i class="fa-solid fa-xmark" />
@@ -140,9 +266,13 @@ watch(() => form.gender, () => errors.gender = '')
 
         <div class="flex-1 overflow-y-auto p-6">
             <div class="grid gap-4">
+
+                <!-- Full Name -->
+
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Full Name <span class="text-red-500">*</span>
+                        Full Name
+                        <span class="text-red-500">*</span>
                     </label>
 
                     <input
@@ -150,84 +280,89 @@ watch(() => form.gender, () => errors.gender = '')
                         type="text"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
-                            errors.name
-                                ? 'border-red-500'
-                                : 'border-border',
+                            hasError('name')
+                            ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                            : 'border-border'
                         ]"
-                    />
+                    >
 
                     <p
-                        v-if="errors.name"
+                        v-if="getError('name')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ errors.name }}
+                        {{ getError('name') }}
                     </p>
                 </div>
+
+                <!-- Email -->
+
                 <div>
-                    
                     <label class="mb-1 block text-sm font-medium">
-                        Email <span class="text-red-500">*</span>
+                        Email
+                        <span class="text-red-500">*</span>
                     </label>
-    
+
                     <input
                         v-model="form.email"
                         type="email"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
-                            errors.email
-                                ? 'border-red-500'
-                                : 'border-border',
+                            hasError('email')
+                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                : 'border-border'
                         ]"
                     />
-    
+
                     <p
-                        v-if="errors.email"
+                        v-if="getError('email')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ errors.email }}
+                        {{ getError('email') }}
                     </p>
                 </div>
-                <div>
 
+                <!-- Citizenship Number -->
+
+                <div>
                     <label class="mb-1 block text-sm font-medium">
                         Citizenship Number
-    
-                        <span
-                            class="text-red-500"
-                        >*</span>
+                        <span class="text-red-500">*</span>
                     </label>
-    
+
                     <input
                         v-model="form.citizen_number"
                         type="text"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
-                            errors.citizen_number
-                                ? 'border-red-500'
-                                : 'border-border',
+                            hasError('citizen_number')
+                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                : 'border-border'
                         ]"
                     />
-    
+
                     <p
-                        v-if="errors.citizen_number"
+                        v-if="getError('citizen_number')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ errors.citizen_number }}
+                        {{ getError('citizen_number') }}
                     </p>
                 </div>
+
+                <!-- Gender -->
+
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         Gender
                         <span class="text-red-500">*</span>
                     </label>
 
-                    <select
+                   <select
                         v-model="form.gender"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
-                            errors.gender
-                                ? 'border-red-500'
-                                : 'border-border',
+                            hasError('gender')
+                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                : 'border-border'
                         ]"
                     >
                         <option value="">
@@ -244,63 +379,93 @@ watch(() => form.gender, () => errors.gender = '')
                     </select>
 
                     <p
-                        v-if="errors.gender"
+                        v-if="getError('gender')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ errors.gender }}
+                        {{ getError('gender') }}
                     </p>
                 </div>
-                <div>
 
+                <!-- Address -->
+
+                <div>
                     <label class="mb-1 block text-sm font-medium">
                         Address
-    
-                        <span
-                            class="text-red-500"
-                        >*</span>
+                        <span class="text-red-500">*</span>
                     </label>
-    
+
                     <textarea
                         v-model="form.address"
-                        type="text"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
-                            errors.address
-                                ? 'border-red-500'
-                                : 'border-border',
+                            hasError('address')
+                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                : 'border-border'
                         ]"
                     />
-    
+
                     <p
-                        v-if="errors.address"
+                        v-if="getError('address')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ errors.address }}
+                        {{ getError('address') }}
                     </p>
                 </div>
+
             </div>
         </div>
 
         <!-- Footer -->
 
         <div
-            class="flex justify-end gap-2 border-t border-border px-6 py-4"
+            class="flex items-center justify-between border-t border-border px-6 py-4"
         >
-            <button
-                type="button"
-                class="rounded-md border border-slate-300 px-4 py-2"
-                @click="emit('close')"
-            >
-                Cancel
-            </button>
+            <div>
+                <button
+                    v-if="props.user?.id"
+                    type="button"
+                    class="rounded-md border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="resettingPassword"
+                    @click="resetPassword"
+                >
+                    <i class="fa-solid fa-key mr-2" />
 
-            <button
-                type="button"
-                class="rounded-md bg-primary px-4 py-2 text-white"
-                @click="submit"
-            >
-                Save
-            </button>
+                    {{
+                        resettingPassword
+                            ? 'Resetting...'
+                            : 'Reset Password'
+                    }}
+                </button>
+            </div>
+
+            <div class="flex gap-2">
+                <button
+                    type="button"
+                    class="rounded-md border border-slate-300 px-4 py-2 transition hover:bg-slate-50"
+                    :disabled="form.processing"
+                    @click="emit('close')"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    class="rounded-md bg-primary px-4 py-2 text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="form.processing"
+                    @click="submit"
+                >
+                    <i
+                        v-if="form.processing"
+                        class="fa-solid fa-spinner fa-spin mr-2"
+                    />
+
+                    {{
+                        form.processing
+                            ? 'Saving...'
+                            : 'Save'
+                    }}
+                </button>
+            </div>
         </div>
     </Modal>
 </template>

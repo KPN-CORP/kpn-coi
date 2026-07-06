@@ -1,8 +1,11 @@
 <h3>{{ $barChart['title'] }}</h3>
 
-<table class="table">
+<table border="1"
+cellpadding="6"
+style="margin-top:10px;">
     <thead>
-        <tr>
+        <tr style="background:#eeeeee;"
+>
             <th>Category</th>
 
             @foreach($barChart['datasets'] as $dataset)

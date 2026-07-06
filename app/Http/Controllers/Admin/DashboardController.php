@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\Date;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
-use Maatwebsite\Excel\Excel as ExcelExport;
 
 class DashboardController extends Controller
 {

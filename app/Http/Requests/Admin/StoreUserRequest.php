@@ -32,13 +32,14 @@ class StoreUserRequest extends FormRequest
             'email' => [
                 'required',
                 'email',
-                Rule::unique('users', 'email'),
+                Rule::unique('users')
+                    ->ignore($this->user),
             ],
 
             'citizen_number' => [
-                'nullable',
-                'string',
-                'max:100',
+                'required',
+                Rule::unique('non_employees', 'ktp')
+                    ->ignore($this->user),
             ],
 
             'role' => [
@@ -48,6 +49,14 @@ class StoreUserRequest extends FormRequest
                     'employee',
                     'admin',
                 ]),
+            ],
+
+            'gender' => [
+                'required',
+            ],
+
+            'address' => [
+                'required',
             ],
         ];
     }

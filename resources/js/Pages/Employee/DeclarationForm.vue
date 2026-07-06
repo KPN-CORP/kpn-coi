@@ -14,12 +14,22 @@ import { route } from 'ziggy-js'
 import Swal from 'sweetalert2'
 import { locales } from '@/Config/locales'
 
-import { coiQuestions } from '@/Config/coiQuestions'
-
 interface DeclarationData {
     name: string
     citizen_number: string
     address: string
+}
+
+interface CoiField {
+    key: string
+    type: string
+    label: Record<'en' | 'id', string>
+}
+
+interface CoiQuestion {
+    key: string
+    title: Record<'en' | 'id', string>
+    fields: CoiField[]
 }
 
 const props = defineProps<{
@@ -35,38 +45,22 @@ const locale = computed(() => locales[props.locale])
 const submitted = ref(false)
 const clientErrors = ref<Record<string, string>>({})
 
-const defaultResponses = {
-    business_affiliation: {
-    answer: false,
-    details: [],
-    },
 
-    professional_relationship: {
-        answer: false,
-        details: [],
-    },
+const page = usePage()
 
-    equity_ownership: {
-        answer: false,
-        details: [],
-    },
+const coiQuestions = computed<CoiQuestion[]>(
+    () => page.props.coiQuestions as CoiQuestion[]
+)
 
-    gifts_benefits: {
-        answer: false,
-        details: [],
-    },
-
-    family_relationship: {
-        answer: false,
-        details: [],
-    },
-
-    external_activities: {
-        answer: false,
-        details: [],
-    },
-
-}
+const defaultResponses = Object.fromEntries(
+    coiQuestions.value.map(question => [
+        question.key,
+        {
+            answer: false,
+            details: [],
+        },
+    ]),
+)
 
 const processingAction = ref<'draft' | 'submit' | null>(null)
 
@@ -84,7 +78,6 @@ const currentLocale = ref(
     props.locale === 'id' ? 'id' : 'en'
 )
 
-const page = usePage()
 
 const flash = computed(() => page.props.flash as {
     success?: string
@@ -154,7 +147,7 @@ watch(
     () => Object.keys(form.responses).map(k => form.responses[k].answer),
     () => {
         // When answer flips to false, remove that question's errors
-        for (const question of coiQuestions) {
+        for (const question of coiQuestions.value) {
             if (!form.responses[question.key].answer) {
                 for (const key of Object.keys(clientErrors.value)) {
                     if (key.startsWith(`responses.${question.key}`)) {
@@ -167,7 +160,9 @@ watch(
 )
 
 function hasEmptyFields() {
-    for (const question of coiQuestions) {
+
+    for (const question of coiQuestions.value) {
+
         const response = form.responses[question.key]
 
         if (!response.answer) {
@@ -175,21 +170,76 @@ function hasEmptyFields() {
         }
 
         for (const detail of response.details) {
+
             for (const field of question.fields) {
-                if (!detail[field.key]?.trim()) {
+
+                if (field.type === 'date_range') {
+
+                    if (
+                        !detail[`${field.key}_from`] ||
+                        !detail[`${field.key}_to`]
+                    ) {
+                        return true
+                    }
+
+                    continue
+                }
+
+                const value = detail[field.key]
+
+                if (
+                    value === null ||
+                    value === undefined ||
+                    value === ''
+                ) {
                     return true
                 }
+
+                if (
+                    field.type === 'select' &&
+                    field.options
+                ) {
+
+                    const selected = field.options.find(
+                        option => option.value === value
+                    )
+
+                    if (selected?.requires) {
+
+                        for (const requiredField of selected.requires) {
+
+                            const requiredValue =
+                                detail[requiredField.key]
+
+                            if (
+                                requiredValue === null ||
+                                requiredValue === undefined ||
+                                requiredValue === ''
+                            ) {
+                                return true
+                            }
+
+                        }
+
+                    }
+
+                }
+
             }
+
         }
+
     }
 
     return false
 }
 
 function validateForm(): boolean {
+
     let valid = true
 
-    for (const question of coiQuestions) {
+    for (const question of coiQuestions.value) {
+
         const response = form.responses[question.key]
 
         if (!response.answer) {
@@ -197,15 +247,94 @@ function validateForm(): boolean {
         }
 
         response.details.forEach((detail, index) => {
-            question.fields.forEach(field => {
-                const key = `responses.${question.key}.details.${index}.${field.key}`
 
-                if (!detail[field.key]?.trim()) {
-                    clientErrors.value[key] = 'This field is required.'
+            question.fields.forEach(field => {
+
+                if (field.type === 'date_range') {
+
+                    const fromKey =
+                        `responses.${question.key}.details.${index}.${field.key}_from`
+
+                    const toKey =
+                        `responses.${question.key}.details.${index}.${field.key}_to`
+
+                    if (!detail[`${field.key}_from`]) {
+
+                        clientErrors.value[fromKey] =
+                            'This field is required.'
+
+                        valid = false
+                    }
+
+                    if (!detail[`${field.key}_to`]) {
+
+                        clientErrors.value[toKey] =
+                            'This field is required.'
+
+                        valid = false
+                    }
+
+                    return
+                }
+
+                const key =
+                    `responses.${question.key}.details.${index}.${field.key}`
+
+                const value = detail[field.key]
+
+                if (
+                    value === null ||
+                    value === undefined ||
+                    value === ''
+                ) {
+
+                    clientErrors.value[key] =
+                        'This field is required.'
+
                     valid = false
                 }
+
+                if (
+                    field.type === 'select' &&
+                    field.options
+                ) {
+
+                    const selected = field.options.find(
+                        option => option.value === value
+                    )
+
+                    if (selected?.requires) {
+
+                        selected.requires.forEach(requiredField => {
+
+                            const requiredKey =
+                                `responses.${question.key}.details.${index}.${requiredField.key}`
+
+                            const requiredValue =
+                                detail[requiredField.key]
+
+                            if (
+                                requiredValue === null ||
+                                requiredValue === undefined ||
+                                requiredValue === ''
+                            ) {
+
+                                clientErrors.value[requiredKey] =
+                                    'This field is required.'
+
+                                valid = false
+                            }
+
+                        })
+
+                    }
+
+                }
+
             })
+
         })
+
     }
 
     return valid
@@ -239,23 +368,27 @@ function saveDraft() {
 
 function submit() {
     submitted.value = true
+
+    processingAction.value = 'submit'
+
     clientErrors.value = {}
     if (hasEmptyFields()) {
         Swal.fire({
             icon: 'warning',
             title: 'Please complete all required fields.',
         })
-
+        processingAction.value = null
         return
     }
 
     if (!validateForm()) {
+        processingAction.value = null
         return
     }
     
     form.post(route('employee.declarations.submit'), {
-        onSuccess: () => {
-            // Your success flow
+        onFinish: () => {
+            processingAction.value = null
         },
 
         onError: () => {
@@ -396,9 +529,28 @@ function onAnswerChanged(questionKey: string) {
                 v-model="form.responses[question.key].details"
                 :fields="
                     question.fields.map(field => ({
-                        ...field,
-                        label: field.label[currentLocale],
-                    }))
+
+                    ...field,
+
+                    label: field.label[currentLocale],
+
+                    options: field.options?.map(option => ({
+
+                        ...option,
+
+                        label: option.label[currentLocale],
+
+                        requires: option.requires?.map(required => ({
+
+                            ...required,
+
+                            label: required.label[currentLocale],
+
+                        })),
+
+                    })),
+
+                }))
                 "
                 :question-key="question.key"
                 :errors="{ ...form.errors, ...clientErrors }"

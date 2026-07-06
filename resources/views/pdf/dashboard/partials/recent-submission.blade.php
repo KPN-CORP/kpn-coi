@@ -1,4 +1,4 @@
-<h3>
+<h3 style="margin-top:15px;">
 
 Recent Submission
 
@@ -25,6 +25,9 @@ Employee
 </th>
 
 <th>
+Period
+</th>
+<th>
 Status
 </th>
 
@@ -36,9 +39,10 @@ Status
 
 @foreach($rawDeclarations as $row)
     <tr>
-        <td>{{ $row->user?->employee_id }}</td>
-        <td>{{ $row->user?->fullname }}</td>
-        <td>{{ $row->status->value }}</td>
+        <td>{{ $row->user?->employee->fullname ?? '-' }}</td>
+        <td>{{ $row->user?->employee_id ?? '-' }}</td>
+        <td>{{ $row->period ?? '-' }}</td>
+        <td>{{ ucfirst($row->status?->value ?? '-') }}</td>
     </tr>
 @endforeach
 

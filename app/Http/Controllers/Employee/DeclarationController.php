@@ -99,7 +99,6 @@ class DeclarationController extends Controller
                 'draft' => $draft
                     ? new DeclarationResource($draft)
                     : null,
-                // 'draft' => null,
 
                 'declaration' => $this->buildDeclarationData($authUser),
 

@@ -83,6 +83,55 @@ return [
                         'id' => 'Hubungan dengan Pemilik Entitas',
                         'en' => 'Relationship to the Entity Owner',
                     ],
+
+                    'type' => 'select',
+
+                    'options' => [
+
+                        [
+                            'value' => 'parent',
+                            'label' => [
+                                'en' => 'Parent',
+                                'id' => 'Orang Tua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'parent_in_law',
+                            'label' => [
+                                'en' => 'Parent-in-law',
+                                'id' => 'Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'sibling',
+                            'label' => [
+                                'en' => 'Sibling',
+                                'id' => 'Saudara Kandung',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'others',
+                            'label' => [
+                                'en' => 'Others (please specify)',
+                                'id' => 'Lainnya (sebutkan)',
+                            ],
+
+                            'requires' => [
+                                [
+                                    'key' => 'others',
+                                    'type' => 'text',
+                                    'label' => [
+                                        'en' => 'Please specify',
+                                        'id' => 'Mohon sebutkan',
+                                    ],
+                                ],
+                            ],
+                        ],
+
+                    ],
                 ],
 
             ],
@@ -128,6 +177,55 @@ return [
                         'id' => 'Jenis Hubungan Profesional',
                         'en' => 'Professional Relationship',
                     ],
+
+                    'type' => 'select',
+
+                    'options' => [
+
+                        [
+                            'value' => 'supplier',
+                            'label' => [
+                                'en' => 'Supplier',
+                                'id' => 'Pemasok',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'customer',
+                            'label' => [
+                                'en' => 'Customer',
+                                'id' => 'Pelanggan',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'competitor',
+                            'label' => [
+                                'en' => 'Competitor',
+                                'id' => 'Kompetitor',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'others',
+                            'label' => [
+                                'en' => 'Others (please specify)',
+                                'id' => 'Lainnya (sebutkan)',
+                            ],
+
+                            'requires' => [
+                                [
+                                    'key' => 'others',
+                                    'type' => 'text',
+                                    'label' => [
+                                        'en' => 'Please specify',
+                                        'id' => 'Mohon sebutkan',
+                                    ],
+                                ],
+                            ],
+                        ],
+
+                    ],
                 ],
 
                 [
@@ -136,6 +234,7 @@ return [
                         'id' => 'Masa Kerja Dalam Entitas',
                         'en' => 'Employment Period in the Entity',
                     ],
+                    'type' => 'date_range',
                 ],
 
                 [
@@ -181,6 +280,54 @@ return [
                     'label' => [
                         'id' => 'Jenis Kepemilikan',
                         'en' => 'Type of Ownership',
+                    ],
+                    'type' => 'select',
+
+                    'options' => [
+
+                        [
+                            'value' => 'shares',
+                            'label' => [
+                                'en' => 'Shares',
+                                'id' => 'Saham',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'property',
+                            'label' => [
+                                'en' => 'Property',
+                                'id' => 'Properti',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'equity_instruments',
+                            'label' => [
+                                'en' => 'Equity Instruments',
+                                'id' => 'Instrumen Ekuitas',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'others',
+                            'label' => [
+                                'en' => 'Others (please specify)',
+                                'id' => 'Lainnya (sebutkan)',
+                            ],
+
+                            'requires' => [
+                                [
+                                    'key' => 'other',
+                                    'type' => 'text',
+                                    'label' => [
+                                        'en' => 'Please specify',
+                                        'id' => 'Mohon sebutkan',
+                                    ],
+                                ],
+                            ],
+                        ],
+
                     ],
                 ],
 
@@ -292,6 +439,54 @@ return [
                         'id' => 'Hubungan Keluarga',
                         'en' => 'Family Relationship',
                     ],
+                    'type' => 'select',
+
+                    'options' => [
+
+                        [
+                            'value' => 'parent',
+                            'label' => [
+                                'en' => 'Parent',
+                                'id' => 'Orang Tua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'parent_in_law',
+                            'label' => [
+                                'en' => 'Parent-in-law',
+                                'id' => 'Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'sibling',
+                            'label' => [
+                                'en' => 'Sibling',
+                                'id' => 'Saudara Kandung',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'others',
+                            'label' => [
+                                'en' => 'Others (please specify)',
+                                'id' => 'Lainnya (sebutkan)',
+                            ],
+
+                            'requires' => [
+                                [
+                                    'key' => 'others',
+                                    'type' => 'text',
+                                    'label' => [
+                                        'en' => 'Please specify',
+                                        'id' => 'Mohon sebutkan',
+                                    ],
+                                ],
+                            ],
+                        ],
+
+                    ],
                 ],
 
                 [
@@ -359,6 +554,7 @@ return [
                         'id' => 'Masa Keanggotaan',
                         'en' => 'Membership Period',
                     ],
+                    'type' => 'date_range',
                 ],
 
             ],

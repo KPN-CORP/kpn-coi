@@ -7,7 +7,6 @@ import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
 import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
-import { coiQuestions } from '@/Config/coiQuestions'
 
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
@@ -20,6 +19,10 @@ const selectedDeclaration = ref<any | null>(null)
 const page = usePage<{
     flash: Flash
 }>()
+
+const coiQuestions = computed(
+    () => page.props.coiQuestions
+)
 
 const currentYear = new Date().getFullYear()
 
@@ -35,6 +38,7 @@ interface Declaration {
     period: number
     status: string
     submitted_at: string | null
+    created_at: string | null
     reviewed_at: string | null
     responses_count: number
 }
@@ -74,7 +78,7 @@ function viewDeclaration(declaration: any) {
 }
 
 function getQuestionTitle(key: string) {
-    const question = coiQuestions.find(
+    const question = coiQuestions.value.find(
         q => q.key === key,
     )
 
@@ -121,11 +125,11 @@ function formatDate(date: string | null) {
     return `${day}-${month}-${year}, ${hours}:${minutes}:${seconds}`
 }
 
-const downloadPdf = (id: number, declaration: any) => {
+const downloadPdf = (id: number, declaration: any, locale: string) => {
     window.open(
         route('employee.declarations.pdf', {
             declaration: id,
-            locale: declaration.locale ?? 'id',
+            locale: locale ?? 'id',
         }),
         '_blank'
     )
@@ -216,6 +220,7 @@ const downloadPdf = (id: number, declaration: any) => {
                             <th class="py-3">Period</th>
                             <th class="py-3">Form Status</th>
                             <th class="py-3">Submit Date</th>
+                            <th class="py-3">Created Date</th>
                             <th class="py-3">Action</th>
                         </tr>
                     </thead>
@@ -235,9 +240,12 @@ const downloadPdf = (id: number, declaration: any) => {
                                     :status="declaration.status"
                                 />
                             </td>
-
                             <td class="py-4">
                                 {{ formatDate(declaration.submitted_at) }}
+                            </td>
+
+                            <td class="py-4">
+                                {{ formatDate(declaration.created_at) }}
                             </td>
 
                             <td class="py-4">
@@ -262,10 +270,19 @@ const downloadPdf = (id: number, declaration: any) => {
                                         v-if="declaration.status === 'submitted'"
                                         type="button"
                                         class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadPdf(declaration.id, declaration)"
+                                        @click="downloadPdf(declaration.id, declaration, 'id')"
                                     >
-                                        <i class="fa-solid fa-download" />
-                                        PDF
+                                        <i class="fa-solid fa-file-pdf" />
+                                        ID
+                                    </button>
+                                    <button
+                                        v-if="declaration.status === 'submitted'"
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.id, declaration, 'en')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        EN
                                     </button>
                                 </div>
                             </td>
