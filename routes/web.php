@@ -10,9 +10,12 @@ use App\Http\Controllers\Employee\DeclarationController;
 use App\Http\Controllers\Employee\HistoryController;
 use App\Http\Controllers\Manager\TeamHistoryController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SsoController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+Route::get('dbauth', [SsoController::class, 'dbauth']);
 
 Route::middleware(['auth:web,non_employee'])->prefix('employee')
     ->name('employee.')
