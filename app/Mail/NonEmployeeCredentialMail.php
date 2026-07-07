@@ -25,7 +25,7 @@ class NonEmployeeCredentialMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your COI Declaration System Account',
+            subject: 'Your KPN Compliance Account',
         );
     }
 

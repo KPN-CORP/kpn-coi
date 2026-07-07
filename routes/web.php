@@ -48,7 +48,7 @@ Route::middleware(['auth:web,non_employee'])->prefix('employee')
 
     });
 
-Route::middleware(['auth:web,non_employee','manager'])->prefix('manager')
+Route::middleware(['auth:web','manager'])->prefix('manager')
     ->name('manager.')
     ->group(function () {
 
@@ -65,7 +65,7 @@ Route::middleware(['auth:web,non_employee','manager'])->prefix('manager')
         ->name('team-history.excel');
 });
 
-Route::middleware(['auth:web,admin'])->prefix('admin')
+Route::middleware(['auth:web'])->prefix('admin')
 ->name('admin.')
 ->group(function () {
     
