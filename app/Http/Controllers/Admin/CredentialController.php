@@ -125,20 +125,13 @@ class CredentialController extends Controller
                 ]);
 
                 DB::afterCommit(function () use ($user, $password, $request) {
-                    // Mail::to($request->email)
-                    //     ->queue(
-                    //         new NonEmployeeCredentialMail(
-                    //             $user,
-                    //             $password,
-                    //         )
-                    //     );
-                    Mail::to('alfian.azis@kpn-corp.com')
-                    ->queue(
-                        new NonEmployeeCredentialMail(
-                            $user,
-                            $password,
-                        )
-                    );
+                    Mail::to($request->email)
+                        ->queue(
+                            new NonEmployeeCredentialMail(
+                                $user,
+                                $password,
+                            )
+                        );
                 });
             });
 
@@ -198,13 +191,6 @@ class CredentialController extends Controller
         Log::info(
             'Password reset for user: ' . $user->email
         );
-
-        // Mail::to('alfian.azis@kpn-corp.com')->send(
-        //     new ResetPasswordMail(
-        //         $user,
-        //         $password,
-        //     )
-        // );
 
         Mail::to($user->email)->send(
             new ResetPasswordMail(
