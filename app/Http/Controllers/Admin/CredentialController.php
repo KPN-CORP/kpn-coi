@@ -123,8 +123,8 @@ class CredentialController extends Controller
                     'gender' => $request->gender,
                 ]);
 
-                DB::afterCommit(function () use ($user, $password) {
-                    Mail::to($user)
+                DB::afterCommit(function () use ($user, $password, $request) {
+                    Mail::to($request->email)
                         ->queue(
                             new NonEmployeeCredentialMail(
                                 $user,
