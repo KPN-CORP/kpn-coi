@@ -231,13 +231,17 @@ const emit = defineEmits<{
                             <!-- Date Range -->
 
                             <template v-if="field.type === 'date_range'">
-
                                 {{ formatDate(detail[`${field.key}_from`]) }}
-
                                 -
+                                {{
+                                    detail[`${field.key}_current`]
+                                        ? 'Current'
+                                        : formatDate(detail[`${field.key}_to`])
+                                }}
+                            </template>
 
-                                {{ formatDate(detail[`${field.key}_to`]) }}
-
+                            <template v-else-if="field.type === 'year'">
+                                {{ detail[field.key] || '-' }}
                             </template>
 
                             <!-- Normal -->

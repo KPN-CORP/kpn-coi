@@ -10,7 +10,7 @@ interface FieldOption {
 interface Field {
     key: string
     label: string
-    type?: 'text' | 'select' | 'number' | 'date' | 'date_range' 
+    type?: 'text' | 'select' | 'number' | 'date' | 'date_range' | 'year'
     options?: FieldOption[]
 }
 
@@ -89,6 +89,13 @@ function onInput(index: number, fieldKey: string) {
     const key = `responses.${props.questionKey}.details.${index}.${fieldKey}`
     emit('clearError', key)  // ← tell parent to clear this error
 }
+
+const currentYear = new Date().getFullYear()
+
+const years = Array.from(
+    { length: currentYear - 1980 + 1 },
+    (_, index) => currentYear - index
+)
 </script>
 
 <template>
@@ -168,8 +175,10 @@ function onInput(index: number, fieldKey: string) {
                             <input
                                 v-model="row[`${field.key}_to`]"
                                 type="date"
+                                :disabled="row[`${field.key}_current`]"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
+                                    row[`${field.key}_current`] && 'bg-slate-100',
                                     getError(index, `${field.key}_to`)
                                         ? 'border-red-500 bg-red-50'
                                         : 'border-border'
@@ -178,7 +187,56 @@ function onInput(index: number, fieldKey: string) {
                             >
 
                         </div>
+                        <div class="mt-2 flex items-center gap-2">
+                            <input
+                                :id="`${field.key}_current_${index}`"
+                                v-model="row[`${field.key}_current`]"
+                                type="checkbox"
+                                @change="onInput(index, `${field.key}_current`)"
+                            >
 
+                            <label
+                                :for="`${field.key}_current_${index}`"
+                                class="text-sm"
+                            >
+                                Current
+                            </label>
+                        </div>
+
+                    </div>
+
+                    <!-- Year -->
+
+                    <div v-else-if="field.type === 'year'">
+                        <select
+                            v-model="row[field.key]"
+                            :class="[
+                                'w-full rounded-md border px-3 py-2 text-sm',
+                                getError(index, field.key)
+                                    ? 'border-red-500 bg-red-50'
+                                    : 'border-border'
+                            ]"
+                            @change="onInput(index, field.key)"
+                        >
+                            <option value="" disabled>
+                                Select year...
+                            </option>
+
+                            <option
+                                v-for="year in years"
+                                :key="year"
+                                :value="year"
+                            >
+                                {{ year }}
+                            </option>
+                        </select>
+
+                        <p
+                            v-if="getError(index, field.key)"
+                            class="mt-1 text-xs text-red-500"
+                        >
+                            {{ getError(index, field.key) }}
+                        </p>
                     </div>
 
                     <!-- Text -->
@@ -228,6 +286,7 @@ function onInput(index: number, fieldKey: string) {
             </div>
 
             <button
+                v-if="index > 0"
                 type="button"
                 class="mt-3 rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
                 @click="removeRow(index)"

@@ -87,12 +87,37 @@ $noLabel = $locale === 'id' ? 'Tidak' : 'No';
                                             $field['key'].'_to'
                                         );
 
-                                        $display =
-                                            $from && $to
-                                                ? \Carbon\Carbon::parse($from)->format('d/m/Y')
-                                                    .' - '.
-                                                \Carbon\Carbon::parse($to)->format('d/m/Y')
-                                                : '-';
+                                        $current = data_get(
+                                            $detail,
+                                            $field['key'].'_current',
+                                            false
+                                        );
+
+                                        if ($from) {
+
+                                            $display = \Carbon\Carbon::parse($from)->format('d/m/Y');
+
+                                            $display .= $current
+                                                ? ' - Current'
+                                                : (
+                                                    $to
+                                                        ? ' - '.\Carbon\Carbon::parse($to)->format('d/m/Y')
+                                                        : ''
+                                                );
+
+                                        } else {
+
+                                            $display = '-';
+
+                                        }
+
+                                    } elseif (($field['type'] ?? 'text') === 'year') {
+
+                                        $display = data_get(
+                                            $detail,
+                                            $field['key'],
+                                            '-'
+                                        );
 
                                     } elseif (($field['type'] ?? 'text') === 'select') {
 

@@ -26,11 +26,11 @@ return [
             'appendix' => 1,
 
             'title' => [
-                'en' => 'I, my Sibling(s), and/or my Immediate Family have ownership (whether direct or indirect, including
+                'en' => 'I, my Sibling(s), and/or my Immediate Family² have ownership (whether direct or indirect, including
                         through a nominee arrangement and/or representation) of a business, ventures, and/or affiliation with
                         a company, organizations, suppliers, customers, competitors, or other entities that have the same
                         type of business as companies under the KPN Corporation group.',
-                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya2) memiliki kepemilikan (baik langsung   
+                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya² memiliki kepemilikan (baik langsung   
                         ataupun tidak, dengan skema “nominee” dan/atau perwakilan) bisnis, usaha, dan/atau   
                         afiliasi dengan perusahaan, organisasi, pemasok, konsumen, kompetitor, atau entitas lain   
                         yang memiliki jenis bisnis yang sama dengan perusahaan yang bernaung dalam grup KPN   
@@ -65,6 +65,7 @@ return [
                         'id' => 'Tahun Kepemilikan (Jika Milik Pribadi)',
                         'en' => 'Year of Ownership (If Personally Owned)',
                     ],
+                    'type' => 'year',
                 ],
 
                 [
@@ -143,8 +144,8 @@ return [
             'appendix' => 2,
 
             'title' => [
-                'en' => 'I, my sibling(s), and/or my Immediate Family2) have a professional relationship or are stakeholders, including but not limited to as Commissioner, Director, or any other positions in a company, organization, supplier, consumer, competitor, or other entity that has a business relationship with companies under the KPN Corporation group.',
-                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya2) memiliki hubungan profesional atau   
+                'en' => 'I, my sibling(s), and/or my Immediate Family² have a professional relationship or are stakeholders, including but not limited to as Commissioner, Director, or any other positions in a company, organization, supplier, consumer, competitor, or other entity that has a business relationship with companies under the KPN Corporation group.',
+                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya² memiliki hubungan profesional atau   
                     menjadi pemangku kepentingan termasuk namun tidak terbatas sebagai Komisaris, Direksi,   
                     atau jabatan lainnya di perusahaan, organisasi, pemasok, konsumen, kompetitor, atau   
                     entitas lain yang memiliki hubungan bisnis dengan perusahaan yang bernaung dalam grup   
@@ -254,8 +255,8 @@ return [
             'appendix' => 3,
 
             'title' => [
-                'en' => 'I, my Sibling(s), and/or my Immediate Family2) have share ownership or other equity interest that could potentially create a conflict of interest or affect objectivity in carrying out my duties while working in companies under the KPN Corporation group, and/or I have an investment in a particular company/business entity except for having stocks and equities in publicly listed companies.',
-                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya2) memiliki kepemilikan saham atau   
+                'en' => 'I, my Sibling(s), and/or my Immediate Family² have share ownership or other equity interest that could potentially create a conflict of interest or affect objectivity in carrying out my duties while working in companies under the KPN Corporation group, and/or I have an investment in a particular company/business entity except for having stocks and equities in publicly listed companies.',
+                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya² memiliki kepemilikan saham atau   
                 kepentingan ekuitas lainnya yang berpotensi menimbulkan konflik kepentingan atau   
                 mempengaruhi objektivitas dalam melaksanakan tugas selama bekerja dalam perusahaan   
                 yang bernaung dalam grup KPN Corporation dan/atau saya memiliki investasi pada   
@@ -356,8 +357,8 @@ return [
             'appendix' => 4,
 
             'title' => [
-                'en' => 'I, my Sibling(s), and/or my Immediate Family2) receive loans, gifts/other benefits regularly and periodically from parties who have business relationships with companies under the KPN Corporation group.',
-                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya2) menerima pinjaman, hadiah/manfaat   
+                'en' => 'I, my Sibling(s), and/or my Immediate Family² receive loans, gifts/other benefits regularly and periodically from parties who have business relationships with companies under the KPN Corporation group.',
+                'id' => 'Saya, Saudara Kandung, dan/atau Keluarga Inti Saya² menerima pinjaman, hadiah/manfaat   
                 lain secara rutin dan berkala dari pihak-pihak yang memiliki hubungan bisnis dengan   
                 perusahaan yang bernaung dalam grup KPN Corporation.',
             ],
@@ -407,8 +408,8 @@ return [
             'appendix' => 5,
 
             'title' => [
-                'en' => 'I have family relationships up to 2 (two) levels of family generations3) with other Employees working in companies under the KPN Corporation group.',
-                'id' => 'Saya memiliki hubungan keluarga sampai dengan 2 (dua) tingkat generasi keluarga3)  
+                'en' => 'I have family relationships up to 2 (two) levels of family generations³ with other Employees working in companies under the KPN Corporation group.',
+                'id' => 'Saya memiliki hubungan keluarga sampai dengan 2 (dua) tingkat generasi keluarga³  
                 dengan Karyawan lain yang bekerja di perusahaan yang bernaung dalam grup KPN   
                 Corporation.',
             ],

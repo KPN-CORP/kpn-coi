@@ -21,11 +21,11 @@ export function useNavigation() {
                 icon: 'fa-solid fa-clock-rotate-left',
                 route: 'employee.history',
             },
-            {
-                label: 'New Declaration',
-                icon: 'fa-solid fa-file-circle-plus',
-                route: 'employee.language',
-            },
+            // {
+            //     label: 'New Declaration',
+            //     icon: 'fa-solid fa-file-circle-plus',
+            //     route: 'employee.language',
+            // },
         )
 
         // Manager Menu

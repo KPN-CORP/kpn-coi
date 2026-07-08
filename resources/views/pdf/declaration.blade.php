@@ -98,11 +98,27 @@
 
 <body>
 
+{{-- @php
+    $path = public_path('storage/images/letterhead.png');
+    $src = null;
+
+    if (file_exists($path)) {
+        $type = pathinfo($path, PATHINFO_EXTENSION);
+        $src = 'data:image/' . $type . ';base64,' . base64_encode(file_get_contents($path));
+    }
+@endphp
+
+@if($src)
+    <img src="{{ $src }}" style="top: -300px;left: -16px;width:320px; height:auto;">
+@endif --}}
+
 @include('pdf.partials.header')
 
 @include('pdf.partials.employee')
 
 @include('pdf.partials.questions')
+
+<div style="page-break-before: always;"></div>
 
 @include('pdf.partials.consent')
 

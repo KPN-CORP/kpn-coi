@@ -159,6 +159,10 @@ watch(
     }
 )
 
+function isEmpty(value: unknown): boolean {
+    return value === null || value === undefined || value === ''
+}
+
 function hasEmptyFields() {
 
     for (const question of coiQuestions.value) {
@@ -176,8 +180,11 @@ function hasEmptyFields() {
                 if (field.type === 'date_range') {
 
                     if (
-                        !detail[`${field.key}_from`] ||
-                        !detail[`${field.key}_to`]
+                        isEmpty(detail[`${field.key}_from`]) ||
+                        (
+                            !detail[`${field.key}_current`] &&
+                            isEmpty(detail[`${field.key}_to`])
+                        )
                     ) {
                         return true
                     }
@@ -185,50 +192,62 @@ function hasEmptyFields() {
                     continue
                 }
 
-                const value = detail[field.key]
+                if (field.type === 'year') {
 
-                if (
-                    value === null ||
-                    value === undefined ||
-                    value === ''
-                ) {
+                    if (isEmpty(detail[field.key])) {
+                        return true
+                    }
+
+                    continue
+                }
+
+                if (isEmpty(detail[field.key])) {
                     return true
                 }
 
-                if (
-                    field.type === 'select' &&
-                    field.options
-                ) {
+                if (field.type === 'select' && field.options) {
 
                     const selected = field.options.find(
-                        option => option.value === value
+                        option => option.value === detail[field.key]
                     )
 
-                    if (selected?.requires) {
+                    if (!selected?.requires) {
+                        continue
+                    }
 
-                        for (const requiredField of selected.requires) {
+                    for (const requiredField of selected.requires) {
 
-                            const requiredValue =
-                                detail[requiredField.key]
+                        if (requiredField.type === 'date_range') {
 
                             if (
-                                requiredValue === null ||
-                                requiredValue === undefined ||
-                                requiredValue === ''
+                                isEmpty(detail[`${requiredField.key}_from`]) ||
+                                (
+                                    !detail[`${requiredField.key}_current`] &&
+                                    isEmpty(detail[`${requiredField.key}_to`])
+                                )
                             ) {
                                 return true
                             }
 
+                            continue
                         }
 
+                        if (requiredField.type === 'year') {
+
+                            if (isEmpty(detail[requiredField.key])) {
+                                return true
+                            }
+
+                            continue
+                        }
+
+                        if (isEmpty(detail[requiredField.key])) {
+                            return true
+                        }
                     }
-
                 }
-
             }
-
         }
-
     }
 
     return false
@@ -266,9 +285,28 @@ function validateForm(): boolean {
                         valid = false
                     }
 
-                    if (!detail[`${field.key}_to`]) {
+                    if (
+                        !detail[`${field.key}_current`] &&
+                        !detail[`${field.key}_to`]
+                    ) {
 
                         clientErrors.value[toKey] =
+                            'This field is required.'
+
+                        valid = false
+                    }
+
+                    return
+                }
+
+                if (field.type === 'year') {
+
+                    const key =
+                        `responses.${question.key}.details.${index}.${field.key}`
+
+                    if (!detail[field.key]) {
+
+                        clientErrors.value[key] =
                             'This field is required.'
 
                         valid = false
@@ -495,6 +533,38 @@ function onAnswerChanged(questionKey: string) {
             </div>
         </div>
 
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-6 text-xs text-slate-600">
+            <p class="font-semibold text-slate-800 mb-2">
+                {{ currentLocale === 'id' ? 'Catatan:' : 'Notes:' }}
+            </p>
+
+            <ol class="list-decimal list-inside space-y-1">
+                <li>
+                    {{
+                        currentLocale === 'id'
+                            ? 'Pilih "Ya" pada jawaban yang sesuai.'
+                            : 'Choose "Yes" on the appropriate answer.'
+                    }}
+                </li>
+
+                <li>
+                    {{
+                        currentLocale === 'id'
+                            ? 'Keluarga Inti terdiri dari pasangan (suami/istri), orang tua, mertua, anak, atau menantu yang terdaftar dalam dokumen kependudukan resmi yang diterbitkan oleh pemerintah.'
+                            : "The Immediate Family consists of the Employee's spouse (husband/wife), parents, parents-in-law, children, or children-in-law registered in official civil documents issued by the government."
+                    }}
+                </li>
+
+                <li>
+                    {{
+                        currentLocale === 'id'
+                            ? 'Hubungan kekerabatan dalam 1 (satu) garis keturunan keluarga dan melibatkan 2 (dua) generasi, dihitung dari diri sendiri ke atas 2 (dua) generasi (orang tua, mertua, kakek/nenek dari diri sendiri maupun pasangan), ke bawah 2 (dua) generasi (anak, cucu), dan satu generasi yang sama (saudara kandung, pasangan).'
+                            : 'Kinship relationship within 1 (one) family lineage and involving 2 (two) generations, calculated from oneself to 2 (two) generations above (parents, parents-in-law, grandparents of oneself and spouse), 2 (two) generations below (children, grandchildren), and the same generation (siblings, spouse).'
+                    }}
+                </li>
+            </ol>
+        </div>
+
         <!-- Dynamic Questions -->
 
         <QuestionCard
@@ -554,7 +624,8 @@ function onAnswerChanged(questionKey: string) {
                 "
                 :question-key="question.key"
                 :errors="{ ...form.errors, ...clientErrors }"
-                @clear-error="(key) => delete clientErrors[key]"            />
+                @clear-error="(key) => delete clientErrors[key]"            
+            />
         </QuestionCard>
 
         <!-- Consent -->
