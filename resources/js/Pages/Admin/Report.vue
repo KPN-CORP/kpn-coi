@@ -79,9 +79,9 @@ const filter = useForm({
 })
 
 const sortableColumns = [
-    { label: 'Period', key: 'period', class: 'sticky left-0 z-20 bg-slate-50' },
-    { label: 'Type', key: 'type', class: 'sticky left-[110px] z-20 bg-slate-50' },
-    { label: 'Full Name', key: 'name', class: 'sticky left-[260px] z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
+    { label: 'Full Name', key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
+    { label: 'Period', key: 'period', class: '' },
+    { label: 'Type', key: 'type', class: '' },
     { label: 'Form Status', key: 'status', class: '' },
     { label: 'Conflict', key: 'has_conflict', class: '' },
     { label: 'Submitted At', key: 'submitted_at', class: '' },
@@ -500,9 +500,9 @@ async function pollExport(id: number) {
                     :style="`table-layout: fixed; width: ${1250 + 56 * coiQuestions.length}px`"
                 >
                     <colgroup>
+                        <col style="width: 260px">
                         <col style="width: 110px">
                         <col style="width: 150px">
-                        <col style="width: 260px">
                         <col style="width: 150px">
                         <col style="width: 140px">
                         <col style="width: 190px">
@@ -553,11 +553,23 @@ async function pollExport(id: number) {
                             :key="declaration.row_id"
                             class="group border-b border-slate-100"
                         >
-                            <td class="py-4 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-[#fafafa]">
+                            <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
+                                <div
+                                    class="truncate font-medium text-slate-800"
+                                    :title="declaration.name"
+                                >
+                                    {{ declaration.name }}
+                                </div>
+                                <div class="mt-0.5 truncate text-xs text-slate-400">
+                                    {{ declaration.employee_id }}
+                                </div>
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap text-slate-600">
                                 {{ declaration.period }}
                             </td>
 
-                            <td class="py-4 sticky left-[110px] z-10 bg-white group-hover:bg-[#fafafa]">
+                            <td class="py-4">
                                 <span
                                     class="inline-block whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium"
                                     :class="declaration.type === 'employee'
@@ -570,18 +582,6 @@ async function pollExport(id: number) {
                                             : 'Non Employee'
                                     }}
                                 </span>
-                            </td>
-
-                            <td class="py-4 sticky left-[260px] z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
-                                <div
-                                    class="truncate font-medium text-slate-800"
-                                    :title="declaration.name"
-                                >
-                                    {{ declaration.name }}
-                                </div>
-                                <div class="mt-0.5 truncate text-xs text-slate-400">
-                                    {{ declaration.employee_id }}
-                                </div>
                             </td>
 
                             <td class="py-4">
