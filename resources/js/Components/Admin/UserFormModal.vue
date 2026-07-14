@@ -69,9 +69,6 @@ watch(
     () => props.user,
     (user) => {
 
-        console.log(user);
-        
-
         form.defaults({
             name: user?.name ?? '',
             email: user?.email ?? '',
@@ -79,7 +76,6 @@ watch(
             address: user?.address ?? '',
             business_unit: user?.business_unit ?? '',
             date_of_joining: user?.date_of_joining ?? '',
-            nationality_type: user?.nationality ? (user?.nationality.toLowerCase() === 'indonesian' ? 'indonesian' : 'foreigner') : 'indonesian',
             nationality: user?.nationality ?? '',
         })
 
@@ -178,11 +174,11 @@ function validate() {
 
     } else if (
         form.nationality_type === 'indonesian' &&
-        !/^\d{15,16}$/.test(form.citizen_number)
+        !/^\d{16}$/.test(form.citizen_number)
     ) {
 
         errors.citizen_number =
-            'Please enter a valid Indonesian National Identity Number (KTP).'
+            'Citizenship Number must consist of exactly 16 digits.'
 
         valid = false
 
@@ -290,7 +286,7 @@ async function resetPassword() {
 function onCitizenNumberInput(event: Event) {
     const input = event.target as HTMLInputElement
 
-    if (form.nationality_type === 'indonesian') {
+    if (form.nationality === 'indonesian') {
         input.value = input.value.replace(/\D/g, '').slice(0, 16)
     } else {
         input.value = input.value.slice(0, 10)
@@ -336,14 +332,14 @@ watch(() => form.address, () => {
     form.clearErrors('address')
 })
 
-// watch(
-//     () => form.nationality_type,
-//     (value) => {
-//         if (value === 'indonesian') {
-//             form.nationality = ''
-//         }
-//     }
-// )
+watch(
+    () => form.nationality_type,
+    (value) => {
+        if (value === 'indonesian') {
+            form.nationality = ''
+        }
+    }
+)
 
 watch(() => form.name, () => errors.name = '')
 watch(() => form.email, () => errors.email = '')
@@ -483,7 +479,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                 <div>
                     <label class="mb-1 block text-sm font-medium">
                         {{
-                            form.nationality_type  === 'indonesian'
+                            form.nationality === 'indonesian'
                                 ? 'Citizenship Number (KTP)'
                                 : 'Passport ID'
                         }}
@@ -493,7 +489,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     <input
                         v-model="form.citizen_number"
                         type="text"
-                        :maxlength="form.nationality_type === 'indonesian' ? 16 : 10"
+                        :maxlength="form.nationality === 'indonesian' ? 16 : 10"
                         @input="onCitizenNumberInput"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
@@ -504,10 +500,10 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     />
 
                     <p
-                        v-if="form.nationality_type === 'indonesian'"
+                        v-if="form.nationality === 'indonesian'"
                         class="mt-1 text-xs text-slate-500"
                     >
-                        Must contain valid Indonesian National Identity Number (KTP).
+                        Must contain 16 digits.
                     </p>
 
                     <p

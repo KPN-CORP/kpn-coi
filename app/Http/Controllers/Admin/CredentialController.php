@@ -67,11 +67,11 @@ class CredentialController extends Controller
                 'employee_id' => null,
                 'type' => 'non_employee',
                 'email' => $user->email,
-                'citizen_number' => $user?->employee?->ktp,
-                'business_unit' => $user?->employee?->group_company,
-                'date_of_joining' => $user?->employee?->date_of_joining,
-                'address' => $user?->employee?->permanent_address,
-                'nationality' => $user?->employee?->nationality,
+                'citizen_number' => $user->employee->ktp,
+                'business_unit' => $user->employee->group_company,
+                'date_of_joining' => $user->employee->date_of_joining,
+                'address' => $user->employee->permanent_address,
+                'nationality' => $user->employee->nationality,
             ]);
             
 
@@ -99,7 +99,7 @@ class CredentialController extends Controller
             ->orderBy('group_company')
             ->pluck('group_company');
 
-            
+
         return Inertia::render(
             'Admin/Credentials',
             [
