@@ -101,7 +101,30 @@ function isDateRangeReversed(
     )
 }
 
-// Combined "to" error: required / server error, or the live ordering check.
+function isFuture(value?: string): boolean {
+    return !!value && value > today
+}
+
+// "from" error: required / server error, or a future date.
+function fromDateError(
+    index: number,
+    row: Record<string, any>,
+    field: Field,
+): string | undefined {
+    const existing = getError(index, `${field.key}_from`)
+
+    if (existing) {
+        return existing
+    }
+
+    if (isFuture(row[`${field.key}_from`])) {
+        return 'Start date cannot be in the future.'
+    }
+
+    return undefined
+}
+
+// Combined "to" error: required / server error, ordering, or future date.
 function toDateError(
     index: number,
     row: Record<string, any>,
@@ -115,6 +138,13 @@ function toDateError(
 
     if (isDateRangeReversed(row, field)) {
         return 'End date cannot be earlier than start date.'
+    }
+
+    if (
+        !row[`${field.key}_current`]
+        && isFuture(row[`${field.key}_to`])
+    ) {
+        return 'End date cannot be in the future.'
     }
 
     return undefined
@@ -164,6 +194,15 @@ const years = Array.from(
     { length: currentYear - 1980 + 1 },
     (_, index) => currentYear - index
 )
+
+// Local "today" as YYYY-MM-DD for date input max attributes.
+const today = (() => {
+    const d = new Date()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+
+    return `${d.getFullYear()}-${month}-${day}`
+})()
 </script>
 
 <template>
@@ -223,9 +262,10 @@ const years = Array.from(
                             <input
                                 v-model="row[`${field.key}_from`]"
                                 type="date"
+                                :max="today"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
-                                    getError(index, `${field.key}_from`)
+                                    fromDateError(index, row, field)
                                         ? 'border-red-500 bg-red-50'
                                         : 'border-border'
                                 ]"
@@ -244,6 +284,7 @@ const years = Array.from(
                                 v-model="row[`${field.key}_to`]"
                                 type="date"
                                 :min="row[`${field.key}_from`] || undefined"
+                                :max="today"
                                 :disabled="row[`${field.key}_current`]"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
@@ -273,10 +314,10 @@ const years = Array.from(
                         </div>
 
                         <p
-                            v-if="getError(index, `${field.key}_from`) || toDateError(index, row, field)"
+                            v-if="fromDateError(index, row, field) || toDateError(index, row, field)"
                             class="col-span-3 mt-1 text-xs text-red-500"
                         >
-                            {{ getError(index, `${field.key}_from`) || toDateError(index, row, field) }}
+                            {{ fromDateError(index, row, field) || toDateError(index, row, field) }}
                         </p>
 
                     </div>
