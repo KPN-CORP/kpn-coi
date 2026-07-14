@@ -21,7 +21,9 @@ class ReportService
         ?string $businessUnit,
         ?User $user = null,
         bool $latestSubmission = false,
-        int $perPage = 20
+        int $perPage = 20,
+        ?string $sort = null,
+        string $direction = 'asc'
     ): LengthAwarePaginator {
         $records = $this->buildRecords(
             period: $period,
@@ -31,6 +33,17 @@ class ReportService
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
         );
+
+        if ($sort) {
+            $sortValue = fn ($row) => is_string($row[$sort] ?? null)
+                ? mb_strtolower($row[$sort])
+                : ($row[$sort] ?? null);
+
+            $records = ($direction === 'desc'
+                ? $records->sortByDesc($sortValue)
+                : $records->sortBy($sortValue)
+            )->values();
+        }
 
         $page = (int) request('page', 1);
 

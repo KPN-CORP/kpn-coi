@@ -146,6 +146,38 @@ return [
                         ],
 
                         [
+                            'value' => 'father_in_law',
+                            'label' => [
+                                'en' => 'Father-in-law',
+                                'id' => 'Ayah Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'mother_in_law',
+                            'label' => [
+                                'en' => 'Mother-in-law',
+                                'id' => 'Ibu Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'son_in_law',
+                            'label' => [
+                                'en' => 'Son-in-law',
+                                'id' => 'Menantu Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'daughter_in_law',
+                            'label' => [
+                                'en' => 'Daughter-in-law',
+                                'id' => 'Menantu Perempuan',
+                            ],
+                        ],
+
+                        [
                             'value' => 'others',
                             'label' => [
                                 'en' => 'Others (please specify)',
@@ -271,10 +303,27 @@ return [
                 ],
 
                 [
-                    'key' => 'position',
+                    'key' => 'business_unit',
+                    'type' => 'select',
                     'label' => [
-                        'id' => 'Bisnis Unit, PT, dan Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
-                        'en' => 'Business Units, Company (Legal Entity), and Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
+                        'id' => 'Bisnis Unit Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Business Units under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'company',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Perusahaan/PT Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Company (Legal Entity) under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'department',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
                     ],
                 ],
 
@@ -479,7 +528,61 @@ return [
 
                     'options' => [
 
+                        [
+                            'value' => 'husband_wife',
+                            'label' => [
+                                'en' => 'Husband/Wife',
+                                'id' => 'Suami/Istri',
+                            ],
+                        ],
 
+                        [
+                            'value' => 'father',
+                            'label' => [
+                                'en' => 'Father',
+                                'id' => 'Ayah',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'mother',
+                            'label' => [
+                                'en' => 'Mother',
+                                'id' => 'Ibu',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'son',
+                            'label' => [
+                                'en' => 'Son',
+                                'id' => 'Anak Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'daughter',
+                            'label' => [
+                                'en' => 'Daughter',
+                                'id' => 'Anak Perempuan',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'brother',
+                            'label' => [
+                                'en' => 'Brother',
+                                'id' => 'Saudara Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'sister',
+                            'label' => [
+                                'en' => 'Sister',
+                                'id' => 'Saudara Perempuan',
+                            ],
+                        ],
                         [
                             'value' => 'uncle',
                             'label' => [
@@ -537,6 +640,22 @@ return [
                         ],
 
                         [
+                            'value' => 'son_in_law',
+                            'label' => [
+                                'en' => 'Son-in-law',
+                                'id' => 'Menantu Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'daughter_in_law',
+                            'label' => [
+                                'en' => 'Daughter-in-law',
+                                'id' => 'Menantu Perempuan',
+                            ],
+                        ],
+
+                        [
                             'value' => 'brother_in_law',
                             'label' => [
                                 'en' => 'Brother-in-law',
@@ -549,6 +668,30 @@ return [
                             'label' => [
                                 'en' => 'Sister-in-law',
                                 'id' => 'Saudara Ipar Perempuan',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'grandfather_in_law',
+                            'label' => [
+                                'en' => 'Grandfather-in-law',
+                                'id' => 'Kakek Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'grandmother_in_law',
+                            'label' => [
+                                'en' => 'Grandmother-in-law',
+                                'id' => 'Nenek Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'grandchild',
+                            'label' => [
+                                'en' => 'Grandchild',
+                                'id' => 'Cucu',
                             ],
                         ],
 
@@ -576,10 +719,27 @@ return [
                 ],
 
                 [
-                    'key' => 'entity_name',
+                    'key' => 'business_unit',
+                    'type' => 'select',
                     'label' => [
-                        'id' => 'Bisnis Unit/PT/Divisi',
-                        'en' => 'Business Unit/Company (Legal Entity)/Division',
+                        'id' => 'Bisnis Unit Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Business Units under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'company',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Perusahaan/PT Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Company (Legal Entity) under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'department',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
                     ],
                 ],
 
