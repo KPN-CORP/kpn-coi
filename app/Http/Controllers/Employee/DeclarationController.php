@@ -158,21 +158,21 @@ class DeclarationController extends Controller
                 'type' => 'employee',
                 'name' => $user->employee->fullname,
                 'citizen_number' => $user->employee->ktp,
-                'address' => $user->employee->current_address,
+                'address' => $user->employee->permanent_address,
             ],
 
             $user->nonEmployee !== null => [
                 'type' => 'non_employee',
                 'name' => $user->nonEmployee->fullname,
                 'citizen_number' => $user->nonEmployee->ktp,
-                'address' => $user->nonEmployee->current_address,
+                'address' => $user->nonEmployee->permanent_address,
             ],
 
             default => [
                 'type' => 'unknown',
                 'name' => $user->fullname,
                 'citizen_number' => $user->ktp,
-                'address' => $user->current_address,
+                'address' => $user->permanent_address,
             ],
         };
     }

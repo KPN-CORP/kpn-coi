@@ -67,6 +67,7 @@ class CoiDeclarationService
                 'status' => DeclarationStatus::Submitted,
                 'submitted_at' => now(),
                 'type' => $type,
+                'sign' => $user->name,
             ]);
 
             $this->syncResponses(

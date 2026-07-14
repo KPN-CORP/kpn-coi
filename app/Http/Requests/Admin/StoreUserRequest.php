@@ -36,22 +36,32 @@ class StoreUserRequest extends FormRequest
                     ->ignore($this->user),
             ],
 
+            'nationality_type' => [
+                'required',
+                Rule::in(['indonesian', 'foreigner']),
+            ],
+
+            'nationality' => [
+                Rule::requiredIf($this->nationality_type === 'foreigner'),
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
             'citizen_number' => [
                 'required',
-                Rule::unique('non_employees', 'ktp')
-                    ->ignore($this->user),
+                Rule::when(
+                    $this->nationality_type === 'indonesian',
+                    ['digits:16'],
+                    ['max:10']
+                ),
             ],
 
-            'role' => [
+            'business_unit' => [
                 'required',
-                Rule::in([
-                    'non-employee',
-                    'employee',
-                    'admin',
-                ]),
             ],
-
-            'gender' => [
+            
+            'date_of_joining' => [
                 'required',
             ],
 

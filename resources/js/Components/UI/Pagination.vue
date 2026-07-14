@@ -26,6 +26,16 @@ const pages = computed(() => props.links.slice(1, -1))
 
 const hasPages = computed(() => props.links.length > 3)
 
+// Hide the whole bar when everything fits on one page at the smallest
+// page size — there is nothing to paginate or configure.
+const shouldShow = computed(() => {
+    if (props.total == null) {
+        return hasPages.value
+    }
+
+    return props.total > Math.min(...options.value)
+})
+
 function onPerPageChange(event: Event) {
     emit(
         'update:perPage',
@@ -36,6 +46,7 @@ function onPerPageChange(event: Event) {
 
 <template>
     <div
+        v-if="shouldShow"
         class="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row"
     >
         <!-- Left: rows per page -->

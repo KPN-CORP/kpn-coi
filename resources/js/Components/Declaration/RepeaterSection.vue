@@ -395,7 +395,7 @@ const years = Array.from(
             class="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
             @click="addRow"
         >
-            + Add Detail
+            + Add More
         </button>
     </div>
 </template>

@@ -37,7 +37,7 @@ class SummarySheet implements FromArray, WithTitle
             ['Submitted',
                 $dashboard['stats']['submitted']],
 
-            ['Pending',
+            ['Not Submitted',
                 $dashboard['stats']['pending']],
 
             ['Conflict',

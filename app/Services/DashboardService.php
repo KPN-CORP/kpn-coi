@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Http\Resources\TeamDeclarationResource;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
+use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class DashboardService
 
     public function getDashboardData(Request $request): array
     {
+        $type = $request->type ?? 'employee';
         $employeeQuery = Employee::query()
         ->whereNull('deleted_at')
         ->when(
@@ -32,14 +34,14 @@ class DashboardService
             )
         );
 
-        $nonEmployeeQuery = NonEmployeeUser::query();
+        $nonEmployeeQuery = NonEmployee::query();
 
         $nonEmployeeQuery->when(
-            $request->filled('organization')
+            $request->filled('business_unit')
             && $request->type === 'non_employee',
             fn ($query) => $query->where(
-                'company',
-                $request->organization
+                'group_company',
+                $request->business_unit
             )
         );
 
@@ -65,15 +67,22 @@ class DashboardService
                     $request->status
                 )
             )
-            ->when(
-                $request->filled('type'),
-                fn ($query) => $query->where(
-                    'type',
-                    $request->type
-                )
+            ->where(
+                'type',
+                $type
             );
         
-        if ($request->filled('business_unit') && $request->type === 'employee') {
+
+        if ($request->type === 'non_employee') {
+
+            $userIds = (clone $nonEmployeeQuery)
+                ->pluck('id');
+
+            $declarationQuery->whereIn(
+                'user_id',
+                $userIds
+            );
+        } else {
 
             $userIds = (clone $employeeQuery)
                 ->pluck('id');
@@ -84,18 +93,8 @@ class DashboardService
             );
         }
 
-        if ($request->filled('business_unit') && $request->type === 'non_employee') {
-
-            $userIds = (clone $nonEmployeeQuery)
-                ->pluck('id');
-
-            $declarationQuery->whereIn(
-                'user_id',
-                $userIds
-            );
-        }
-
-        $totalDeclarations = (clone $declarationQuery)->count();
+        $totalDeclarations = (clone $declarationQuery)->distinct('user_id')
+            ->count('user_id');
 
 
         $conflictDeclarations = (clone $declarationQuery)
@@ -105,7 +104,8 @@ class DashboardService
                     true
                 );
             })
-            ->count();
+            ->distinct('user_id')
+            ->count('user_id');
 
         $query = CoiDeclaration::query()
             ->with([
@@ -166,7 +166,7 @@ class DashboardService
             ->where('type', 'non_employee')
             ->values();
 
-        $totalEmployees = match ($request->type) {
+        $totalEmployees = match ($type) {
 
             'employee' => (clone $employeeQuery)->count(),
 
@@ -270,7 +270,9 @@ class DashboardService
         int $totalDeclarations,
     ): array
     {
-        if ($request->input('type', 'employee') === 'employee') {
+        $type = $request->type ?? 'employee';
+        
+        if ($type === 'employee') {
 
             $rows = (clone $employeeQuery)
                 ->select('id', 'group_company')

@@ -375,7 +375,7 @@ async function pollExport(id: number) {
                             </option>
 
                             <option value="pending">
-                                Pending
+                                Not Submitted
                             </option>
 
                             <option value="conflict">

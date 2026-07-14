@@ -122,10 +122,25 @@
 
 @include('pdf.partials.consent')
 
+@php
+    $footerText = $locale === 'id'
+        ? 'Dideklarasikan oleh '.$declaration->user->employee->fullname.' pada '.$declaration->created_at->translatedFormat('d F Y \p\u\k\u\l H:i:s')
+        : 'Declared by '.$declaration->user->employee->fullname.' on '.$declaration->created_at->format('d/m/Y \a\t H:i:s');
+@endphp
+
 <script type="text/php">
     if (isset($pdf)) {
 
         $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
+
+        $pdf->page_text(
+            120,
+            $pdf->get_height() - 18,
+            "{{ $footerText }}",
+            $font,
+            9,
+            [0, 0, 0]
+        );
 
         $pdf->page_text(
             535,

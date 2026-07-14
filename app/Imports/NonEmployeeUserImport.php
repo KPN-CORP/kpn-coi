@@ -6,12 +6,14 @@ namespace App\Imports;
 
 use App\Services\CredentialImportService;
 use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 class NonEmployeeUserImport implements
     ToCollection,
-    WithHeadingRow
+    WithHeadingRow,
+    SkipsEmptyRows
 {
     public function __construct(
         protected CredentialImportService $service

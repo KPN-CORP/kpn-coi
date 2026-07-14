@@ -90,26 +90,58 @@ return [
                     'options' => [
 
                         [
-                            'value' => 'parent',
+                            'value' => 'husband_wife',
                             'label' => [
-                                'en' => 'Parent',
-                                'id' => 'Orang Tua',
+                                'en' => 'Husband/Wife',
+                                'id' => 'Suami/Istri',
                             ],
                         ],
 
                         [
-                            'value' => 'parent_in_law',
+                            'value' => 'father',
                             'label' => [
-                                'en' => 'Parent-in-law',
-                                'id' => 'Mertua',
+                                'en' => 'Father',
+                                'id' => 'Ayah',
                             ],
                         ],
 
                         [
-                            'value' => 'sibling',
+                            'value' => 'mother',
                             'label' => [
-                                'en' => 'Sibling',
-                                'id' => 'Saudara Kandung',
+                                'en' => 'Mother',
+                                'id' => 'Ibu',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'son',
+                            'label' => [
+                                'en' => 'Son',
+                                'id' => 'Anak Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'daughter',
+                            'label' => [
+                                'en' => 'Daughter',
+                                'id' => 'Anak Perempuan',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'brother',
+                            'label' => [
+                                'en' => 'Brother',
+                                'id' => 'Saudara Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'sister',
+                            'label' => [
+                                'en' => 'Sister',
+                                'id' => 'Saudara Perempuan',
                             ],
                         ],
 
@@ -447,29 +479,79 @@ return [
 
                     'options' => [
 
+
                         [
-                            'value' => 'parent',
+                            'value' => 'uncle',
                             'label' => [
-                                'en' => 'Parent',
-                                'id' => 'Orang Tua',
+                                'en' => 'Uncle',
+                                'id' => 'Paman',
                             ],
                         ],
 
                         [
-                            'value' => 'parent_in_law',
+                            'value' => 'aunt',
                             'label' => [
-                                'en' => 'Parent-in-law',
-                                'id' => 'Mertua',
+                                'en' => 'Aunt',
+                                'id' => 'Bibi',
                             ],
                         ],
 
                         [
-                            'value' => 'sibling',
+                            'value' => 'cousin',
                             'label' => [
-                                'en' => 'Sibling',
-                                'id' => 'Saudara Kandung',
+                                'en' => 'Cousin',
+                                'id' => 'Sepupu',
                             ],
                         ],
+
+                        [
+                            'value' => 'nephew',
+                            'label' => [
+                                'en' => 'Nephew',
+                                'id' => 'Keponakan Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'niece',
+                            'label' => [
+                                'en' => 'Niece',
+                                'id' => 'Keponakan Perempuan',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'father_in_law',
+                            'label' => [
+                                'en' => 'Father-in-law',
+                                'id' => 'Ayah Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'mother_in_law',
+                            'label' => [
+                                'en' => 'Mother-in-law',
+                                'id' => 'Ibu Mertua',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'brother_in_law',
+                            'label' => [
+                                'en' => 'Brother-in-law',
+                                'id' => 'Saudara Ipar Laki-laki',
+                            ],
+                        ],
+
+                        [
+                            'value' => 'sister_in_law',
+                            'label' => [
+                                'en' => 'Sister-in-law',
+                                'id' => 'Saudara Ipar Perempuan',
+                            ],
+                        ],
+
 
                         [
                             'value' => 'others',

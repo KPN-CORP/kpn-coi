@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ReportService
@@ -76,14 +78,20 @@ class ReportService
         ?string $businessUnit,
         bool $latestSubmission
     ): Collection {
-        $employees = $this->employeeRecords(
-            $period,
-            $businessUnit
-        );
-        
-        $nonEmployees = $this->nonEmployeeRecords(
-            $period
-        );
+        $employees = $type === 'non_employee'
+            ? collect()
+            : $this->employeeRecords(
+                $period,
+                $businessUnit,
+                $search,
+                $status
+            );
+
+        $nonEmployees = $type === 'employee'
+            ? collect()
+            : $this->nonEmployeeRecords(
+                $period
+            );
 
         $records = $employees
             ->concat($nonEmployees);
@@ -183,9 +191,34 @@ class ReportService
     
     private function employeeRecords(
         int $period,
-        ?string $businessUnit
+        ?string $businessUnit,
+        ?string $search = null,
+        ?string $status = null
     ): Collection {
-    
+
+        // Preload declarations for the period once (small dataset) so that
+        // status/conflict can be filtered in SQL below — without this the
+        // query would have to load every employee and filter in memory.
+        $declarations = CoiDeclaration::query()
+            ->where('period', $period)
+            ->with('responses')
+            ->get();
+
+        $submittedUserIds = $declarations
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
+        $conflictUserIds = $declarations
+            ->filter(
+                fn ($declaration) => $declaration->responses->contains(
+                    fn ($response) => data_get($response->response_value, 'answer') === true
+                )
+            )
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
         return Employee::query()
             ->with([
                 'coiDeclaration' => fn ($query) => $query
@@ -200,6 +233,26 @@ class ReportService
                     $businessUnit
                 )
             )
+            ->when(
+                filled($search),
+                fn ($query) => $query->where(
+                    fn ($inner) => $inner
+                        ->where('fullname', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%")
+                )
+            )
+            ->when(
+                $status === 'submitted',
+                fn ($query) => $query->whereIn('id', $submittedUserIds)
+            )
+            ->when(
+                $status === 'pending',
+                fn ($query) => $query->whereNotIn('id', $submittedUserIds)
+            )
+            ->when(
+                $status === 'conflict',
+                fn ($query) => $query->whereIn('id', $conflictUserIds)
+            )
             ->whereNull('deleted_at')
             ->get()
             ->flatMap(function ($employee) use ($period) {
@@ -213,6 +266,12 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
                         'status' => 'pending',
                         'has_conflict' => false,
                         'submitted_at' => null,
@@ -234,6 +293,12 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
                         'status' => 'submitted',
                         'has_conflict' => $hasConflict,
                         'submitted_at' => $declaration->submitted_at,
@@ -293,6 +358,13 @@ class ReportService
                     'status' => $declaration
                         ? 'submitted'
                         : 'pending',
+
+                    'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
 
                     'has_conflict' => $hasConflict,
 

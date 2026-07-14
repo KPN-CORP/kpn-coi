@@ -21,11 +21,9 @@ Login to Compliance System
 
 For security reasons, please change your password immediately after your first login.
 
-If you experience any issues accessing the system, please contact:
-
-**{{ $supportEmail }}**
+If you experience any issues accessing the system, please contact your HCO Team
 
 Thanks,<br>
-{{ $appName }}
+HR Teams
 
 </x-mail::message>

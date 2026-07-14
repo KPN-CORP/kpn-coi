@@ -36,8 +36,12 @@ class ReportSheet implements FromArray, WithTitle
             'Employee ID',
 
             'Employee Name',
+            'Business Unit',
+            'Employee Status',
+            'Designation',
+            'Join Date',
             
-            'Period',
+            'Declaration Period',
 
             'Status',
 
@@ -74,6 +78,10 @@ class ReportSheet implements FromArray, WithTitle
                 $row['employee_id'],
 
                 $row['name'],
+                $row['group_company'],
+                $row['employee_status'],
+                $row['designation'],
+                $row['date_of_joining'],
 
                 $row['period'],
 

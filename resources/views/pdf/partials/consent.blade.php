@@ -9,20 +9,31 @@
     </p>
 
 @endforeach
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Ephesis&display=swap" rel="stylesheet">
+<style>
+    
+.ephesis-regular {
+  font-family: "Ephesis", cursive;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 22pt;
+}
 
+</style>
 <div class="signature">
-
-    {{ $locale === 'id' ? 'Dibuat oleh,' : 'Declared by,' }}
-
-    <br><br><br><br>
-    {{ $locale === 'id' ? 'Nama Lengkap' : 'Full Name' }} :
-    <strong>
+    <span
+        class="ephesis-regular"
+    >
         {{ $declaration->user->employee->fullname }}
-    </strong>
+    </span>
 
     <br>
-
+    {{ $locale === 'id' ? 'Di Deklarasikan oleh' : 'Declared by' }} :
+    {{ $declaration->user->employee->fullname }}
+    <br>
     {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
-    {{ $declaration->created_at->format('d F Y') }}
+    {{ $declaration->created_at->format('d/m/Y') }}
 
 </div>

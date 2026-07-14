@@ -58,7 +58,7 @@
 
                     <td align="center">
 
-                        <strong>Pending</strong>
+                        <strong>Not Submitted</strong>
 
                         <br><br>
 

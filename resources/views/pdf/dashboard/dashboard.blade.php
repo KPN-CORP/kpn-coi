@@ -53,7 +53,7 @@
 
 @include('pdf.dashboard.partials.business-unit')
 
-@include('pdf.dashboard.partials.recent-submission')
+{{-- @include('pdf.dashboard.partials.recent-submission') --}}
 
 <footer>
     @include('pdf.dashboard.partials.footer')

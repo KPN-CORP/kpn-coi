@@ -6,7 +6,7 @@ import StatCard from '@/Components/UI/StatCard.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Declaration } from '@/Config/declaration'
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, reactive } from 'vue'
 import Chart from 'chart.js/auto'
 import { useForm, router } from '@inertiajs/vue3'
 import type { Chart as ChartInstance } from 'chart.js'
@@ -198,7 +198,7 @@ const props = defineProps<{
     }>()
 
 const filter = useForm({
-    period: props.filters.period ?? '',
+    period: props.filters.period || new Date().getFullYear().toString(),
     status: props.filters.status ?? '',
     business_unit: props.filters.business_unit ?? '',
     type: props.filters.type ?? 'employee',
@@ -209,7 +209,6 @@ function applyFilter() {
         route('admin.dashboard'),
         {
             period: filter.period,
-            status: filter.status,
             business_unit: filter.business_unit,
             type: filter.type,
         },
@@ -439,10 +438,6 @@ watch(
                         class="rounded-md border border-border px-3 py-2 text-sm"
                         @change="applyFilter"
                     >
-                        <option value="">
-                            All Period
-                        </option>
-
                         <option
                             v-for="period in periods"
                             :key="period"
@@ -474,11 +469,9 @@ watch(
                     </select>
                 </div>
 
-                <!-- Organization -->
+                <!-- Business Unit -->
                 <div :class="[
-                        'flex flex-col gap-2',
-                        filter.type === 'employee' ? '' : 'hidden'
-                    ]">
+                        'flex flex-col gap-2']">
                     <label class="text-sm font-medium text-slate-700">
                         Business Unit
                     </label>
@@ -489,11 +482,7 @@ watch(
                         @change="applyFilter"
                     >
                         <option value="">
-                            {{
-                                filter.type === 'employee'
-                                    ? 'All Business Unit'
-                                    : 'All Company'
-                            }}
+                            All Business Unit
                         </option>
 
                         <option
@@ -507,7 +496,7 @@ watch(
                 </div>
 
                 <!-- Status -->
-                <div class="flex flex-col gap-2">
+                <!-- <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
                         Status
                     </label>
@@ -533,7 +522,7 @@ watch(
                             Has Conflict
                         </option>
                     </select>
-                </div>
+                </div> -->
 
             </div>
 
@@ -547,13 +536,13 @@ watch(
                     Download PDF
                 </button>
 
-                <button
+                <!-- <button
                     class="btn-sm btn-secondary"
                     @click="exportExcel"
                 >
                     <i class="fa-solid fa-file-excel mr-2" />
                     Export Excel
-                </button>
+                </button> -->
 
             </div>
         </div>
@@ -584,7 +573,7 @@ watch(
                     {{ stats.pending }}
                 </div>
                 <div class="stat-title">
-                    PENDING
+                    NOT SUBMITTED
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'conflict',})">
@@ -631,7 +620,7 @@ watch(
 
         <!-- RECENT SUBMISSIONS -->
 
-        <Card class="card-custom">
+        <!-- <Card class="card-custom">
             <div class="mb-4">
                 <h2 class="font-semibold">
                     Recent Employee Submissions
@@ -722,6 +711,6 @@ watch(
                     </tbody>
                 </table>
             </div>
-        </Card>
+        </Card> -->
     </AdminLayout>
 </template>

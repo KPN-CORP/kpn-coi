@@ -21,11 +21,9 @@ Login to Compliance System
 
 For security reasons, please change your password immediately after logging in using this temporary password.
 
-If you did not request this password reset or experience any issues accessing the system, please contact:
-
-**{{ $supportEmail }}**
+If you did not request this password reset or experience any issues accessing the system, please contact your HCO Team
 
 Thanks,<br>
-{{ $appName }}
+HR Teams
 
 </x-mail::message>
