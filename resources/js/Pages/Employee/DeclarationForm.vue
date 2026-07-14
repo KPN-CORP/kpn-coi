@@ -504,6 +504,24 @@ async function submit() {
         },
         reverseButtons: true,
 
+        didOpen: () => {
+            const input = Swal.getInput()
+
+            if (!input) {
+                return
+            }
+
+            // Force the confirmation name to be typed by hand — no
+            // copy / paste / cut / drag-drop or right-click paste.
+            const block = (event: Event) => event.preventDefault()
+
+            input.addEventListener('paste', block)
+            input.addEventListener('copy', block)
+            input.addEventListener('cut', block)
+            input.addEventListener('drop', block)
+            input.addEventListener('contextmenu', block)
+        },
+
         preConfirm: (value) => {
 
             if (value?.trim() !== fullName) {

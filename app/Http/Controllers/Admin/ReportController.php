@@ -10,6 +10,7 @@ use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\ReportDownload;
 use App\Services\ReportService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -149,6 +150,45 @@ class ReportController extends Controller
         return Storage::disk('local')->download(
             $reportDownload->file_path,
             $reportDownload->file_name ?? 'COI Report.xlsx'
+        );
+    }
+
+    /**
+     * Download a single declaration as PDF (admin — any declaration),
+     * in the requested locale (id / en).
+     */
+    public function exportPdf(Request $request, CoiDeclaration $declaration)
+    {
+        $locale = $request->string('locale')->toString();
+
+        if (! in_array($locale, ['en', 'id'], true)) {
+            $locale = 'en';
+        }
+
+        $declaration->load([
+            'responses',
+            'user.employee',
+        ]);
+
+        $pdf = Pdf::loadView(
+            'pdf.declaration',
+            [
+                'declaration' => $declaration,
+                'locale' => $locale,
+            ]
+        )->setOptions([
+            'isPhpEnabled' => true,
+            'isRemoteEnabled' => true,
+            'isHtml5ParserEnabled' => true,
+        ]);
+
+        return $pdf->download(
+            sprintf(
+                'COI-Declaration-%s-%s-%s.pdf',
+                $declaration->period,
+                strtoupper($locale),
+                $declaration->created_at->format('Ymd_His')
+            )
         );
     }
 

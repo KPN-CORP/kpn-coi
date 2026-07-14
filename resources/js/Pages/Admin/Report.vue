@@ -120,6 +120,19 @@ function getQuestionTitle(key: string) {
     return question?.title?.en ?? key
 }
 
+function downloadPdf(
+    declarationId: number,
+    locale: 'id' | 'en',
+) {
+    window.open(
+        route('admin.report.declaration.pdf', {
+            declaration: declarationId,
+            locale,
+        }),
+        '_blank',
+    )
+}
+
 // Per-question mark for the report table (mirrors the Excel export):
 // true  -> answered "Yes" for that question
 // false -> answered "No"
@@ -564,16 +577,39 @@ async function pollExport(id: number) {
                             </td>
 
                             <td
-                                class="py-4 text-right sticky right-0 bg-white group-hover:bg-[#fafafa] border-l border-border"
+                                class="py-4 text-right sticky right-0 bg-white group-hover:bg-[#fafafa] border-l border-border whitespace-nowrap"
                             >
-                                <button
+                                <div
                                     v-if="declaration.status !== 'pending' && declaration.declaration"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    @click="openReview(declaration)"
+                                    class="flex items-center justify-end gap-2"
                                 >
-                                    <i class="fa-solid fa-eye" />
-                                    View
-                                </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @click="openReview(declaration)"
+                                    >
+                                        <i class="fa-solid fa-eye" />
+                                        View
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.declaration.id, 'id')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        ID
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.declaration.id, 'en')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        EN
+                                    </button>
+                                </div>
 
                                 <span
                                     v-else

@@ -134,6 +134,11 @@ Route::middleware(['auth:web'])->prefix('admin')
         [ReportController::class, 'exportDownload']
     )->name('report.export.download');
 
+    Route::get(
+        '/report/declaration/{declaration}/pdf',
+        [ReportController::class, 'exportPdf']
+    )->name('report.declaration.pdf');
+
     Route::post(
         '/credentials/{user}/reset-password',
         [CredentialController::class, 'resetPassword']
