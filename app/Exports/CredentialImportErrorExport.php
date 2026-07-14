@@ -27,13 +27,11 @@ class CredentialImportErrorExport implements
 
             'Email',
 
-            'Nationality',
-            
             'Citizenship Number / Passport Number',
 
             'Business Unit',
 
-            'Date Of Joining',
+            'Date Of Join',
 
             'Permanent Address',
 

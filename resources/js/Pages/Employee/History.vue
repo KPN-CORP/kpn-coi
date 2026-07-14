@@ -85,9 +85,11 @@ function getQuestionTitle(key: string) {
     return question?.title?.en ?? key
 }
 
-function continueDraft() {
+function continueDraft(declaration: any) {
     router.visit(
-        route('employee.language'),
+        route('employee.declarations.create', {
+            locale: declaration.locale ?? 'en',
+        }),
     )
 }
 

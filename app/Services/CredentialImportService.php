@@ -27,8 +27,6 @@ class CredentialImportService
 
         $citizenNumbers = [];
 
-        // dd($rows);
-
         /*
         |--------------------------------------------------------------------------
         | Validate
@@ -48,11 +46,7 @@ class CredentialImportService
             );
 
             $citizenNumber = trim(
-                (string) $row['citizen_number_passport_number']
-            );
-
-            $nationality = trim(
-                (string) $row['nationality']
+                (string) $row['citizen_numberpassport_number']
             );
 
             $businessUnit = trim(
@@ -76,13 +70,11 @@ class CredentialImportService
 
                     'email' => $email,
 
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_joining' => $doj,
-                    
                     'citizen_number' => $citizenNumber,
 
-                    'nationality' => $nationality,
+                    'business_unit' => $businessUnit,
+
+                    'date_of_joining' => $doj,
 
                     'address' => $address,
 
@@ -104,13 +96,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -132,13 +122,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -160,13 +148,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -201,13 +187,11 @@ class CredentialImportService
 
                     'email' => $email,
 
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_joining' => $doj,
-                    
                     'citizen_number' => $citizenNumber,
 
-                    'nationality' => $nationality,
+                    'business_unit' => $businessUnit,
+
+                    'date_of_joining' => $doj,
 
                     'address' => $address,
 
@@ -232,13 +216,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -264,13 +246,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -303,13 +283,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -338,13 +316,11 @@ class CredentialImportService
 
                     'email' => $email,
 
+                    'citizen_number' => $citizenNumber,
+
                     'business_unit' => $businessUnit,
                     
                     'date_of_joining' => $doj,
-                    
-                    'citizen_number' => $citizenNumber,
-
-                    'nationality' => $nationality,
 
                     'address' => $address,
 
@@ -406,11 +382,9 @@ class CredentialImportService
 
                     'email' => trim($row['email']),
 
-                    'ktp' => trim((string) $row['citizen_number_passport_number']),
+                    'ktp' => trim((string) $row['citizen_numberpassport_number']),
 
-                    'nationality' => Str::title(trim((string) $row['nationality'])),
-
-                    'group_company' => trim($row['business_unit']),
+                    'business_unit' => trim($row['business_unit']),
                     
                     'date_of_joining' => Carbon::createFromFormat(
                                             'd-m-Y',
