@@ -622,7 +622,7 @@ async function pollExport(id: number) {
                             >
                                 <div
                                     v-if="declaration.status !== 'pending' && declaration.declaration"
-                                    class="flex items-center justify-end gap-2"
+                                    class="flex items-center justify-center gap-2"
                                 >
                                     <button
                                         type="button"
@@ -665,7 +665,7 @@ async function pollExport(id: number) {
                     <tbody v-else>
                         <tr>
                             <td
-                                :colspan="8 + coiQuestions.length"
+                                :colspan="7 + coiQuestions.length"
                                 class="py-10 text-center"
                             >
                                 <div class="flex flex-col items-center">
