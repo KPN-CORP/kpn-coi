@@ -32,11 +32,13 @@ class CredentialTemplateExport implements WithEvents,
 
             'Email',
 
-            'Citizen Number / Passport Number',
-
             'Business Unit',
-
-            'Date of Join',
+            
+            'Date of Joining',
+            
+            'Citizen Number / Passport Number',
+            
+            'Nationality',
 
             'Permanent Address',
 
@@ -52,11 +54,13 @@ class CredentialTemplateExport implements WithEvents,
 
                 'john.doe@email.com',
 
-                '3171234567890001',
-
                 'KPN Corporation',
-
+                
                 '17-01-2020',
+                
+                '3171234567890001',
+                
+                'Indonesian',
 
                 'Jl. Rasuna Said...',
 
@@ -68,11 +72,13 @@ class CredentialTemplateExport implements WithEvents,
 
                 'jane.doe@email.com',
 
-                '3171234567890002',
-
                 'Plantations',
-
+                
                 '20-05-2025',
+                
+                '3171234567890002',
+                
+                'Indonesian',
 
                 'Jl. Menteng Dalam...',
 
@@ -87,14 +93,14 @@ class CredentialTemplateExport implements WithEvents,
             AfterSheet::class => function (AfterSheet $event) {
 
                 $event->sheet
-                    ->getStyle('C2:C1000')
+                    ->getStyle('E2:E1000')
                     ->getNumberFormat()
                     ->setFormatCode(NumberFormat::FORMAT_NUMBER);
 
                 for ($row = 2; $row <= 1000; $row++) {
 
                     $validation = $event->sheet
-                        ->getCell("D{$row}")
+                        ->getCell("C{$row}")
                         ->getDataValidation();
 
                     $validation->setType(DataValidation::TYPE_LIST);

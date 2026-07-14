@@ -41,7 +41,7 @@ class UpdateUserRequest extends FormRequest
                 'string',
                 Rule::when(
                     $this->nationality_type === 'indonesian',
-                    ['digits:16'],
+                    ['min_digits:15', 'max_digits:16'],
                     ['max:10']
                 ),
             ],
