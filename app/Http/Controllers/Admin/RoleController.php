@@ -68,7 +68,7 @@ class RoleController extends Controller
                     ->orderBy('name')
                     ->get(),
 
-                'permissions' => Permission::query()
+                'availablePermissions' => Permission::query()
                     ->orderBy('name')
                     ->get([
                         'id',
