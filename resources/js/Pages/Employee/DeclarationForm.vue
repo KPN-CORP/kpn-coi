@@ -483,7 +483,7 @@ function onAnswerChanged(questionKey: string) {
 
         <!-- Employee Information -->
 
-            <div class="grid gap-4 md:grid-cols-3">
+            <div class="grid gap-4 md:grid-cols-2 mb-3">
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
                         {{ locale.declaration.fullname }}
@@ -507,17 +507,20 @@ function onAnswerChanged(questionKey: string) {
                         class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
                     >
                 </div>
+            </div>    
+            <div class="grid gap-4 md:grid-cols-1">           
 
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
                         {{ locale.declaration.address }}
                     </label>
 
-                    <input
+                    <textarea
                         :value="props.declaration.address"
                         disabled
-                        class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
-                    >
+                        rows="3"
+                        class="w-full rounded-md border border-border bg-slate-100 px-3 py-2 resize-none"
+                    />
                 </div>
             </div>
         </Card>
