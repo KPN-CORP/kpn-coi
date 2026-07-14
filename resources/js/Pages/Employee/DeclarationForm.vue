@@ -357,18 +357,6 @@ function validateForm(): boolean {
                         valid = false
                     }
 
-                    if (
-                        !detail[`${field.key}_current`] &&
-                        detail[`${field.key}_to`] &&
-                        detail[`${field.key}_to`] > todayStr
-                    ) {
-
-                        clientErrors.value[toKey] =
-                            'End date cannot be in the future.'
-
-                        valid = false
-                    }
-
                     return
                 }
 

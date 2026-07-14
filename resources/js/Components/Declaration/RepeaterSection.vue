@@ -237,7 +237,8 @@ function fromDateError(
     return undefined
 }
 
-// Combined "to" error: required / server error, ordering, or future date.
+// Combined "to" error: required / server error, or the ordering check.
+// The end date may be in the future — it only has to be >= the start date.
 function toDateError(
     index: number,
     row: Record<string, any>,
@@ -251,13 +252,6 @@ function toDateError(
 
     if (isDateRangeReversed(row, field)) {
         return 'End date cannot be earlier than start date.'
-    }
-
-    if (
-        !row[`${field.key}_current`]
-        && isFuture(row[`${field.key}_to`])
-    ) {
-        return 'End date cannot be in the future.'
     }
 
     return undefined
@@ -404,7 +398,6 @@ const today = (() => {
                                 v-model="row[`${field.key}_to`]"
                                 type="date"
                                 :min="row[`${field.key}_from`] || undefined"
-                                :max="today"
                                 :disabled="row[`${field.key}_current`]"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
