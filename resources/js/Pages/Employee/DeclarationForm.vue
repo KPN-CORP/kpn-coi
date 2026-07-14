@@ -324,6 +324,19 @@ function validateForm(): boolean {
                         valid = false
                     }
 
+                    if (
+                        !detail[`${field.key}_current`] &&
+                        detail[`${field.key}_from`] &&
+                        detail[`${field.key}_to`] &&
+                        detail[`${field.key}_to`] < detail[`${field.key}_from`]
+                    ) {
+
+                        clientErrors.value[toKey] =
+                            'End date cannot be earlier than start date.'
+
+                        valid = false
+                    }
+
                     return
                 }
 
@@ -519,6 +532,24 @@ async function submit() {
         },
         reverseButtons: true,
 
+        didOpen: () => {
+            const input = Swal.getInput()
+
+            if (!input) {
+                return
+            }
+
+            // Force the confirmation name to be typed by hand — no
+            // copy / paste / cut / drag-drop or right-click paste.
+            const block = (event: Event) => event.preventDefault()
+
+            input.addEventListener('paste', block)
+            input.addEventListener('copy', block)
+            input.addEventListener('cut', block)
+            input.addEventListener('drop', block)
+            input.addEventListener('contextmenu', block)
+        },
+
         preConfirm: (value) => {
 
             if (value?.trim() !== fullName) {
@@ -587,7 +618,7 @@ function onAnswerChanged(questionKey: string) {
 
         <!-- Employee Information -->
 
-            <div class="grid gap-4 md:grid-cols-3">
+            <div class="grid gap-4 md:grid-cols-2 mb-3">
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
                         {{ locale.declaration.fullname }}
@@ -611,17 +642,20 @@ function onAnswerChanged(questionKey: string) {
                         class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
                     >
                 </div>
+            </div>    
+            <div class="grid gap-4 md:grid-cols-1">           
 
                 <div>
                     <label class="mb-1 block text-xs font-semibold">
                         {{ locale.declaration.address }}
                     </label>
 
-                    <input
+                    <textarea
                         :value="props.declaration.address"
                         disabled
-                        class="w-full rounded-md border border-border bg-slate-100 px-3 py-2"
-                    >
+                        rows="3"
+                        class="w-full rounded-md border border-border bg-slate-100 px-3 py-2 resize-none"
+                    />
                 </div>
             </div>
         </Card>

@@ -119,10 +119,25 @@ Route::middleware(['auth:web'])->prefix('admin')
         [RoleController::class, 'assignUsers']
     )->name('roles.assign-users');
 
+    Route::post(
+        '/report/export',
+        [ReportController::class, 'export']
+    )->name('report.export');
+
     Route::get(
-        '/report/excel',
-        [ReportController::class, 'exportExcel']
-    )->name('report.excel');
+        '/report/export/{reportDownload}/status',
+        [ReportController::class, 'exportStatus']
+    )->name('report.export.status');
+
+    Route::get(
+        '/report/export/{reportDownload}/download',
+        [ReportController::class, 'exportDownload']
+    )->name('report.export.download');
+
+    Route::get(
+        '/report/declaration/{declaration}/pdf',
+        [ReportController::class, 'exportPdf']
+    )->name('report.declaration.pdf');
 
     Route::post(
         '/credentials/{user}/reset-password',

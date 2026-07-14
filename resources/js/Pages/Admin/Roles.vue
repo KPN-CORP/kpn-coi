@@ -52,7 +52,7 @@ const props = defineProps<{
         email: string
     }[]
     roles: any[]
-    permissions: any[]
+    availablePermissions: any[]
 
     workAreas: {
         code: string
@@ -218,7 +218,7 @@ function deleteRole(role: Role) {
             v-if="showModal"
             :show="showModal"
             :role="selectedRole"
-            :permissions="permissions"
+            :permissions="availablePermissions"
             :work-areas="workAreas"
             :group-companies="groupCompanies"
             :contribution-levels="contributionLevels"

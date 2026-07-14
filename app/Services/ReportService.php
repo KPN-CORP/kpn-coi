@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
@@ -18,16 +19,79 @@ class ReportService
         ?string $search,
         ?string $type,
         ?string $businessUnit,
-        User $user
-    ) {
-        $employees = $this->employeeRecords(
-            $period,
-            $businessUnit
+        ?User $user = null,
+        bool $latestSubmission = false,
+        int $perPage = 20
+    ): LengthAwarePaginator {
+        $records = $this->buildRecords(
+            period: $period,
+            status: $status,
+            search: $search,
+            type: $type,
+            businessUnit: $businessUnit,
+            latestSubmission: $latestSubmission,
         );
-        
-        $nonEmployees = $this->nonEmployeeRecords(
-            $period
+
+        $page = (int) request('page', 1);
+
+        return new LengthAwarePaginator(
+            $records
+                ->forPage($page, $perPage)
+                ->values(),
+            $records->count(),
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
         );
+    }
+
+    /**
+     * Full, unpaginated set of report rows (used for exports).
+     */
+    public function getAllDeclarations(
+        int $period,
+        ?string $status,
+        ?string $search,
+        ?string $type,
+        ?string $businessUnit,
+        ?User $user = null,
+        bool $latestSubmission = false
+    ): Collection {
+        return $this->buildRecords(
+            period: $period,
+            status: $status,
+            search: $search,
+            type: $type,
+            businessUnit: $businessUnit,
+            latestSubmission: $latestSubmission,
+        );
+    }
+
+    private function buildRecords(
+        int $period,
+        ?string $status,
+        ?string $search,
+        ?string $type,
+        ?string $businessUnit,
+        bool $latestSubmission
+    ): Collection {
+        $employees = $type === 'non_employee'
+            ? collect()
+            : $this->employeeRecords(
+                $period,
+                $businessUnit,
+                $search,
+                $status
+            );
+
+        $nonEmployees = $type === 'employee'
+            ? collect()
+            : $this->nonEmployeeRecords(
+                $period
+            );
 
         $records = $employees
             ->concat($nonEmployees);
@@ -108,24 +172,53 @@ class ReportService
             );
         }
 
-        return new LengthAwarePaginator(
-            $records
-                ->values()
-                ->forPage(
-                    request('page', 1),
-                    20
-                ),
-            $records->count(),
-            20
-        );
+        if ($latestSubmission) {
+            $records = $records
+                ->sortByDesc(
+                    fn ($item) => $item['submitted_at']
+                )
+                ->groupBy(
+                    fn ($item) => $item['type'].'-'.$item['employee_id']
+                )
+                ->map(
+                    fn ($group) => $group->first()
+                );
+        }
+
+        return $records->values();
     }
 
     
     private function employeeRecords(
         int $period,
-        ?string $businessUnit
+        ?string $businessUnit,
+        ?string $search = null,
+        ?string $status = null
     ): Collection {
-    
+
+        // Preload declarations for the period once (small dataset) so that
+        // status/conflict can be filtered in SQL below — without this the
+        // query would have to load every employee and filter in memory.
+        $declarations = CoiDeclaration::query()
+            ->where('period', $period)
+            ->with('responses')
+            ->get();
+
+        $submittedUserIds = $declarations
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
+        $conflictUserIds = $declarations
+            ->filter(
+                fn ($declaration) => $declaration->responses->contains(
+                    fn ($response) => data_get($response->response_value, 'answer') === true
+                )
+            )
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
         return Employee::query()
             ->with([
                 'coiDeclaration' => fn ($query) => $query
@@ -139,6 +232,26 @@ class ReportService
                     'group_company',
                     $businessUnit
                 )
+            )
+            ->when(
+                filled($search),
+                fn ($query) => $query->where(
+                    fn ($inner) => $inner
+                        ->where('fullname', 'like', "%{$search}%")
+                        ->orWhere('employee_id', 'like', "%{$search}%")
+                )
+            )
+            ->when(
+                $status === 'submitted',
+                fn ($query) => $query->whereIn('id', $submittedUserIds)
+            )
+            ->when(
+                $status === 'pending',
+                fn ($query) => $query->whereNotIn('id', $submittedUserIds)
+            )
+            ->when(
+                $status === 'conflict',
+                fn ($query) => $query->whereIn('id', $conflictUserIds)
             )
             ->whereNull('deleted_at')
             ->get()

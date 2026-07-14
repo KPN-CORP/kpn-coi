@@ -3,13 +3,13 @@
 namespace App\Exports;
 
 use App\Exports\Sheets\ReportSheet;
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class ReportExport implements WithMultipleSheets
 {
     public function __construct(
-        protected LengthAwarePaginator $data
+        protected Collection $data
     ) {}
 
     public function sheets(): array

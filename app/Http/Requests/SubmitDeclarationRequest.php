@@ -20,7 +20,26 @@ class SubmitDeclarationRequest extends FormRequest
 
             'responses' => ['required', 'array'],
 
+            'responses.equity_ownership.details.*.ownership_percentage' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+
             'consent' => ['accepted'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'responses.equity_ownership.details.*.ownership_percentage.numeric' =>
+                'Percentage of Ownership must be a number.',
+            'responses.equity_ownership.details.*.ownership_percentage.max' =>
+                'Percentage of Ownership cannot be greater than 100.',
+            'responses.equity_ownership.details.*.ownership_percentage.min' =>
+                'Percentage of Ownership cannot be less than 0.',
         ];
     }
 }

@@ -2,14 +2,14 @@
 
 namespace App\Exports\Sheets;
 
-use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
 class ReportSheet implements FromArray, WithTitle
 {
     public function __construct(
-        protected LengthAwarePaginator $data
+        protected Collection $data
     ) {}
 
     public function title(): string
@@ -63,7 +63,7 @@ class ReportSheet implements FromArray, WithTitle
         |--------------------------------------------------------------------------
         */
 
-        foreach ($this->data->items() as $row) {
+        foreach ($this->data as $row) {
 
             $responseMap = collect(
                 data_get(
@@ -79,7 +79,7 @@ class ReportSheet implements FromArray, WithTitle
 
                 $row['name'],
                 $row['group_company'],
-                $row['deleted_at'],
+                $row['employee_status'],
                 $row['designation'],
                 $row['date_of_joining'],
 

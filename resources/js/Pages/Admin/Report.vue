@@ -42,8 +42,11 @@ const props = defineProps<{
         current_page: number
         last_page: number
         total: number
+        per_page: number
+        from: number | null
+        to: number | null
     }
-    
+
     businessUnitOptions: string[]
     periods: number[]
 
@@ -53,6 +56,8 @@ const props = defineProps<{
         type?: string
         search?: string
         business_unit?: string
+        latest_submission?: boolean
+        per_page?: number
     }
 }>()
 
@@ -65,6 +70,8 @@ const filter = useForm({
     type: props.filters.type ?? '',
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
+    latest_submission: props.filters.latest_submission ?? true,
+    per_page: props.filters.per_page ?? 20
 })
 
 const showReviewModal = ref(false)
@@ -106,11 +113,45 @@ function openReview(
 }
 
 function getQuestionTitle(key: string) {
-    const question = coiQuestions.find(
-        q => q.key === key,
+    const question = coiQuestions.value.find(
+        (q: any) => q.key === key,
     )
 
     return question?.title?.en ?? key
+}
+
+function downloadPdf(
+    declarationId: number,
+    locale: 'id' | 'en',
+) {
+    window.open(
+        route('admin.report.declaration.pdf', {
+            declaration: declarationId,
+            locale,
+        }),
+        '_blank',
+    )
+}
+
+// Per-question mark for the report table (mirrors the Excel export):
+// true  -> answered "Yes" for that question
+// false -> answered "No"
+// null  -> no submission for this row
+function questionAnswered(
+    declaration: Declaration,
+    key: string,
+): boolean | null {
+    const responses = declaration.declaration?.responses
+
+    if (!responses) {
+        return null
+    }
+
+    const response = responses.find(
+        (r: any) => r.question_key === key,
+    )
+
+    return response?.response_value?.answer === true
 }
 
 function applyFilter() {
@@ -123,6 +164,12 @@ function applyFilter() {
         },
     )
 }
+function changePerPage(value: number) {
+    filter.per_page = value
+
+    applyFilter()
+}
+
 function formatDate(date: string | null) {
     if (!date) return '-'
 
@@ -159,22 +206,80 @@ watch(
 
 )
 
-function exportExcel() {
+const exportState = ref<'idle' | 'generating'>('idle')
 
-    window.open(
-
-        route(
-
-            'admin.report.excel',
-
-            filter.data()
-
-        ),
-
-        '_blank'
-
+function csrfToken(): string {
+    return (
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') ?? ''
     )
+}
 
+async function exportExcel() {
+    if (exportState.value === 'generating') {
+        return
+    }
+
+    exportState.value = 'generating'
+
+    try {
+        const res = await fetch(
+            route('admin.report.export'),
+            {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify(filter.data()),
+            },
+        )
+
+        if (!res.ok) {
+            throw new Error('Failed to start export')
+        }
+
+        const data = await res.json()
+
+        pollExport(data.id)
+    } catch (e) {
+        exportState.value = 'idle'
+        alert('Could not start the export. Please try again.')
+    }
+}
+
+async function pollExport(id: number) {
+    try {
+        const res = await fetch(
+            route('admin.report.export.status', id),
+            {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            },
+        )
+
+        const data = await res.json()
+
+        if (data.status === 'completed') {
+            window.location.href = data.download_url
+            exportState.value = 'idle'
+            return
+        }
+
+        if (data.status === 'failed') {
+            alert(data.error ?? 'The export failed.')
+            exportState.value = 'idle'
+            return
+        }
+
+        setTimeout(() => pollExport(id), 3000)
+    } catch (e) {
+        exportState.value = 'idle'
+        alert('Lost connection while generating the export.')
+    }
 }
 </script>
 
@@ -186,10 +291,19 @@ function exportExcel() {
         >
             <template #actions>
                 <button
-                    class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+                    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="exportState === 'generating'"
                     @click="exportExcel"
                 >
-                    Export Report
+                    <i
+                        v-if="exportState === 'generating'"
+                        class="fa-solid fa-circle-notch fa-spin"
+                    />
+                    {{
+                        exportState === 'generating'
+                            ? 'Generating…'
+                            : 'Export Report'
+                    }}
                 </button>
             </template>
         </PageHeader>
@@ -318,6 +432,25 @@ function exportExcel() {
                         >
                     </div>
 
+                    <!-- Latest Submission -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            &nbsp;
+                        </label>
+
+                        <label
+                            class="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm cursor-pointer select-none"
+                        >
+                            <input
+                                v-model="filter.latest_submission"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-border"
+                                @change="applyFilter"
+                            >
+                            Latest Submission
+                        </label>
+                    </div>
+
                 </div>
 
             </div>
@@ -327,7 +460,10 @@ function exportExcel() {
         <!-- TABLE -->
 
         <Card>
-            <div class="table-container">
+            <div
+                class="table-container"
+                style="overflow-x: auto"
+            >
                 <table class="table-custom">
                     <thead>
                         <tr
@@ -339,8 +475,20 @@ function exportExcel() {
                             <th class="py-3">Employee ID / Citizenship ID</th>
                             <th class="py-3">Declaration Status</th>
                             <th class="py-3">Conflict Indicator</th>
-                            <th class="py-3">Submitted At</th>
-                            <!-- <th class="py-3">Action</th> -->
+                            <th class="py-3 whitespace-nowrap">Submitted At</th>
+                            <th
+                                v-for="(question, i) in coiQuestions"
+                                :key="question.key"
+                                class="py-3 text-center"
+                                :title="question.title.en"
+                            >
+                                {{ i + 1 }}
+                            </th>
+                            <th
+                                class="py-3 text-center sticky bg-slate-50 border-l border-border"
+                            >
+                                Action
+                            </th>
                         </tr>
                     </thead>
 
@@ -348,7 +496,7 @@ function exportExcel() {
                         <tr
                             v-for="declaration in declarations.data"
                             :key="declaration.row_id"
-                            class="border-b border-slate-100"
+                            class="group border-b border-slate-100"
                         >
                             <td class="py-4">
                                 {{ declaration.period }}
@@ -404,19 +552,64 @@ function exportExcel() {
                                 </span>
                             </td>
 
-                            <td class="py-4">
+                            <td class="py-4 whitespace-nowrap">
                                 {{ formatDate(declaration.submitted_at) }}
                             </td>
 
-                            <!-- <td class="py-4">
-                                <button
-                                    v-if="declaration.status !== 'pending'"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    @click="openReview(declaration)"
+                            <td
+                                v-for="question in coiQuestions"
+                                :key="question.key"
+                                class="py-4 text-center"
+                            >
+                                <span
+                                    v-if="questionAnswered(declaration, question.key)"
+                                    class="font-bold text-green-600"
                                 >
-                                    <i class="fa-solid fa-eye" />
-                                    View
-                                </button>
+                                    ✓
+                                </span>
+
+                                <span
+                                    v-else
+                                    class="text-slate-300"
+                                >
+                                    -
+                                </span>
+                            </td>
+
+                            <td
+                                class="py-4 text-right sticky right-0 bg-white group-hover:bg-[#fafafa] border-l border-border whitespace-nowrap"
+                            >
+                                <div
+                                    v-if="declaration.status !== 'pending' && declaration.declaration"
+                                    class="flex items-center justify-end gap-2"
+                                >
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @click="openReview(declaration)"
+                                    >
+                                        <i class="fa-solid fa-eye" />
+                                        View
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.declaration.id, 'id')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        ID
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadPdf(declaration.declaration.id, 'en')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        EN
+                                    </button>
+                                </div>
 
                                 <span
                                     v-else
@@ -424,14 +617,14 @@ function exportExcel() {
                                 >
                                     No Submission
                                 </span>
-                            </td> -->
+                            </td>
                         </tr>
                     </tbody>
 
                     <tbody v-else>
                         <tr>
                             <td
-                                colspan="7"
+                                :colspan="8 + coiQuestions.length"
                                 class="py-10 text-center"
                             >
                                 <div class="flex flex-col items-center">
@@ -455,10 +648,15 @@ function exportExcel() {
                         </tr>
                     </tbody>
                 </table>
-                <Pagination
-                    :links="props.declarations.links"
-                />
             </div>
+            <Pagination
+                :links="props.declarations.links"
+                :per-page="props.declarations.per_page"
+                :total="props.declarations.total"
+                :from="props.declarations.from"
+                :to="props.declarations.to"
+                @update:per-page="changePerPage"
+            />
         </Card>
     </AdminLayout>
     <DeclarationViewModal
