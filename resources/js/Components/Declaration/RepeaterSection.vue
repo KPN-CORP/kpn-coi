@@ -11,6 +11,8 @@ interface Field {
     key: string
     label: string
     type?: 'text' | 'select' | 'number' | 'date' | 'date_range' | 'year'
+    min?: number
+    max?: number
     options?: FieldOption[]
 }
 
@@ -85,9 +87,75 @@ function removeRow(index: number) { model.value.splice(index, 1) }
 function getError(index: number, field: string): string | undefined {
     return props.errors[`responses.${props.questionKey}.details.${index}.${field}`]
 }
+
+// True when a date_range's "to" is set and earlier than "from" (and not "current").
+function isDateRangeReversed(
+    row: Record<string, any>,
+    field: Field,
+): boolean {
+    return (
+        !row[`${field.key}_current`] &&
+        !!row[`${field.key}_from`] &&
+        !!row[`${field.key}_to`] &&
+        row[`${field.key}_to`] < row[`${field.key}_from`]
+    )
+}
+
+// Combined "to" error: required / server error, or the live ordering check.
+function toDateError(
+    index: number,
+    row: Record<string, any>,
+    field: Field,
+): string | undefined {
+    const existing = getError(index, `${field.key}_to`)
+
+    if (existing) {
+        return existing
+    }
+
+    if (isDateRangeReversed(row, field)) {
+        return 'End date cannot be earlier than start date.'
+    }
+
+    return undefined
+}
 function onInput(index: number, fieldKey: string) {
     const key = `responses.${props.questionKey}.details.${index}.${fieldKey}`
     emit('clearError', key)  // ← tell parent to clear this error
+}
+
+function onNumberInput(
+    row: Record<string, any>,
+    field: Field,
+    index: number,
+) {
+    const raw = row[field.key]
+
+    if (raw === '' || raw === null || raw === undefined) {
+        row[field.key] = ''
+        onInput(index, field.key)
+        return
+    }
+
+    let value = Number(raw)
+
+    if (Number.isNaN(value)) {
+        row[field.key] = ''
+        onInput(index, field.key)
+        return
+    }
+
+    if (field.max !== undefined && value > field.max) {
+        value = field.max
+    }
+
+    if (field.min !== undefined && value < field.min) {
+        value = field.min
+    }
+
+    row[field.key] = value
+
+    onInput(index, field.key)
 }
 
 const currentYear = new Date().getFullYear()
@@ -175,11 +243,12 @@ const years = Array.from(
                             <input
                                 v-model="row[`${field.key}_to`]"
                                 type="date"
+                                :min="row[`${field.key}_from`] || undefined"
                                 :disabled="row[`${field.key}_current`]"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
                                     row[`${field.key}_current`] && 'bg-slate-100',
-                                    getError(index, `${field.key}_to`)
+                                    toDateError(index, row, field)
                                         ? 'border-red-500 bg-red-50'
                                         : 'border-border'
                                 ]"
@@ -202,6 +271,13 @@ const years = Array.from(
                                 Current
                             </label>
                         </div>
+
+                        <p
+                            v-if="getError(index, `${field.key}_from`) || toDateError(index, row, field)"
+                            class="col-span-3 mt-1 text-xs text-red-500"
+                        >
+                            {{ getError(index, `${field.key}_from`) || toDateError(index, row, field) }}
+                        </p>
 
                     </div>
 
@@ -238,6 +314,25 @@ const years = Array.from(
                             {{ getError(index, field.key) }}
                         </p>
                     </div>
+
+                    <!-- Number -->
+
+                    <input
+                        v-else-if="field.type === 'number'"
+                        v-model="row[field.key]"
+                        type="number"
+                        :min="field.min"
+                        :max="field.max"
+                        step="any"
+                        inputmode="decimal"
+                        :class="[
+                            'w-full rounded-md border px-3 py-2 text-sm',
+                            getError(index, field.key)
+                                ? 'border-red-500 bg-red-50'
+                                : 'border-border'
+                        ]"
+                        @input="onNumberInput(row, field, index)"
+                    >
 
                     <!-- Text -->
 

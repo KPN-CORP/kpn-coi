@@ -342,6 +342,9 @@ return [
 
                 [
                     'key' => 'ownership_percentage',
+                    'type' => 'number',
+                    'min' => 0,
+                    'max' => 100,
                     'label' => [
                         'id' => 'Jumlah Kepemilikan (Dalam %)',
                         'en' => 'Percentage of Ownership (%)',
@@ -394,8 +397,8 @@ return [
                 [
                     'key' => 'amount_value',
                     'label' => [
-                        'id' => 'Jumlah/Nominal Barang/Jasa Yang Diterima',
-                        'en' => 'Value or Amount Goods/Services Received',
+                        'id' => 'Masukkan Nilai atau Jumlah Barang/Jasa yang Diterima Beserta Mata Uang atau Satuan Ukur yang Digunakan.',
+                        'en' => 'Value or Amount Goods/Services Received, type the currency or unit of measurement used',
                     ],
                 ],
 

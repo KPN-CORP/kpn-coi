@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Admin;
 
-use App\Exports\ReportExport;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\EmployeeReportResource;
-use App\Http\Resources\TeamDeclarationResource;
+use App\Jobs\GenerateReportDownload;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
-use App\Models\NonEmployee;
-use App\Services\DataScopeService;
+use App\Models\ReportDownload;
 use App\Services\ReportService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -81,21 +80,86 @@ class ReportController extends Controller
         );
     }
 
-    public function exportExcel(Request $request)
+    /**
+     * Queue a background job that builds the .xlsx export, so a large
+     * dataset never exhausts the web request's memory / time limit.
+     */
+    public function export(Request $request): JsonResponse
     {
-        return Excel::download(
-            new ReportExport(
-                app(ReportService::class)->getAllDeclarations(
-                    period: (int) ($request->period ?? now()->year),
-                    status: $request->status,
-                    search: $request->search,
-                    type: $request->type,
-                    businessUnit: $request->business_unit,
-                    user: Auth::user(),
-                    latestSubmission: $request->boolean('latest_submission', true),
-                )
-            ),
-            'COI Report.xlsx'
+        $this->pruneExpiredExports();
+
+        $download = ReportDownload::create([
+            'user_id' => Auth::id(),
+            'status' => ReportDownload::STATUS_PENDING,
+            'filters' => [
+                'period' => (int) ($request->period ?? now()->year),
+                'status' => $request->status,
+                'type' => $request->type,
+                'business_unit' => $request->business_unit,
+                'search' => $request->search,
+                'latest_submission' => $request->boolean('latest_submission', true),
+            ],
+        ]);
+
+        GenerateReportDownload::dispatch($download->id);
+
+        return response()->json([
+            'id' => $download->id,
+            'status' => $download->status,
+        ]);
+    }
+
+    /**
+     * Polled by the UI while the export is being generated.
+     */
+    public function exportStatus(ReportDownload $reportDownload): JsonResponse
+    {
+        abort_unless(
+            $reportDownload->user_id === Auth::id(),
+            403
         );
+
+        return response()->json([
+            'id' => $reportDownload->id,
+            'status' => $reportDownload->status,
+            'ready' => $reportDownload->isCompleted(),
+            'error' => $reportDownload->isFailed()
+                ? 'The export could not be generated. Please try again.'
+                : null,
+            'download_url' => $reportDownload->isCompleted()
+                ? route('admin.report.export.download', $reportDownload)
+                : null,
+        ]);
+    }
+
+    public function exportDownload(ReportDownload $reportDownload): StreamedResponse
+    {
+        abort_unless(
+            $reportDownload->user_id === Auth::id(),
+            403
+        );
+
+        abort_unless(
+            $reportDownload->isCompleted()
+                && $reportDownload->file_path
+                && Storage::disk('local')->exists($reportDownload->file_path),
+            404
+        );
+
+        return Storage::disk('local')->download(
+            $reportDownload->file_path,
+            $reportDownload->file_name ?? 'COI Report.xlsx'
+        );
+    }
+
+    /**
+     * Remove generated exports (and their files) older than 24 hours.
+     */
+    private function pruneExpiredExports(): void
+    {
+        ReportDownload::where('created_at', '<', now()->subDay())
+            ->get()
+            ->each
+            ->purge();
     }
 }

@@ -17,7 +17,7 @@ class ReportService
         ?string $search,
         ?string $type,
         ?string $businessUnit,
-        User $user,
+        ?User $user = null,
         bool $latestSubmission = false,
         int $perPage = 20
     ): LengthAwarePaginator {
@@ -55,7 +55,7 @@ class ReportService
         ?string $search,
         ?string $type,
         ?string $businessUnit,
-        User $user,
+        ?User $user = null,
         bool $latestSubmission = false
     ): Collection {
         return $this->buildRecords(

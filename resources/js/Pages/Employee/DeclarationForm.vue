@@ -296,6 +296,19 @@ function validateForm(): boolean {
                         valid = false
                     }
 
+                    if (
+                        !detail[`${field.key}_current`] &&
+                        detail[`${field.key}_from`] &&
+                        detail[`${field.key}_to`] &&
+                        detail[`${field.key}_to`] < detail[`${field.key}_from`]
+                    ) {
+
+                        clientErrors.value[toKey] =
+                            'End date cannot be earlier than start date.'
+
+                        valid = false
+                    }
+
                     return
                 }
 

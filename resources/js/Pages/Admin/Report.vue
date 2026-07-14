@@ -172,22 +172,80 @@ watch(
 
 )
 
-function exportExcel() {
+const exportState = ref<'idle' | 'generating'>('idle')
 
-    window.open(
-
-        route(
-
-            'admin.report.excel',
-
-            filter.data()
-
-        ),
-
-        '_blank'
-
+function csrfToken(): string {
+    return (
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute('content') ?? ''
     )
+}
 
+async function exportExcel() {
+    if (exportState.value === 'generating') {
+        return
+    }
+
+    exportState.value = 'generating'
+
+    try {
+        const res = await fetch(
+            route('admin.report.export'),
+            {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify(filter.data()),
+            },
+        )
+
+        if (!res.ok) {
+            throw new Error('Failed to start export')
+        }
+
+        const data = await res.json()
+
+        pollExport(data.id)
+    } catch (e) {
+        exportState.value = 'idle'
+        alert('Could not start the export. Please try again.')
+    }
+}
+
+async function pollExport(id: number) {
+    try {
+        const res = await fetch(
+            route('admin.report.export.status', id),
+            {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            },
+        )
+
+        const data = await res.json()
+
+        if (data.status === 'completed') {
+            window.location.href = data.download_url
+            exportState.value = 'idle'
+            return
+        }
+
+        if (data.status === 'failed') {
+            alert(data.error ?? 'The export failed.')
+            exportState.value = 'idle'
+            return
+        }
+
+        setTimeout(() => pollExport(id), 3000)
+    } catch (e) {
+        exportState.value = 'idle'
+        alert('Lost connection while generating the export.')
+    }
 }
 </script>
 
@@ -199,10 +257,19 @@ function exportExcel() {
         >
             <template #actions>
                 <button
-                    class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
+                    class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="exportState === 'generating'"
                     @click="exportExcel"
                 >
-                    Export Report
+                    <i
+                        v-if="exportState === 'generating'"
+                        class="fa-solid fa-circle-notch fa-spin"
+                    />
+                    {{
+                        exportState === 'generating'
+                            ? 'Generating…'
+                            : 'Export Report'
+                    }}
                 </button>
             </template>
         </PageHeader>
