@@ -24,10 +24,10 @@ defineProps({
     <div class="flex min-h-screen bg-page">
         <Sidebar :navigation="navigation" />
 
-        <div class="ml-[260px] flex min-h-screen flex-1 flex-col">
+        <div class="ml-[260px] flex min-h-screen min-w-0 flex-1 flex-col">
             <Topbar :user="user" />
 
-            <main class="p-6">
+            <main class="min-w-0 p-6">
                 <slot />
             </main>
         </div>

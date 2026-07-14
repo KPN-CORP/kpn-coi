@@ -58,6 +58,8 @@ const props = defineProps<{
         business_unit?: string
         latest_submission?: boolean
         per_page?: number
+        sort?: string
+        direction?: string
     }
 }>()
 
@@ -71,8 +73,41 @@ const filter = useForm({
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
     latest_submission: props.filters.latest_submission ?? true,
-    per_page: props.filters.per_page ?? 20
+    per_page: props.filters.per_page ?? 20,
+    sort: props.filters.sort ?? '',
+    direction: props.filters.direction ?? 'asc'
 })
+
+const sortableColumns = [
+    { label: 'Period', key: 'period', class: 'w-20' },
+    { label: 'Type', key: 'type', class: 'w-32' },
+    { label: 'Full Name', key: 'name', class: 'min-w-[200px]' },
+    { label: 'Employee / Citizen ID', key: 'employee_id', class: 'min-w-[150px]' },
+    { label: 'Form Status', key: 'status', class: 'w-32' },
+    { label: 'Conflict', key: 'has_conflict', class: 'w-32' },
+    { label: 'Submitted At', key: 'submitted_at', class: 'min-w-[170px]' },
+]
+
+function toggleSort(column: string) {
+    if (filter.sort === column) {
+        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
+    } else {
+        filter.sort = column
+        filter.direction = 'asc'
+    }
+
+    applyFilter()
+}
+
+function sortIcon(column: string) {
+    if (filter.sort !== column) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return filter.direction === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
+}
 
 const showReviewModal = ref(false)
 
@@ -460,32 +495,36 @@ async function pollExport(id: number) {
         <!-- TABLE -->
 
         <Card>
-            <div
-                class="table-container"
-                style="overflow-x: auto"
-            >
+            <div class="table-container">
                 <table class="table-custom">
                     <thead>
                         <tr
-                            class="border-b border-border text-left text-xs uppercase text-slate-500"
+                            class="border-b border-border text-left text-xs uppercase tracking-wide text-slate-500"
                         >
-                            <th class="py-3">Period</th>
-                            <th class="py-3">Status</th>
-                            <th class="py-3">Full Name</th>
-                            <th class="py-3">Employee ID / Citizenship ID</th>
-                            <th class="py-3">Declaration Status</th>
-                            <th class="py-3">Conflict Indicator</th>
-                            <th class="py-3 whitespace-nowrap">Submitted At</th>
+                            <th
+                                v-for="col in sortableColumns"
+                                :key="col.key"
+                                :class="[
+                                    'py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700',
+                                    col.class,
+                                ]"
+                                @click="toggleSort(col.key)"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </span>
+                            </th>
                             <th
                                 v-for="(question, i) in coiQuestions"
                                 :key="question.key"
-                                class="py-3 text-center"
+                                class="w-12 py-3 text-center"
                                 :title="question.title.en"
                             >
-                                {{ i + 1 }}
+                                Q{{ i + 1 }}
                             </th>
                             <th
-                                class="py-3 text-center sticky bg-slate-50 border-l border-border"
+                                class="py-3 text-right sticky right-0 z-10 bg-slate-50 border-l border-border shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]"
                             >
                                 Action
                             </th>
@@ -498,28 +537,30 @@ async function pollExport(id: number) {
                             :key="declaration.row_id"
                             class="group border-b border-slate-100"
                         >
-                            <td class="py-4">
+                            <td class="py-4 whitespace-nowrap">
                                 {{ declaration.period }}
                             </td>
-                            
+
                             <td class="py-4">
-                                <div
-                                    class="mt-1 text-xs text-slate-500 align-middle"
+                                <span
+                                    class="inline-block rounded-md border px-2 py-1 text-xs font-medium"
+                                    :class="declaration.type === 'employee'
+                                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                        : 'border-amber-200 bg-amber-50 text-amber-700'"
                                 >
                                     {{
                                         declaration.type === 'employee'
                                             ? 'Employee'
                                             : 'Non Employee'
                                     }}
-                                </div>
+                                </span>
                             </td>
-                            
-                            <td class="py-4 font-medium">
+
+                            <td class="py-4 font-medium text-slate-800 whitespace-nowrap">
                                 {{ declaration.name }}
                             </td>
 
-
-                            <td class="py-4">
+                            <td class="py-4 whitespace-nowrap text-slate-600">
                                 {{ declaration.employee_id }}
                             </td>
 
@@ -552,7 +593,7 @@ async function pollExport(id: number) {
                                 </span>
                             </td>
 
-                            <td class="py-4 whitespace-nowrap">
+                            <td class="py-4 whitespace-nowrap text-slate-600">
                                 {{ formatDate(declaration.submitted_at) }}
                             </td>
 
@@ -577,7 +618,7 @@ async function pollExport(id: number) {
                             </td>
 
                             <td
-                                class="py-4 text-right sticky right-0 bg-white group-hover:bg-[#fafafa] border-l border-border whitespace-nowrap"
+                                class="py-4 text-right sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] border-l border-border whitespace-nowrap shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]"
                             >
                                 <div
                                     v-if="declaration.status !== 'pending' && declaration.declaration"

@@ -39,6 +39,24 @@ class ReportController extends Controller
             $perPage = 20;
         }
 
+        $sort = $request->string('sort')->toString();
+
+        if (! in_array($sort, [
+            'period',
+            'type',
+            'name',
+            'employee_id',
+            'status',
+            'has_conflict',
+            'submitted_at',
+        ], true)) {
+            $sort = null;
+        }
+
+        $direction = $request->string('direction')->toString() === 'desc'
+            ? 'desc'
+            : 'asc';
+
         $records = app(
             ReportService::class
         )->getDeclarations(
@@ -50,6 +68,8 @@ class ReportController extends Controller
             user: Auth::user(),
             latestSubmission: $latestSubmission,
             perPage: $perPage,
+            sort: $sort,
+            direction: $direction,
         );
 
         return Inertia::render(
@@ -65,6 +85,8 @@ class ReportController extends Controller
                     'business_unit' => $request->business_unit,
                     'latest_submission' => $latestSubmission,
                     'per_page' => $perPage,
+                    'sort' => $sort,
+                    'direction' => $direction,
                 ],
                 'businessUnitOptions' => Employee::query()
                     ->whereNotNull('group_company')

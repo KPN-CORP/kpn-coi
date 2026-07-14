@@ -583,7 +583,8 @@ a {
 }
 
 .table-container {
-    overflow: hidden;
+    overflow-x: auto;
+    max-width: 100%;
     border: 1px solid var(--border);
     border-radius: 1rem;
     background: white;
