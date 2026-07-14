@@ -87,9 +87,7 @@ function getQuestionTitle(key: string) {
 
 function continueDraft(declaration: any) {
     router.visit(
-        route('employee.declarations.create', {
-            locale: declaration.locale ?? 'en',
-        }),
+        route('employee.language'),
     )
 }
 
