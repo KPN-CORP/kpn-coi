@@ -61,7 +61,7 @@
 
 <td>
 
-{{ $declaration->user->employee->current_address }}
+{{ $declaration->user->employee->permanent_address }}
 
 </td>
 

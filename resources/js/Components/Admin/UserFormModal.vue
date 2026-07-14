@@ -10,7 +10,9 @@ interface User {
     email: string
     citizen_number: string
     address: string
-    gender: string
+    business_unit: string
+    date_of_joining: string
+    nationality: string
 }
 
 const props = defineProps<{
@@ -18,6 +20,7 @@ const props = defineProps<{
     title: string
     user?: User |null
     serverErrors: Record<string, string>
+    businessUnitOptions: string[]
 }>()
 
 const emit = defineEmits<{
@@ -30,10 +33,23 @@ const form = useForm({
     employee_id: '',
     name: '',
     email: '',
-    citizen_number: '',
     role: 'employee',
     address: '',
-    gender: '',
+    business_unit: '',
+    date_of_joining: '',
+    nationality_type:
+        props.user?.nationality &&
+        props.user.nationality.toLowerCase() !== 'indonesian'
+            ? 'foreigner'
+            : 'indonesian',
+
+    nationality:
+        props.user?.nationality &&
+        props.user.nationality.toLowerCase() !== 'indonesian'
+            ? props.user.nationality
+            : '',
+
+    citizen_number: props.user?.citizen_number ?? '',
 })
 
 const resettingPassword = ref(false)
@@ -43,7 +59,10 @@ const errors = reactive({
     email: '',
     citizen_number: '',
     address: '',
-    gender: '',
+    business_unit: '',
+    nationality_type: '',
+    nationality: '',
+    date_of_joining: '',
 })
 
 watch(
@@ -55,7 +74,9 @@ watch(
             email: user?.email ?? '',
             citizen_number: user?.citizen_number ?? '',
             address: user?.address ?? '',
-            gender: user?.gender ?? '',
+            business_unit: user?.business_unit ?? '',
+            date_of_joining: user?.date_of_joining ?? '',
+            nationality: user?.nationality ?? '',
         })
 
         form.reset()
@@ -82,7 +103,10 @@ function validate() {
     errors.email = ''
     errors.citizen_number = ''
     errors.address = ''
-    errors.gender = ''
+    errors.business_unit = ''
+    errors.date_of_joining = ''
+    errors.nationality_type = ''
+    errors.nationality = ''
 
     let valid = true
 
@@ -118,6 +142,58 @@ function validate() {
 
     }
 
+    if (!form.nationality_type) {
+
+        errors.nationality_type =
+            'Nationality Type is required.'
+
+        valid = false
+
+    }
+
+    if (
+        form.nationality_type === 'foreigner' &&
+        !form.nationality.trim()
+    ) {
+
+        errors.nationality =
+            'Nationality is required.'
+
+        valid = false
+
+    }
+
+    if (!form.citizen_number.trim()) {
+
+        errors.citizen_number =
+            form.nationality_type === 'indonesian'
+                ? 'Citizenship Number is required.'
+                : 'Passport ID is required.'
+
+        valid = false
+
+    } else if (
+        form.nationality_type === 'indonesian' &&
+        !/^\d{16}$/.test(form.citizen_number)
+    ) {
+
+        errors.citizen_number =
+            'Citizenship Number must consist of exactly 16 digits.'
+
+        valid = false
+
+    } else if (
+        form.nationality_type === 'foreigner' &&
+        form.citizen_number.length > 10
+    ) {
+
+        errors.citizen_number =
+            'Passport ID must not exceed 10 characters.'
+
+        valid = false
+
+    }
+
     if (!form.citizen_number.trim()) {
 
         errors.citizen_number =
@@ -127,10 +203,19 @@ function validate() {
 
     }
 
-    if (!form.gender) {
+    if (!form.business_unit) {
 
-        errors.gender =
-            'Gender is required.'
+        errors.business_unit =
+            'Business Unit is required.'
+
+        valid = false
+
+    }
+
+    if (!form.date_of_joining) {
+
+        errors.date_of_joining =
+            'Date of Joining is required.'
 
         valid = false
 
@@ -198,6 +283,18 @@ async function resetPassword() {
 
 }
 
+function onCitizenNumberInput(event: Event) {
+    const input = event.target as HTMLInputElement
+
+    if (form.nationality === 'indonesian') {
+        input.value = input.value.replace(/\D/g, '').slice(0, 16)
+    } else {
+        input.value = input.value.slice(0, 10)
+    }
+
+    form.citizen_number = input.value
+}
+
 function hasError(field: string) {
     return !!errors[field] || !!props.serverErrors[field]
 }
@@ -221,9 +318,13 @@ watch(() => form.citizen_number, () => {
     form.clearErrors('citizen_number')
 })
 
-watch(() => form.gender, () => {
-    errors.gender = ''
-    form.clearErrors('gender')
+watch(() => form.business_unit, () => {
+    errors.business_unit = ''
+    form.clearErrors('business_unit')
+})
+watch(() => form.date_of_joining, () => {
+    errors.date_of_joining = ''
+    form.clearErrors('date_of_joining')
 })
 
 watch(() => form.address, () => {
@@ -231,11 +332,21 @@ watch(() => form.address, () => {
     form.clearErrors('address')
 })
 
+watch(
+    () => form.nationality_type,
+    (value) => {
+        if (value === 'indonesian') {
+            form.nationality = ''
+        }
+    }
+)
+
 watch(() => form.name, () => errors.name = '')
 watch(() => form.email, () => errors.email = '')
 watch(() => form.citizen_number, () => errors.citizen_number = '')
 watch(() => form.address, () => errors.address = '')
-watch(() => form.gender, () => errors.gender = '')
+watch(() => form.business_unit, () => errors.business_unit = '')
+watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 </script>
 
 <template>
@@ -321,17 +432,65 @@ watch(() => form.gender, () => errors.gender = '')
                     </p>
                 </div>
 
+                <!-- Nationality -->
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Nationality
+                        <span class="text-red-500">*</span>
+                    </label>
+
+                    <select
+                        v-model="form.nationality_type"
+                        class="w-full rounded-md border border-border px-3 py-2"
+                    >
+                        <option value="indonesian">
+                            Indonesian
+                        </option>
+
+                        <option value="foreigner">
+                            Foreigner
+                        </option>
+                    </select>
+                </div>
+
+                <div v-if="form.nationality_type === 'foreigner'">
+                    <input
+                        v-model="form.nationality"
+                        type="text"
+                        :class="[
+                            'w-full rounded-md border px-3 py-2',
+                            hasError('nationality')
+                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                : 'border-border'
+                        ]"
+                    />
+
+                    <p
+                        v-if="getError('nationality')"
+                        class="mt-1 text-xs text-red-500"
+                    >
+                        {{ getError('nationality') }}
+                    </p>
+                </div>
+
                 <!-- Citizenship Number -->
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Citizenship Number
+                        {{
+                            form.nationality === 'indonesian'
+                                ? 'Citizenship Number (KTP)'
+                                : 'Passport ID'
+                        }}
                         <span class="text-red-500">*</span>
                     </label>
 
                     <input
                         v-model="form.citizen_number"
                         type="text"
+                        :maxlength="form.nationality === 'indonesian' ? 16 : 10"
+                        @input="onCitizenNumberInput"
                         :class="[
                             'w-full rounded-md border px-3 py-2',
                             hasError('citizen_number')
@@ -341,48 +500,87 @@ watch(() => form.gender, () => errors.gender = '')
                     />
 
                     <p
+                        v-if="form.nationality === 'indonesian'"
+                        class="mt-1 text-xs text-slate-500"
+                    >
+                        Must contain 16 digits.
+                    </p>
+
+                    <p
+                        v-else
+                        class="mt-1 text-xs text-slate-500"
+                    >
+                        Maximum 10 characters.
+                    </p>
+
+                    <p
                         v-if="getError('citizen_number')"
                         class="mt-1 text-xs text-red-500"
                     >
                         {{ getError('citizen_number') }}
                     </p>
                 </div>
+                
 
-                <!-- Gender -->
-
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        Gender
+                <!-- Business Unit -->
+                <div :class="[
+                        'flex flex-col gap-2']">
+                    <label class="text-sm font-medium text-slate-700">
+                        Business Unit
                         <span class="text-red-500">*</span>
                     </label>
 
-                   <select
-                        v-model="form.gender"
-                        :class="[
-                            'w-full rounded-md border px-3 py-2',
-                            hasError('gender')
-                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                                : 'border-border'
-                        ]"
+                    <select
+                        v-model="form.business_unit"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
                     >
                         <option value="">
-                            Select Gender
+                            All Business Unit
                         </option>
 
-                        <option value="Male">
-                            Male
-                        </option>
-
-                        <option value="Female">
-                            Female
+                        <option
+                            v-for="item in businessUnitOptions"
+                            :key="item"
+                            :value="item"
+                        >
+                            {{ item }}
                         </option>
                     </select>
 
                     <p
-                        v-if="getError('gender')"
+                        v-if="getError('business_unit')"
+                        class="text-xs text-red-500"
+                    >
+                        {{ getError('business_unit') }}
+                    </p>
+                </div>
+
+                <!-- Date Of Join -->
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium">
+                        Date Of Join
+                        <span class="text-red-500">*</span>
+                    </label>
+
+                    <input
+                        v-model="form.date_of_joining"
+                        type="date"
+                        min="1900-01-01"
+                        max="9999-12-31"
+                        :class="[
+                            'w-full rounded-md border px-3 py-2 text-sm',
+                            hasError('date_of_joining')
+                                ? 'border-red-500 bg-red-50'
+                                : 'border-border'
+                        ]"
+                    />
+
+                    <p
+                        v-if="getError('date_of_joining')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ getError('gender') }}
+                        {{ getError('date_of_joining') }}
                     </p>
                 </div>
 
@@ -390,7 +588,7 @@ watch(() => form.gender, () => errors.gender = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Address
+                        Permanent Address
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -406,7 +604,7 @@ watch(() => form.gender, () => errors.gender = '')
 
                     <p
                         v-if="getError('address')"
-                        class="mt-1 text-xs text-red-500"
+                        class="text-xs text-red-500"
                     >
                         {{ getError('address') }}
                     </p>

@@ -7,6 +7,7 @@ use App\Models\NonEmployee;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ReportService
@@ -152,6 +153,12 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
                         'status' => 'pending',
                         'has_conflict' => false,
                         'submitted_at' => null,
@@ -173,6 +180,12 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
                         'status' => 'submitted',
                         'has_conflict' => $hasConflict,
                         'submitted_at' => $declaration->submitted_at,
@@ -232,6 +245,13 @@ class ReportService
                     'status' => $declaration
                         ? 'submitted'
                         : 'pending',
+
+                    'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
+                        'designation' => $employee->designation_name ?? '-',
+                        'group_company' => $employee->group_company ?? '-',
+                        'date_of_joining' => $employee->date_of_joining
+                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                            : '-',
 
                     'has_conflict' => $hasConflict,
 

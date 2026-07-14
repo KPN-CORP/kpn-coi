@@ -25,6 +25,7 @@ class CoiDeclaration extends Model
         'reviewed_at',
         'admin_notes',
         'type',
+        'sign',
     ];
 
     protected $casts = [

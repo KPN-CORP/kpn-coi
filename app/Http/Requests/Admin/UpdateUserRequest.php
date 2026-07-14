@@ -39,16 +39,35 @@ class UpdateUserRequest extends FormRequest
             'citizen_number' => [
                 'nullable',
                 'string',
+                Rule::when(
+                    $this->nationality_type === 'indonesian',
+                    ['digits:16'],
+                    ['max:10']
+                ),
+            ],
+
+            'nationality_type' => [
+                'required',
+                Rule::in(['indonesian', 'foreigner']),
+            ],
+
+            'nationality' => [
+                'exclude_if:nationality_type,indonesian',
+                'required_if:nationality_type,foreigner',
+                'string',
                 'max:100',
             ],
 
-            'role' => [
+            'business_unit' => [
                 'required',
-                Rule::in([
-                    'non-employee',
-                    'employee',
-                    'admin',
-                ]),
+            ],
+            
+            'date_of_joining' => [
+                'required',
+            ],
+
+            'address' => [
+                'required',
             ],
         ];
     }

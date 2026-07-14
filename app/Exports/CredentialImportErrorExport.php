@@ -23,15 +23,17 @@ class CredentialImportErrorExport implements
 
             'Row',
 
-            'Name',
+            'Fullname',
 
             'Email',
 
-            'Citizenship Number',
+            'Citizenship Number / Passport Number',
 
-            'Gender',
+            'Business Unit',
 
-            'Address',
+            'Date Of Join',
+
+            'Permanent Address',
 
             'Error',
 

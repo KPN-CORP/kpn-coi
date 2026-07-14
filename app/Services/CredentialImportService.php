@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Mail\NonEmployeeCredentialMail;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -40,29 +41,42 @@ class CredentialImportService
                 (string) $row['email']
             );
 
+            $name = trim(
+                (string) $row['fullname']
+            );
+
             $citizenNumber = trim(
-                (string) $row['citizen_number']
+                (string) $row['citizen_numberpassport_number']
             );
 
-            $gender = trim(
-                (string) $row['gender']
+            $businessUnit = trim(
+                (string) $row['business_unit']
+            );
+            $doj = trim(
+                (string) $row['date_of_joining']
             );
 
-            if (blank($row['name'])) {
+            $address = trim(
+                (string) $row['permanent_address']
+            );
+
+            if (blank($row['fullname'])) {
 
                 $errors->push([
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
 
-                    'address' => $row['address'],
+                    'date_of_joining' => $doj,
+
+                    'address' => $address,
 
                     'error' => 'Email already exists.',
 
@@ -78,15 +92,17 @@ class CredentialImportService
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
                     'error' => 'Invalid email.',
 
@@ -96,33 +112,94 @@ class CredentialImportService
 
             }
 
-            if (
-                !in_array(
-                    $gender,
-                    ['Male', 'Female']
-                )
-            ) {
+            if (blank($row['business_unit'])) {
 
                 $errors->push([
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
-                    'error' => 'Gender must be Male or Female.',
+                    'error' => 'Select Business Unit.',
 
                 ]);
 
                 continue;
 
+            }
+
+            if (blank($row['date_of_joining'])) {
+
+                $errors->push([
+
+                    'row' => $line,
+
+                    'name' => $name,
+
+                    'email' => $email,
+
+                    'citizen_number' => $citizenNumber,
+
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
+
+                    'address' => $address,
+
+                    'error' => 'DOJ Cannot be Empty.',
+
+                ]);
+
+                continue;
+
+            }
+
+            try {
+
+                $date = Carbon::createFromFormat(
+                    'd-m-Y',
+                    $doj
+                );
+
+                if (
+                    $date->format('d-m-Y') !== $doj
+                ) {
+                    throw new \Exception();
+                }
+
+            } catch (\Throwable $e) {
+
+                $errors->push([
+
+                    'row' => $line,
+
+                    'name' => $name,
+
+                    'email' => $email,
+
+                    'citizen_number' => $citizenNumber,
+
+                    'business_unit' => $businessUnit,
+
+                    'date_of_joining' => $doj,
+
+                    'address' => $address,
+
+                    'error' => 'Date of Joining must be in dd-mm-yyyy format.',
+
+                ]);
+
+                continue;
             }
 
             if (
@@ -135,15 +212,17 @@ class CredentialImportService
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
                     'error' => 'Duplicate email in uploaded file.',
 
@@ -163,17 +242,19 @@ class CredentialImportService
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
-                    'error' => 'Duplicate Citizenship Number in uploaded file.',
+                    'error' => 'Duplicate Citizenship Number / Passport ID in uploaded file.',
 
                 ]);
 
@@ -198,15 +279,17 @@ class CredentialImportService
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
                     'error' => 'Email already exists.',
 
@@ -229,17 +312,19 @@ class CredentialImportService
 
                     'row' => $line,
 
-                    'name' => $row['name'],
+                    'name' => $name,
 
                     'email' => $email,
 
                     'citizen_number' => $citizenNumber,
 
-                    'gender' => $gender,
+                    'business_unit' => $businessUnit,
+                    
+                    'date_of_joining' => $doj,
 
-                    'address' => $row['address'],
+                    'address' => $address,
 
-                    'error' => 'Citizenship Number already exists.',
+                    'error' => 'Citizenship Number / Passport ID already exists.',
 
                 ]);
 
@@ -281,7 +366,7 @@ class CredentialImportService
 
                 $user = NonEmployeeUser::query()->create([
 
-                    'name' => trim($row['name']),
+                    'name' => trim($row['fullname']),
 
                     'email' => trim($row['email']),
 
@@ -293,15 +378,20 @@ class CredentialImportService
 
                     'id' => $user->id,
 
-                    'fullname' => trim($row['name']),
+                    'fullname' => trim($row['fullname']),
 
                     'email' => trim($row['email']),
 
-                    'ktp' => trim($row['citizen_number']),
+                    'ktp' => trim((string) $row['citizen_numberpassport_number']),
 
-                    'gender' => trim($row['gender']),
+                    'business_unit' => trim($row['business_unit']),
+                    
+                    'date_of_joining' => Carbon::createFromFormat(
+                                            'd-m-Y',
+                                            trim($row['date_of_joining'])
+                                        )->format('Y-m-d'),
 
-                    'current_address' => trim($row['address']),
+                    'permanent_address' => trim($row['permanent_address']),
 
                 ]);
 

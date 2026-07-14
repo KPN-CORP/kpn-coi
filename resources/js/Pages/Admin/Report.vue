@@ -295,7 +295,7 @@ function exportExcel() {
                             </option>
 
                             <option value="pending">
-                                Pending
+                                Not Submitted
                             </option>
 
                             <option value="conflict">

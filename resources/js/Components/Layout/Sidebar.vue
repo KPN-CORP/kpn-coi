@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { useNavigation } from '@/Composables/useNavigation'
-
+import { computed } from 'vue'
 
 defineProps<{
     navigation: {
@@ -16,6 +16,13 @@ function isActive(routeName: string) {
 }
 
 const menus = useNavigation()
+
+const groupedMenus = computed(() => {
+    return menus.value.reduce((groups, menu) => {
+        (groups[menu.section] ??= []).push(menu)
+        return groups
+    }, {} as Record<string, typeof menus.value>)
+})
 </script>
 
 <template>
@@ -40,25 +47,37 @@ const menus = useNavigation()
 
         <!-- Menu -->
 
-        <nav class="flex-1 py-4">
-            <Link
-                v-for="menu in menus"
-                :key="menu.route"
-                :href="route(menu.route)"
-                class="flex items-center gap-3 border-l-4 border-transparent px-6 py-3 text-sm text-text transition-all"
-                :class="{
-                    'border-primary bg-red-50 text-primary font-bold':
-                        isActive(menu.route),
-                    'hover:bg-red-50 hover:text-primary':
-                        !isActive(menu.route),
-                }"
+        <nav class="flex-1 overflow-y-auto py-4">
+            <div
+                v-for="(items, section) in groupedMenus"
+                :key="section"
+                class="mb-6"
             >
-                <i :class="menu.icon" />
+                <div
+                    class="px-6 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-300"
+                >
+                    {{ section }}
+                </div>
 
-                <span>
-                    {{ menu.label }}
-                </span>
-            </Link>
+                <Link
+                    v-for="menu in items"
+                    :key="menu.route"
+                    :href="route(menu.route)"
+                    class="flex items-center gap-3 border-l-4 border-transparent px-6 py-3 text-sm text-text transition-all"
+                    :class="{
+                        'border-primary bg-red-50 text-primary font-bold':
+                            isActive(menu.route),
+                        'hover:bg-red-50 hover:text-primary':
+                            !isActive(menu.route),
+                    }"
+                >
+                    <i :class="menu.icon" />
+
+                    <span>
+                        {{ menu.label }}
+                    </span>
+                </Link>
+            </div>
         </nav>
 
         <!-- Footer -->

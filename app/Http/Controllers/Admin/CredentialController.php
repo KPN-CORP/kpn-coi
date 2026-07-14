@@ -16,6 +16,7 @@ use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Imports\NonEmployeeUserImport;
+use App\Models\Employee;
 use App\Services\CredentialImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,8 +68,10 @@ class CredentialController extends Controller
                 'type' => 'non_employee',
                 'email' => $user->email,
                 'citizen_number' => $user->employee->ktp,
-                'gender' => $user->employee->gender,
-                'address' => $user->employee->current_address,
+                'business_unit' => $user->employee->group_company,
+                'date_of_joining' => $user->employee->date_of_joining,
+                'address' => $user->employee->permanent_address,
+                'nationality' => $user->employee->nationality,
             ]);
             
 
@@ -90,10 +93,18 @@ class CredentialController extends Controller
             ]
         );
 
+        $businessUnitOptions = Employee::query()
+            ->whereNotNull('group_company')
+            ->distinct()
+            ->orderBy('group_company')
+            ->pluck('group_company');
+
+
         return Inertia::render(
             'Admin/Credentials',
             [
                 'users' => $paginated,
+                'businessUnitOptions' => $businessUnitOptions,
 
                 'filters' => [
                     'search' => $request->search,
@@ -120,8 +131,12 @@ class CredentialController extends Controller
                     'fullname' => $request->name,
                     'email' => $request->email,
                     'ktp' => $request->citizen_number,
-                    'current_address' => $request->address,
-                    'gender' => $request->gender,
+                    'permanent_address' => $request->address,
+                    'group_company' => $request->business_unit,
+                    'date_of_joining' => $request->date_of_joining,
+                    'nationality' => $request->nationality_type === 'indonesian'
+                    ? 'Indonesian'
+                    : $request->nationality,
                 ]);
 
                 DB::afterCommit(function () use ($user, $password, $request) {
@@ -153,26 +168,32 @@ class CredentialController extends Controller
             $employee,
         ) {
 
-            $user->update([
+            $update = $user->update([
                 'name' => $request->name,
                 'email' => $request->email,
             ]);
 
+            $employee = NonEmployee::findOrFail($user->id);
+
             $employee->update([
-                    'fullname' => $request->name,
+                'fullname' => $request->name,
 
-                    'email' => $request->email,
+                'email' => $request->email,
 
-                    'ktp'
-                        => $request->citizen_number,
+                'ktp' => $request->citizen_number,
 
-                    'current_address'
-                        => $request->address,
+                'permanent_address' => $request->address,
 
-                    'gender'
-                        => $request->gender,
-                ]);
-        });
+                'group_company' => $request->business_unit,
+
+                'date_of_joining' => $request->date_of_joining,
+
+                'nationality' => $request->nationality_type === 'indonesian'
+                    ? 'Indonesian'
+                    : $request->nationality,
+            ]);
+        
+            });
 
         return back()->with(
             'success',

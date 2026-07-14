@@ -6,25 +6,39 @@ namespace App\Exports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class CredentialTemplateExport implements
+class CredentialTemplateExport implements WithEvents,
     FromCollection,
     WithHeadings
 {
+    protected array $businessUnits = [
+        'KPN Corporation',
+        'Plantations',
+        'Downstream',
+        'Cement',
+        'Property',
+    ];
+
     public function headings(): array
     {
         return [
 
-            'name',
+            'Fullname',
 
-            'email',
+            'Email',
 
-            'citizen_number',
+            'Citizen Number / Passport Number',
 
-            'gender',
+            'Business Unit',
 
-            'address',
+            'Date of Join',
+
+            'Permanent Address',
 
         ];
     }
@@ -40,9 +54,11 @@ class CredentialTemplateExport implements
 
                 '3171234567890001',
 
-                'Male',
+                'KPN Corporation',
 
-                'Jakarta',
+                '17-01-2020',
+
+                'Jl. Rasuna Said...',
 
             ],
 
@@ -54,12 +70,44 @@ class CredentialTemplateExport implements
 
                 '3171234567890002',
 
-                'Female',
+                'Plantations',
 
-                'Bandung',
+                '20-05-2025',
+
+                'Jl. Menteng Dalam...',
 
             ],
 
         ]);
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+
+                $event->sheet
+                    ->getStyle('C2:C1000')
+                    ->getNumberFormat()
+                    ->setFormatCode(NumberFormat::FORMAT_NUMBER);
+
+                for ($row = 2; $row <= 1000; $row++) {
+
+                    $validation = $event->sheet
+                        ->getCell("D{$row}")
+                        ->getDataValidation();
+
+                    $validation->setType(DataValidation::TYPE_LIST);
+                    $validation->setErrorStyle(DataValidation::STYLE_STOP);
+                    $validation->setAllowBlank(true);
+                    $validation->setShowDropDown(true);
+                    $validation->setShowInputMessage(true);
+                    $validation->setShowErrorMessage(true);
+                    $validation->setFormula1(
+                        '"' . implode(',', $this->businessUnits) . '"'
+                    );
+                }
+            },
+        ];
     }
 }

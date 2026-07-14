@@ -10,19 +10,21 @@
 
 @endforeach
 
-<div class="signature">
-
-    {{ $locale === 'id' ? 'Dibuat oleh,' : 'Declared by,' }}
+{{-- <div class="signature">
 
     <br><br><br><br>
-    {{ $locale === 'id' ? 'Nama Lengkap' : 'Full Name' }} :
-    <strong>
+    <span
+        class="ephesis"
+        style="font-size:22pt;"
+    >
         {{ $declaration->user->employee->fullname }}
-    </strong>
+    </span>
 
     <br>
-
+    {{ $locale === 'id' ? 'Di Deklarasikan oleh,' : 'Declared by,' }}
+    {{ $declaration->user->employee->fullname }}
+    <br>
     {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
     {{ $declaration->created_at->format('d F Y') }}
 
-</div>
+</div> --}}

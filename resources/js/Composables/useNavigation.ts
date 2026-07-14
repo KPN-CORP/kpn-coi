@@ -13,35 +13,25 @@ export function useNavigation() {
 
         const items = []
 
-        // Employee Menu
-
-        items.push(
-            {
-                label: 'History',
-                icon: 'fa-solid fa-clock-rotate-left',
-                route: 'employee.history',
-            },
-            // {
-            //     label: 'New Declaration',
-            //     icon: 'fa-solid fa-file-circle-plus',
-            //     route: 'employee.language',
-            // },
-        )
-
-        // Manager Menu
+        items.push({
+            section: 'My Account',
+            label: 'History',
+            icon: 'fa-solid fa-clock-rotate-left',
+            route: 'employee.history',
+        })
 
         if (navigation.is_manager) {
             items.push({
+                section: 'My Account',
                 label: 'Team History',
                 icon: 'fa-solid fa-users',
                 route: 'manager.team-history',
             })
         }
 
-        // Admin Menu
-
         if (can('dashboard.view')) {
             items.push({
+                section: 'Administration',
                 label: 'Dashboard',
                 icon: 'fa-solid fa-chart-line',
                 route: 'admin.dashboard',
@@ -50,6 +40,7 @@ export function useNavigation() {
 
         if (can('report.view')) {
             items.push({
+                section: 'Administration',
                 label: 'Reports',
                 icon: 'fa-solid fa-file-lines',
                 route: 'admin.report',
@@ -58,6 +49,7 @@ export function useNavigation() {
 
         if (can('credential.view')) {
             items.push({
+                section: 'Administration',
                 label: 'Credentials',
                 icon: 'fa-solid fa-users-gear',
                 route: 'admin.credentials',
@@ -66,6 +58,7 @@ export function useNavigation() {
 
         if (can('role.view')) {
             items.push({
+                section: 'Administration',
                 label: 'Role Management',
                 icon: 'fa-solid fa-user-shield',
                 route: 'admin.roles',

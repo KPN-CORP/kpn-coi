@@ -79,7 +79,7 @@ class ReportController extends Controller
                     user: Auth::user(),
                 )
             ),
-            'COI Report.xlsx'
+            'Conflict of Interest Report.xlsx'
         );
     }
 }

@@ -110,7 +110,8 @@ interface User {
     type: string
     citizen_number: string
     address: string
-    gender: string
+    business_unit: string
+    date_of_joining: string
 }
 
 function openAddModal() {
@@ -303,6 +304,8 @@ const props = defineProps<{
         meta: any
     }
 
+    businessUnitOptions: string[]
+
     filters: {
         search?: string
     }
@@ -459,6 +462,7 @@ function applyFilter() {
             :show="showUserModal"
             :title="modalTitle"
             :user="selectedUser"
+            :businessUnitOptions="businessUnitOptions"
             @close="showUserModal = false"
             @save="saveUser"
             @reset-password="resetPassword"

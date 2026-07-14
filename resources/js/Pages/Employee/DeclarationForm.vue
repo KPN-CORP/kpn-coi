@@ -404,17 +404,19 @@ function saveDraft() {
     })
 }
 
-function submit() {
+async function submit() {
     submitted.value = true
 
     processingAction.value = 'submit'
 
     clientErrors.value = {}
+
     if (hasEmptyFields()) {
         Swal.fire({
             icon: 'warning',
             title: 'Please complete all required fields.',
         })
+
         processingAction.value = null
         return
     }
@@ -423,7 +425,94 @@ function submit() {
         processingAction.value = null
         return
     }
-    
+
+    const fullName = props.declaration.name
+
+    const { isConfirmed } = await Swal.fire({
+        icon: 'warning',
+        title: currentLocale.value === 'id'
+            ? 'Konfirmasi Terakhir'
+            : 'Final Confirmation',
+
+        html: `
+            <p class="mb-3">
+                ${
+                    currentLocale.value === 'id'
+                        ? 'Deklarasi ini tidak dapat diubah setelah dikirim.'
+                        : 'This declaration cannot be edited after submission.'
+                }
+            </p>
+
+            <p class="mb-2">
+                ${
+                    currentLocale.value === 'id'
+                        ? 'Silakan ketik ulang nama lengkap Anda di bawah ini untuk mengonfirmasi:'
+                        : 'Please type your full name below to confirm:'
+                }
+            </p>
+
+            <p style="font-weight:600;margin-bottom:8px;">
+                ${fullName}
+            </p>
+
+            <p style="font-size:12px;color:#6b7280;">
+                ${
+                    currentLocale.value === 'id'
+                        ? '⚠ Huruf besar dan kecil harus sesuai.'
+                        : '⚠ Uppercase and lowercase letters must match.'
+                }
+            </p>
+        `,
+
+        input: 'text',
+
+        inputPlaceholder:
+            currentLocale.value === 'id'
+                ? 'Ketik nama lengkap Anda'
+                : 'Type your full name',
+
+        showCancelButton: true,
+
+        confirmButtonText:
+            currentLocale.value === 'id'
+                ? 'Kirim'
+                : 'Submit',
+
+        cancelButtonText:
+            currentLocale.value === 'id'
+                ? 'Batal'
+                : 'Cancel',
+
+        buttonsStyling: false,
+
+        customClass: {
+            confirmButton: 'btn-primary-custom ml-2',
+            cancelButton: 'btn-secondary',
+        },
+        reverseButtons: true,
+
+        preConfirm: (value) => {
+
+            if (value?.trim() !== fullName) {
+
+                Swal.showValidationMessage(
+                    currentLocale.value === 'id'
+                        ? 'Nama lengkap yang dimasukkan tidak sesuai.'
+                        : 'The full name does not match.'
+                )
+
+                return false
+            }
+
+            return true
+        },
+    })
+
+    if (!isConfirmed) {
+        processingAction.value = null
+        return
+    }
+
     form.post(route('employee.declarations.submit'), {
         onFinish: () => {
             processingAction.value = null
