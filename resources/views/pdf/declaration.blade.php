@@ -123,9 +123,31 @@
 @include('pdf.partials.consent')
 
 @php
+    $date = $declaration->created_at->copy()->locale(
+        $locale === 'id' ? 'id' : 'en'
+    );
+
     $footerText = $locale === 'id'
-        ? 'Dideklarasikan oleh '.$declaration->user->employee->fullname.' pada '.$declaration->created_at->translatedFormat('d F Y \p\u\k\u\l H:i:s')
-        : 'Declared by '.$declaration->user->employee->fullname.' on '.$declaration->created_at->format('d/m/Y \a\t H:i:s');
+        ? 'Dideklarasikan oleh '
+            . $declaration->user->employee->fullname
+            . ' pada '
+            . $date->translatedFormat('d F Y')
+            . ' pukul '
+            . $date->format('H:i:s')
+        : 'Declared by '
+            . $declaration->user->employee->fullname
+            . ' on '
+            . $date->translatedFormat('d F Y')
+            . ' at '
+            . $date->format('H:i:s');
+
+    $pageText = $locale === 'id'
+        ? 'Halaman {PAGE_NUM} dari {PAGE_COUNT}'
+        : 'Page {PAGE_NUM} of {PAGE_COUNT}';
+
+    $pageTextAlign = $locale === 'id'
+        ? 510
+        : 535;
 @endphp
 
 <script type="text/php">
@@ -138,16 +160,16 @@
             $pdf->get_height() - 18,
             "{{ $footerText }}",
             $font,
-            9,
+            8,
             [0, 0, 0]
         );
 
         $pdf->page_text(
-            535,
+            "{{ $pageTextAlign }}",
             $pdf->get_height() - 18,
-            "Page {PAGE_NUM} of {PAGE_COUNT}",
+            "{{ $pageText }}",
             $font,
-            9,
+            8,
             [0, 0, 0]
         );
 

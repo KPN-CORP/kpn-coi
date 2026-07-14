@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { watch, watchEffect } from 'vue'
 
 interface FieldOption {
     value: string
@@ -22,7 +22,120 @@ const props = defineProps<{
     fields: Field[]
     questionKey: string
     errors: Record<string, string>
+
+    businessUnits: {
+        code: string
+        name: string
+    }[]
+
+    companies: {
+        code: string
+        name: string
+        business_unit: string
+    }[]
+
+    departments: {
+        code: string
+        name: string
+        business_unit: string
+    }[]
 }>()
+
+function getOptions(
+    field: Field,
+    row: Record<string, any>,
+) {
+
+
+    switch (field.key) {
+
+        case 'business_unit':
+            return props.businessUnits.map(item => ({
+                value: item.code,
+                label: item.name,
+            }))
+
+        case 'company': {
+
+            if (!row.business_unit) {
+                return []
+            }
+
+            const options = props.companies
+                .filter(company =>
+                    company.business_unit
+                        .split(',')
+                        .map(value => value.trim())
+                        .includes(row.business_unit)
+                )
+                .map(company => ({
+                    value: company.code,
+                    label: company.name,
+                }))
+
+            if (
+                row.company &&
+                !options.some(option => option.value === row.company)
+            ) {
+                row.company = ''
+            }
+
+            return options
+        }
+
+        case 'department': {
+
+            if (!row.business_unit) {
+                return []
+            }
+
+            const options = props.departments
+                .filter(department =>
+                    department.business_unit === row.business_unit
+                )
+                .map(department => ({
+                    value: department.code,
+                    label: department.name,
+                }))
+
+            if (
+                row.department &&
+                !options.some(option => option.value === row.department)
+            ) {
+                row.department = ''
+            }
+
+            return options
+        }
+        
+
+        default:
+            return field.options ?? []
+    }
+}
+
+function onSelectChange(
+    row: Record<string, any>,
+    field: Field,
+    index: number,
+) {
+
+    switch (field.key) {
+
+        case 'business_unit':
+
+            row.company = ''
+            row.department = ''
+
+            break
+
+        case 'company':
+
+            break
+    }
+
+    onInput(index, field.key)
+}
 
 const emit = defineEmits<{
     clearError: [key: string]
@@ -96,6 +209,7 @@ const years = Array.from(
     { length: currentYear - 1980 + 1 },
     (_, index) => currentYear - index
 )
+
 </script>
 
 <template>
@@ -119,6 +233,13 @@ const years = Array.from(
 
                     <select
                         v-if="field.type === 'select'"
+                        :key="
+                            field.key === 'company'
+                                ? `company-${row.business_unit}`
+                                : field.key === 'department'
+                                    ? `department-${row.business_unit}`
+                                    : field.key
+                        "
                         v-model="row[field.key]"
                         :class="[
                             'w-full rounded-md border px-3 py-2 text-sm',
@@ -126,7 +247,7 @@ const years = Array.from(
                                 ? 'border-red-500 bg-red-50'
                                 : 'border-border'
                         ]"
-                        @change="onInput(index, field.key)"
+                        @change="onSelectChange(row, field, index)"
                     >
 
                         <option value="" selected disabled>
@@ -134,7 +255,7 @@ const years = Array.from(
                         </option>
 
                         <option
-                            v-for="option in field.options"
+                            v-for="option in getOptions(field, row)"
                             :key="option.value"
                             :value="option.value"
                         >
@@ -216,7 +337,7 @@ const years = Array.from(
                                     ? 'border-red-500 bg-red-50'
                                     : 'border-border'
                             ]"
-                            @change="onInput(index, field.key)"
+                            @change="onSelectChange(row, field, index)"
                         >
                             <option value="" disabled>
                                 Select year...

@@ -9,7 +9,11 @@ use App\Http\Requests\SaveDraftRequest;
 use App\Http\Requests\SubmitDeclarationRequest;
 use App\Http\Resources\DeclarationResource;
 use App\Http\Resources\UserResource;
+use App\Models\BusinessUnit;
 use App\Models\CoiDeclaration;
+use App\Models\Companies;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Services\CoiDeclarationService;
@@ -103,6 +107,51 @@ class DeclarationController extends Controller
                 'declaration' => $this->buildDeclarationData($authUser),
 
                 'previousDeclaration' => $previousDeclaration,
+
+                'businessUnits' => Employee::query()
+                    ->select('group_company')
+                    ->whereNotNull('group_company')
+                    ->where('group_company', '!=', '')
+                    ->distinct()
+                    ->orderBy('group_company')
+                    ->get()
+                    ->map(fn ($item) => [
+                        'code' => $item->group_company,
+                        'name' => $item->group_company,
+                    ])
+                    ->values(),
+
+                'companies' => Employee::query()
+                    ->select('group_company', 'company_name', 'contribution_level_code')
+                    ->whereNotNull('group_company')
+                    ->whereNotNull('company_name')
+                    ->where('group_company', '!=', '')
+                    ->where('company_name', '!=', '')
+                    ->distinct()
+                    ->orderBy('contribution_level_code')
+                    ->get()
+                    ->map(fn ($item) => [
+                        'business_unit' => $item->group_company,
+                        'code' => $item->contribution_level_code,
+                        'name' => $item->company_name,
+                    ])
+                    ->values(),
+
+                'departments' => Employee::query()
+                    ->select('group_company', 'unit')
+                    ->whereNotNull('group_company')
+                    ->whereNotNull('unit')
+                    ->where('group_company', '!=', '')
+                    ->where('unit', '!=', '')
+                    ->distinct()
+                    ->orderBy('unit')
+                    ->get()
+                    ->map(fn ($item) => [
+                        'business_unit' => $item->group_company,
+                        'code' => $item->unit,
+                        'name' => $item->unit,
+                    ])
+                    ->values(),
             ]
         );
     }

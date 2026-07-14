@@ -271,10 +271,27 @@ return [
                 ],
 
                 [
-                    'key' => 'position',
+                    'key' => 'business_unit',
+                    'type' => 'select',
                     'label' => [
-                        'id' => 'Bisnis Unit, PT, dan Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
-                        'en' => 'Business Units, Company (Legal Entity), and Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
+                        'id' => 'Bisnis Unit Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Business Units under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'company',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Perusahaan/PT Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Company (Legal Entity) under the KPN Corporation Group Engaged in a Business Relationship',
+                    ],
+                ],
+                [
+                    'key' => 'department',
+                    'type' => 'select',
+                    'label' => [
+                        'id' => 'Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
+                        'en' => 'Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
                     ],
                 ],
 

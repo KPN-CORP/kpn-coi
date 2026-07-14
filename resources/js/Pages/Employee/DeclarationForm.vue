@@ -38,6 +38,9 @@ const props = defineProps<{
     declaration: DeclarationData
     errors: Record<string, string>
     previousDeclaration: any | null
+    businessUnits: { code: string; name: string }[]
+    companies: { code: string; name: string; business_unit: string }[]
+    departments: { code: string; name: string; business_unit: string }[]
 }>()
 
 const locale = computed(() => locales[props.locale])
@@ -124,6 +127,31 @@ const usePreviousData = async () => {
         timer: 1500,
         showConfirmButton: false,
     })
+}
+
+const getOptions = (key: string) => {
+    switch (key) {
+        case 'business_unit':
+            return props.businessUnits.map(item => ({
+                value: item.code,
+                label: item.name,
+            }))
+
+        case 'company':
+            return props.companies.map(item => ({
+                value: item.code,
+                label: item.name,
+            }))
+
+        case 'department':
+            return props.departments.map(item => ({
+                value: item.code,
+                label: item.name,
+            }))
+
+        default:
+            return []
+    }
 }
 
 watch(
@@ -688,30 +716,24 @@ function onAnswerChanged(questionKey: string) {
                 v-model="form.responses[question.key].details"
                 :fields="
                     question.fields.map(field => ({
-
-                    ...field,
-
-                    label: field.label[currentLocale],
-
-                    options: field.options?.map(option => ({
-
-                        ...option,
-
-                        label: option.label[currentLocale],
-
-                        requires: option.requires?.map(required => ({
-
-                            ...required,
-
-                            label: required.label[currentLocale],
-
-                        })),
-
-                    })),
-
-                }))
+                        ...field,
+                        label: field.label[currentLocale],
+                        options: field.options
+                            ? field.options.map(option => ({
+                                ...option,
+                                label: option.label[currentLocale],
+                                requires: option.requires?.map(required => ({
+                                    ...required,
+                                    label: required.label[currentLocale],
+                                })),
+                            }))
+                            : getOptions(field.key),
+                    }))
                 "
                 :question-key="question.key"
+                :business-units="props.businessUnits"
+                :companies="props.companies"
+                :departments="props.departments"
                 :errors="{ ...form.errors, ...clientErrors }"
                 @clear-error="(key) => delete clientErrors[key]"            
             />
