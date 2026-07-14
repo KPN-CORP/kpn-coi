@@ -113,11 +113,32 @@ function openReview(
 }
 
 function getQuestionTitle(key: string) {
-    const question = coiQuestions.find(
-        q => q.key === key,
+    const question = coiQuestions.value.find(
+        (q: any) => q.key === key,
     )
 
     return question?.title?.en ?? key
+}
+
+// Per-question mark for the report table (mirrors the Excel export):
+// true  -> answered "Yes" for that question
+// false -> answered "No"
+// null  -> no submission for this row
+function questionAnswered(
+    declaration: Declaration,
+    key: string,
+): boolean | null {
+    const responses = declaration.declaration?.responses
+
+    if (!responses) {
+        return null
+    }
+
+    const response = responses.find(
+        (r: any) => r.question_key === key,
+    )
+
+    return response?.response_value?.answer === true
 }
 
 function applyFilter() {
@@ -426,7 +447,10 @@ async function pollExport(id: number) {
         <!-- TABLE -->
 
         <Card>
-            <div class="table-container">
+            <div
+                class="table-container"
+                style="overflow-x: auto"
+            >
                 <table class="table-custom">
                     <thead>
                         <tr
@@ -438,8 +462,20 @@ async function pollExport(id: number) {
                             <th class="py-3">Employee ID / Citizenship ID</th>
                             <th class="py-3">Declaration Status</th>
                             <th class="py-3">Conflict Indicator</th>
-                            <th class="py-3">Submitted At</th>
-                            <!-- <th class="py-3">Action</th> -->
+                            <th class="py-3 whitespace-nowrap">Submitted At</th>
+                            <th
+                                v-for="(question, i) in coiQuestions"
+                                :key="question.key"
+                                class="py-3 text-center"
+                                :title="question.title.en"
+                            >
+                                {{ i + 1 }}
+                            </th>
+                            <th
+                                class="py-3 text-center sticky bg-slate-50 border-l border-border"
+                            >
+                                Action
+                            </th>
                         </tr>
                     </thead>
 
@@ -447,7 +483,7 @@ async function pollExport(id: number) {
                         <tr
                             v-for="declaration in declarations.data"
                             :key="declaration.row_id"
-                            class="border-b border-slate-100"
+                            class="group border-b border-slate-100"
                         >
                             <td class="py-4">
                                 {{ declaration.period }}
@@ -503,13 +539,35 @@ async function pollExport(id: number) {
                                 </span>
                             </td>
 
-                            <td class="py-4">
+                            <td class="py-4 whitespace-nowrap">
                                 {{ formatDate(declaration.submitted_at) }}
                             </td>
 
-                            <!-- <td class="py-4">
+                            <td
+                                v-for="question in coiQuestions"
+                                :key="question.key"
+                                class="py-4 text-center"
+                            >
+                                <span
+                                    v-if="questionAnswered(declaration, question.key)"
+                                    class="font-bold text-green-600"
+                                >
+                                    ✓
+                                </span>
+
+                                <span
+                                    v-else
+                                    class="text-slate-300"
+                                >
+                                    -
+                                </span>
+                            </td>
+
+                            <td
+                                class="py-4 text-right sticky right-0 bg-white group-hover:bg-[#fafafa] border-l border-border"
+                            >
                                 <button
-                                    v-if="declaration.status !== 'pending'"
+                                    v-if="declaration.status !== 'pending' && declaration.declaration"
                                     class="btn btn-outline-secondary btn-sm"
                                     @click="openReview(declaration)"
                                 >
@@ -523,14 +581,14 @@ async function pollExport(id: number) {
                                 >
                                     No Submission
                                 </span>
-                            </td> -->
+                            </td>
                         </tr>
                     </tbody>
 
                     <tbody v-else>
                         <tr>
                             <td
-                                colspan="7"
+                                :colspan="8 + coiQuestions.length"
                                 class="py-10 text-center"
                             >
                                 <div class="flex flex-col items-center">
