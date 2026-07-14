@@ -43,7 +43,6 @@ class AuthenticatedSessionController extends Controller
                 'email',
                 $credentials['email']
             )->first();
-
         }
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {

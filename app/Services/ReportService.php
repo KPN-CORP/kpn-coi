@@ -17,8 +17,65 @@ class ReportService
         ?string $search,
         ?string $type,
         ?string $businessUnit,
-        User $user
-    ) {
+        User $user,
+        bool $latestSubmission = false,
+        int $perPage = 20
+    ): LengthAwarePaginator {
+        $records = $this->buildRecords(
+            period: $period,
+            status: $status,
+            search: $search,
+            type: $type,
+            businessUnit: $businessUnit,
+            latestSubmission: $latestSubmission,
+        );
+
+        $page = (int) request('page', 1);
+
+        return new LengthAwarePaginator(
+            $records
+                ->forPage($page, $perPage)
+                ->values(),
+            $records->count(),
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
+    }
+
+    /**
+     * Full, unpaginated set of report rows (used for exports).
+     */
+    public function getAllDeclarations(
+        int $period,
+        ?string $status,
+        ?string $search,
+        ?string $type,
+        ?string $businessUnit,
+        User $user,
+        bool $latestSubmission = false
+    ): Collection {
+        return $this->buildRecords(
+            period: $period,
+            status: $status,
+            search: $search,
+            type: $type,
+            businessUnit: $businessUnit,
+            latestSubmission: $latestSubmission,
+        );
+    }
+
+    private function buildRecords(
+        int $period,
+        ?string $status,
+        ?string $search,
+        ?string $type,
+        ?string $businessUnit,
+        bool $latestSubmission
+    ): Collection {
         $employees = $this->employeeRecords(
             $period,
             $businessUnit
@@ -107,16 +164,20 @@ class ReportService
             );
         }
 
-        return new LengthAwarePaginator(
-            $records
-                ->values()
-                ->forPage(
-                    request('page', 1),
-                    20
-                ),
-            $records->count(),
-            20
-        );
+        if ($latestSubmission) {
+            $records = $records
+                ->sortByDesc(
+                    fn ($item) => $item['submitted_at']
+                )
+                ->groupBy(
+                    fn ($item) => $item['type'].'-'.$item['employee_id']
+                )
+                ->map(
+                    fn ($group) => $group->first()
+                );
+        }
+
+        return $records->values();
     }
 
     

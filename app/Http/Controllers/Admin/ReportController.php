@@ -28,6 +28,17 @@ class ReportController extends Controller
             ?? now()->year
         );
 
+        $latestSubmission = $request->boolean(
+            'latest_submission',
+            true
+        );
+
+        $perPage = (int) ($request->per_page ?? 20);
+
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+
         $records = app(
             ReportService::class
         )->getDeclarations(
@@ -37,6 +48,8 @@ class ReportController extends Controller
             businessUnit: $request->business_unit,
             search: $request->search,
             user: Auth::user(),
+            latestSubmission: $latestSubmission,
+            perPage: $perPage,
         );
 
         return Inertia::render(
@@ -50,6 +63,8 @@ class ReportController extends Controller
                     'type' => $request->type,
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
+                    'latest_submission' => $latestSubmission,
+                    'per_page' => $perPage,
                 ],
                 'businessUnitOptions' => Employee::query()
                     ->whereNotNull('group_company')
@@ -70,13 +85,14 @@ class ReportController extends Controller
     {
         return Excel::download(
             new ReportExport(
-                app(ReportService::class)->getDeclarations(
+                app(ReportService::class)->getAllDeclarations(
                     period: (int) ($request->period ?? now()->year),
                     status: $request->status,
                     search: $request->search,
                     type: $request->type,
                     businessUnit: $request->business_unit,
                     user: Auth::user(),
+                    latestSubmission: $request->boolean('latest_submission', true),
                 )
             ),
             'COI Report.xlsx'

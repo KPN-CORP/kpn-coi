@@ -42,8 +42,11 @@ const props = defineProps<{
         current_page: number
         last_page: number
         total: number
+        per_page: number
+        from: number | null
+        to: number | null
     }
-    
+
     businessUnitOptions: string[]
     periods: number[]
 
@@ -53,6 +56,8 @@ const props = defineProps<{
         type?: string
         search?: string
         business_unit?: string
+        latest_submission?: boolean
+        per_page?: number
     }
 }>()
 
@@ -65,6 +70,8 @@ const filter = useForm({
     type: props.filters.type ?? '',
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
+    latest_submission: props.filters.latest_submission ?? true,
+    per_page: props.filters.per_page ?? 20
 })
 
 const showReviewModal = ref(false)
@@ -123,6 +130,12 @@ function applyFilter() {
         },
     )
 }
+function changePerPage(value: number) {
+    filter.per_page = value
+
+    applyFilter()
+}
+
 function formatDate(date: string | null) {
     if (!date) return '-'
 
@@ -318,6 +331,25 @@ function exportExcel() {
                         >
                     </div>
 
+                    <!-- Latest Submission -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            &nbsp;
+                        </label>
+
+                        <label
+                            class="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm cursor-pointer select-none"
+                        >
+                            <input
+                                v-model="filter.latest_submission"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-border"
+                                @change="applyFilter"
+                            >
+                            Latest Submission
+                        </label>
+                    </div>
+
                 </div>
 
             </div>
@@ -455,10 +487,15 @@ function exportExcel() {
                         </tr>
                     </tbody>
                 </table>
-                <Pagination
-                    :links="props.declarations.links"
-                />
             </div>
+            <Pagination
+                :links="props.declarations.links"
+                :per-page="props.declarations.per_page"
+                :total="props.declarations.total"
+                :from="props.declarations.from"
+                :to="props.declarations.to"
+                @update:per-page="changePerPage"
+            />
         </Card>
     </AdminLayout>
     <DeclarationViewModal
