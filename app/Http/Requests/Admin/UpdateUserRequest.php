@@ -40,20 +40,20 @@ class UpdateUserRequest extends FormRequest
                 'nullable',
                 'string',
                 Rule::when(
-                    $this->nationality_type === 'indonesian',
-                    ['digits:16'],
+                   $this->nationality_type === 'indonesian' || $this->nationality_type === 'Indonesian',
+                    ['min:15'],
                     ['max:10']
                 ),
             ],
 
             'nationality_type' => [
                 'required',
-                Rule::in(['indonesian', 'foreigner']),
+                Rule::in(['indonesian', 'Indonesian', 'foreigner']),
             ],
 
             'nationality' => [
-                'exclude_if:nationality_type,indonesian',
-                'required_if:nationality_type,foreigner',
+                Rule::requiredIf($this->nationality_type === 'foreigner'),
+                'nullable',
                 'string',
                 'max:100',
             ],

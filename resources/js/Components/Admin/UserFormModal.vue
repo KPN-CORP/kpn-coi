@@ -78,7 +78,7 @@ watch(
             address: user?.address ?? '',
             business_unit: user?.business_unit ?? '',
             date_of_joining: user?.date_of_joining ?? '',
-            nationality_type: isIndonesian(user?.nationality)
+            nationality_type: isIndonesian(user?.nationality) || !user?.nationality
                 ? 'Indonesian'
                 : 'foreigner',
 
@@ -182,11 +182,11 @@ function validate() {
 
     } else if (
         form.nationality_type === 'Indonesian' &&
-        !/^\d{16}$/.test(form.citizen_number)
+        !/^\d{15,16}$/.test(form.citizen_number)
     ) {
 
         errors.citizen_number =
-            'Citizenship Number must consist of exactly 16 digits.'
+            'Please input correct Citizenship Number.'
 
         valid = false
 
@@ -497,7 +497,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     <input
                         v-model="form.citizen_number"
                         type="text"
-                        :maxlength="form.nationality_type === 'Indonesian' ? 16 : 10"
+                        :maxlength="form.nationality_type === 'Indonesian' || form.nationality_type === 'indonesian' ? 16 : 10"
                         @input="onCitizenNumberInput"
                         :class="[
                             'w-full rounded-md border px-3 py-2',

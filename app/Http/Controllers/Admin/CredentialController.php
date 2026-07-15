@@ -188,7 +188,7 @@ class CredentialController extends Controller
 
                 'date_of_joining' => $request->date_of_joining,
 
-                'nationality' => $request->nationality_type === 'indonesian'
+                'nationality' => $request->nationality_type === 'indonesian' || $request->nationality_type === 'Indonesian'
                     ? 'Indonesian'
                     : $request->nationality,
             ]);
