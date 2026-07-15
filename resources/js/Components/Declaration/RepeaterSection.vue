@@ -215,27 +215,14 @@ function isDateRangeReversed(
     )
 }
 
-function isFuture(value?: string): boolean {
-    return !!value && value > today
-}
-
-// "from" error: required / server error, or a future date.
+// "from" error: required / server error only. The start date may be any
+// date (including the future); it just has to be a valid value.
 function fromDateError(
     index: number,
     row: Record<string, any>,
     field: Field,
 ): string | undefined {
-    const existing = getError(index, `${field.key}_from`)
-
-    if (existing) {
-        return existing
-    }
-
-    if (isFuture(row[`${field.key}_from`])) {
-        return 'Start date cannot be in the future.'
-    }
-
-    return undefined
+    return getError(index, `${field.key}_from`)
 }
 
 // Combined "to" error: required / server error, or the ordering check.
@@ -252,7 +239,7 @@ function toDateError(
     }
 
     if (isDateRangeReversed(row, field)) {
-        return 'End date cannot be earlier than start date.'
+        return "Finish Date can't be earlier than Start Date."
     }
 
     return undefined
@@ -302,15 +289,6 @@ const years = Array.from(
     { length: currentYear - 1980 + 1 },
     (_, index) => currentYear - index
 )
-
-// Local "today" as YYYY-MM-DD for date input max attributes.
-const today = (() => {
-    const d = new Date()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-
-    return `${d.getFullYear()}-${month}-${day}`
-})()
 </script>
 
 <template>
@@ -369,7 +347,6 @@ const today = (() => {
                             <input
                                 v-model="row[`${field.key}_from`]"
                                 type="date"
-                                :max="today"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
                                     fromDateError(index, row, field)
