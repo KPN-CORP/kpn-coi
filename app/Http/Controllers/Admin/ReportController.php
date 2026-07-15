@@ -99,6 +99,9 @@ class ReportController extends Controller
                     ->orderByDesc('period')
                     ->pluck('period')
                     ->values(),
+
+                'companyNames' => \App\Models\Companies::query()
+                    ->pluck('contribution_level', 'contribution_level_code'),
             ]
         );
     }
@@ -197,6 +200,9 @@ class ReportController extends Controller
             [
                 'declaration' => $declaration,
                 'locale' => $locale,
+                'companyNames' => \App\Models\Companies::query()
+                    ->pluck('contribution_level', 'contribution_level_code')
+                    ->toArray(),
             ]
         )->setOptions([
             'isPhpEnabled' => true,

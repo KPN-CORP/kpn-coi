@@ -187,16 +187,11 @@ watch(
     }
 )
 
-// Local "today" as YYYY-MM-DD for future-date validation.
-const todayStr = (() => {
-    const d = new Date()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-
-    return `${d.getFullYear()}-${month}-${day}`
-})()
-
 function isEmpty(value: unknown): boolean {
+    if (Array.isArray(value)) {
+        return value.length === 0
+    }
+
     return value === null || value === undefined || value === ''
 }
 
@@ -341,18 +336,7 @@ function validateForm(): boolean {
                     ) {
 
                         clientErrors.value[toKey] =
-                            'End date cannot be earlier than start date.'
-
-                        valid = false
-                    }
-
-                    if (
-                        detail[`${field.key}_from`] &&
-                        detail[`${field.key}_from`] > todayStr
-                    ) {
-
-                        clientErrors.value[fromKey] =
-                            'Start date cannot be in the future.'
+                            "Finish Date can't be earlier than Start Date."
 
                         valid = false
                     }
@@ -381,11 +365,7 @@ function validateForm(): boolean {
 
                 const value = detail[field.key]
 
-                if (
-                    value === null ||
-                    value === undefined ||
-                    value === ''
-                ) {
+                if (isEmpty(value)) {
 
                     clientErrors.value[key] =
                         'This field is required.'

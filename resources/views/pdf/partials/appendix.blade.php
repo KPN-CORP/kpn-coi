@@ -47,8 +47,11 @@
                         <em>{{ $field['label']['en'] }}</em>
                     </td>
 
+                    @php($fieldValue = data_get($detail, $field['key'], ''))
                     <td>
-                        : {{ data_get($detail, $field['key'], '') }}
+                        : {{ is_array($fieldValue)
+                            ? collect($fieldValue)->map(fn ($code) => ($companyNames ?? [])[$code] ?? $code)->implode(', ')
+                            : $fieldValue }}
                     </td>
                 </tr>
 

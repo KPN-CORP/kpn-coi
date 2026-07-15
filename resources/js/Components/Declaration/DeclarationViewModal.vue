@@ -10,6 +10,11 @@ const coiQuestions = computed(
     () => page.props.coiQuestions as any[]
 )
 
+// code -> name lookup for DB-backed multi-selects (e.g. company)
+const companyNames = computed(
+    () => (page.props.companyNames as Record<string, string>) ?? {}
+)
+
 function getQuestionConfig(key: string) {
     return coiQuestions.value.find(
         q => q.key === key
@@ -34,6 +39,14 @@ function getFieldValue(
     fieldKey: string,
     value: any,
 ) {
+    // Multi-select values (e.g. company) arrive as an array of codes;
+    // resolve each code to its display name when we have the lookup.
+    if (Array.isArray(value)) {
+        return value
+            .map((code: string) => companyNames.value[code] ?? code)
+            .join(', ')
+    }
+
     const question = getQuestionConfig(questionKey)
 
     const field = question?.fields.find(

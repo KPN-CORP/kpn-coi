@@ -57,7 +57,7 @@ class DeclarationController extends Controller
     ): RedirectResponse {
         $this->service->submit(
             user: $request->user(),
-            responses: $request->validated('responses'),
+            responses: $request->input('responses'),
             period: now()->year,
             type: $this->resolveDeclarationType($request->user()),
         );
@@ -108,33 +108,31 @@ class DeclarationController extends Controller
 
                 'previousDeclaration' => $previousDeclaration,
 
-                'businessUnits' => Employee::query()
-                    ->select('group_company')
-                    ->whereNotNull('group_company')
-                    ->where('group_company', '!=', '')
-                    ->distinct()
-                    ->orderBy('group_company')
+                'businessUnits' => BusinessUnit::query()
+                    ->select('nama_bisnis')
+                    ->whereNot('nama_bisnis', 'others')
                     ->get()
                     ->map(fn ($item) => [
-                        'code' => $item->group_company,
-                        'name' => $item->group_company,
-                    ])
-                    ->values(),
+                        'code' => $item->nama_bisnis,
+                        'name' => $item->nama_bisnis
+                    ])->values(),
+                
+                'companies' => Companies::query()
+                    ->select('company_name', 'contribution_level', 'contribution_level_code')
+                    ->get()
+                    ->map(function ($item) {
+                        // company_name looks like "PT XYZ, KPN Plantations" —
+                        // the part after the comma is the business unit.
+                        $businessUnit = trim(explode(',', $item->company_name)[1] ?? '');
 
-                'companies' => Employee::query()
-                    ->select('group_company', 'company_name', 'contribution_level_code')
-                    ->whereNotNull('group_company')
-                    ->whereNotNull('company_name')
-                    ->where('group_company', '!=', '')
-                    ->where('company_name', '!=', '')
-                    ->distinct()
-                    ->orderBy('contribution_level_code')
-                    ->get()
-                    ->map(fn ($item) => [
-                        'business_unit' => $item->group_company,
-                        'code' => $item->contribution_level_code,
-                        'name' => $item->company_name,
-                    ])
+                        return [
+                            'business_unit' => $businessUnit === 'KPN Plantations'
+                                ? 'Plantations'
+                                : $businessUnit,
+                            'code' => $item->contribution_level_code,
+                            'name' => $item->contribution_level,
+                        ];
+                    })
                     ->values(),
 
                 'departments' => Employee::query()
@@ -184,6 +182,9 @@ class DeclarationController extends Controller
             [
                 'declaration' => $declaration,
                 'locale' => $locale,
+                'companyNames' => Companies::query()
+                    ->pluck('contribution_level', 'contribution_level_code')
+                    ->toArray(),
             ]
         )->setOptions([
             'isPhpEnabled' => true,

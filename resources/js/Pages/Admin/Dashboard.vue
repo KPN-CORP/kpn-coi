@@ -565,7 +565,9 @@ watch(
                     {{ stats.submitted }}
                 </div>
                 <div class="stat-title">
-                    SUBMITTED
+                    TOTAL {{ filter.type === 'employee'
+                            ? 'Employee'
+                            : 'Non Employee' }} <br> SUBMITTED
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'pending',})">
@@ -573,7 +575,9 @@ watch(
                     {{ stats.pending }}
                 </div>
                 <div class="stat-title">
-                    NOT SUBMITTED
+                    TOTAL {{ filter.type === 'employee'
+                            ? 'Employee'
+                            : 'Non Employee' }} <br> NOT YET SUBMITTED
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'conflict',})">
@@ -581,7 +585,9 @@ watch(
                     {{ stats.conflict }}
                 </div>
                 <div class="stat-title">
-                    CONFLICT INDICATED
+                    TOTAL {{ filter.type === 'employee'
+                            ? 'Employee'
+                            : 'Non Employee' }} <br> WITH POTENTIAL CONFLICT OF INTEREST
                 </div>
             </Card>
         </div>

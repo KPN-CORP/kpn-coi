@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { watch, watchEffect } from 'vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
+import MultiSelect from '@/Components/MultiSelect.vue'
 
 interface FieldOption {
     value: string
@@ -14,6 +15,8 @@ interface Field {
     type?: 'text' | 'select' | 'number' | 'date' | 'date_range' | 'year'
     min?: number
     max?: number
+    multiple?: boolean
+    disabled?: boolean
     options?: FieldOption[]
 }
 
@@ -117,24 +120,37 @@ function getOptions(
     }
 }
 
+// Options for a multi-select field (currently only "company"),
+// shaped for the MultiSelect component ({ code, name }).
+function getMultiOptions(
+    field: Field,
+    row: Record<string, any>,
+) {
+    if (field.key !== 'company' || !row.business_unit) {
+        return []
+    }
+
+    return props.companies
+        .filter(company =>
+            company.business_unit
+                .split(',')
+                .map(value => value.trim())
+                .includes(row.business_unit),
+        )
+        .map(company => ({
+            code: company.code,
+            name: company.name,
+        }))
+}
+
 function onSelectChange(
     row: Record<string, any>,
     field: Field,
     index: number,
 ) {
-
-    switch (field.key) {
-
-        case 'business_unit':
-
-            row.company = ''
-            row.department = ''
-
-            break
-
-        case 'company':
-
-            break
+    if (field.key === 'business_unit') {
+        // Reset the dependent company selection when the unit changes.
+        row.company = []
     }
 
     onInput(index, field.key)
@@ -215,27 +231,14 @@ function isDateRangeReversed(
     )
 }
 
-function isFuture(value?: string): boolean {
-    return !!value && value > today
-}
-
-// "from" error: required / server error, or a future date.
+// "from" error: required / server error only. The start date may be any
+// date (including the future); it just has to be a valid value.
 function fromDateError(
     index: number,
     row: Record<string, any>,
     field: Field,
 ): string | undefined {
-    const existing = getError(index, `${field.key}_from`)
-
-    if (existing) {
-        return existing
-    }
-
-    if (isFuture(row[`${field.key}_from`])) {
-        return 'Start date cannot be in the future.'
-    }
-
-    return undefined
+    return getError(index, `${field.key}_from`)
 }
 
 // Combined "to" error: required / server error, or the ordering check.
@@ -252,7 +255,7 @@ function toDateError(
     }
 
     if (isDateRangeReversed(row, field)) {
-        return 'End date cannot be earlier than start date.'
+        return "Finish Date can't be earlier than Start Date."
     }
 
     return undefined
@@ -275,23 +278,32 @@ function onNumberInput(
         return
     }
 
-    let value = Number(raw)
+    // Accept both "0,2" and "0.2": normalise comma to dot and keep only
+    // digits and a single decimal point.
+    let cleaned = String(raw)
+        .replace(',', '.')
+        .replace(/[^\d.]/g, '')
 
-    if (Number.isNaN(value)) {
-        row[field.key] = ''
-        onInput(index, field.key)
-        return
+    const firstDot = cleaned.indexOf('.')
+
+    if (firstDot !== -1) {
+        cleaned =
+            cleaned.slice(0, firstDot + 1)
+            + cleaned.slice(firstDot + 1).replace(/\./g, '')
     }
 
-    if (field.max !== undefined && value > field.max) {
-        value = field.max
+    // Clamp to min/max when it is a complete number.
+    const value = Number(cleaned)
+
+    if (! Number.isNaN(value) && cleaned !== '' && cleaned !== '.') {
+        if (field.max !== undefined && value > field.max) {
+            cleaned = String(field.max)
+        } else if (field.min !== undefined && value < field.min) {
+            cleaned = String(field.min)
+        }
     }
 
-    if (field.min !== undefined && value < field.min) {
-        value = field.min
-    }
-
-    row[field.key] = value
+    row[field.key] = cleaned
 
     onInput(index, field.key)
 }
@@ -302,15 +314,6 @@ const years = Array.from(
     { length: currentYear - 1980 + 1 },
     (_, index) => currentYear - index
 )
-
-// Local "today" as YYYY-MM-DD for date input max attributes.
-const today = (() => {
-    const d = new Date()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-
-    return `${d.getFullYear()}-${month}-${day}`
-})()
 </script>
 
 <template>
@@ -330,10 +333,23 @@ const today = (() => {
                         {{ field.label }}
                     </label>
 
+                    <!-- Multi Select -->
+
+                    <MultiSelect
+                        v-if="field.type === 'select' && field.multiple"
+                        :model-value="Array.isArray(row[field.key]) ? row[field.key] : []"
+                        :options="getMultiOptions(field, row)"
+                        placeholder="Select..."
+                        @update:modelValue="(val) => {
+                            row[field.key] = val
+                            onInput(index, field.key)
+                        }"
+                    />
+
                     <!-- Select -->
 
                     <SearchSelect
-                        v-if="field.type === 'select'"
+                        v-else-if="field.type === 'select'"
                         v-model="row[field.key]"
                         :options="getOptions(field, row)"
                         placeholder="Select..."
@@ -369,7 +385,6 @@ const today = (() => {
                             <input
                                 v-model="row[`${field.key}_from`]"
                                 type="date"
-                                :max="today"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
                                     fromDateError(index, row, field)
@@ -467,10 +482,7 @@ const today = (() => {
                     <input
                         v-else-if="field.type === 'number'"
                         v-model="row[field.key]"
-                        type="number"
-                        :min="field.min"
-                        :max="field.max"
-                        step="any"
+                        type="text"
                         inputmode="decimal"
                         :class="[
                             'w-full rounded-md border px-3 py-2 text-sm',
