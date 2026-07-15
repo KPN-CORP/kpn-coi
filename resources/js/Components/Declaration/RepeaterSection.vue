@@ -262,23 +262,32 @@ function onNumberInput(
         return
     }
 
-    let value = Number(raw)
+    // Accept both "0,2" and "0.2": normalise comma to dot and keep only
+    // digits and a single decimal point.
+    let cleaned = String(raw)
+        .replace(',', '.')
+        .replace(/[^\d.]/g, '')
 
-    if (Number.isNaN(value)) {
-        row[field.key] = ''
-        onInput(index, field.key)
-        return
+    const firstDot = cleaned.indexOf('.')
+
+    if (firstDot !== -1) {
+        cleaned =
+            cleaned.slice(0, firstDot + 1)
+            + cleaned.slice(firstDot + 1).replace(/\./g, '')
     }
 
-    if (field.max !== undefined && value > field.max) {
-        value = field.max
+    // Clamp to min/max when it is a complete number.
+    const value = Number(cleaned)
+
+    if (! Number.isNaN(value) && cleaned !== '' && cleaned !== '.') {
+        if (field.max !== undefined && value > field.max) {
+            cleaned = String(field.max)
+        } else if (field.min !== undefined && value < field.min) {
+            cleaned = String(field.min)
+        }
     }
 
-    if (field.min !== undefined && value < field.min) {
-        value = field.min
-    }
-
-    row[field.key] = value
+    row[field.key] = cleaned
 
     onInput(index, field.key)
 }
@@ -444,10 +453,7 @@ const years = Array.from(
                     <input
                         v-else-if="field.type === 'number'"
                         v-model="row[field.key]"
-                        type="number"
-                        :min="field.min"
-                        :max="field.max"
-                        step="any"
+                        type="text"
                         inputmode="decimal"
                         :class="[
                             'w-full rounded-md border px-3 py-2 text-sm',
