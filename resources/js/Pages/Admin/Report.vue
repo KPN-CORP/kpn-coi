@@ -79,13 +79,12 @@ const filter = useForm({
 })
 
 const sortableColumns = [
-    { label: 'Period', key: 'period', class: 'w-20' },
-    { label: 'Type', key: 'type', class: 'w-32' },
-    { label: 'Full Name', key: 'name', class: 'min-w-[200px]' },
-    { label: 'Employee / Citizen ID', key: 'employee_id', class: 'min-w-[150px]' },
-    { label: 'Form Status', key: 'status', class: 'w-32' },
-    { label: 'Conflict', key: 'has_conflict', class: 'w-32' },
-    { label: 'Submitted At', key: 'submitted_at', class: 'min-w-[170px]' },
+    { label: 'Full Name', key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
+    { label: 'Period', key: 'period', class: '' },
+    { label: 'Type', key: 'type', class: '' },
+    { label: 'Form Status', key: 'status', class: '' },
+    { label: 'Conflict', key: 'has_conflict', class: '' },
+    { label: 'Submitted At', key: 'submitted_at', class: '' },
 ]
 
 function toggleSort(column: string) {
@@ -496,7 +495,24 @@ async function pollExport(id: number) {
 
         <Card>
             <div class="table-container">
-                <table class="table-custom">
+                <table
+                    class="table-custom"
+                    :style="`table-layout: fixed; width: ${1250 + 56 * coiQuestions.length}px`"
+                >
+                    <colgroup>
+                        <col style="width: 260px">
+                        <col style="width: 110px">
+                        <col style="width: 150px">
+                        <col style="width: 150px">
+                        <col style="width: 140px">
+                        <col style="width: 190px">
+                        <col
+                            v-for="question in coiQuestions"
+                            :key="question.key"
+                            style="width: 56px"
+                        >
+                        <col style="width: 250px">
+                    </colgroup>
                     <thead>
                         <tr
                             class="border-b border-border text-left text-xs uppercase tracking-wide text-slate-500"
@@ -524,7 +540,7 @@ async function pollExport(id: number) {
                                 Q{{ i + 1 }}
                             </th>
                             <th
-                                class="py-3 text-right sticky right-0 z-10 bg-slate-50 border-l border-border shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]"
+                                class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]"
                             >
                                 Action
                             </th>
@@ -537,13 +553,25 @@ async function pollExport(id: number) {
                             :key="declaration.row_id"
                             class="group border-b border-slate-100"
                         >
-                            <td class="py-4 whitespace-nowrap">
+                            <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
+                                <div
+                                    class="truncate font-medium text-slate-800"
+                                    :title="declaration.name"
+                                >
+                                    {{ declaration.name }}
+                                </div>
+                                <div class="mt-0.5 truncate text-xs text-slate-400">
+                                    {{ declaration.employee_id }}
+                                </div>
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap text-slate-600">
                                 {{ declaration.period }}
                             </td>
 
                             <td class="py-4">
                                 <span
-                                    class="inline-block rounded-md border px-2 py-1 text-xs font-medium"
+                                    class="inline-block whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium"
                                     :class="declaration.type === 'employee'
                                         ? 'border-blue-200 bg-blue-50 text-blue-700'
                                         : 'border-amber-200 bg-amber-50 text-amber-700'"
@@ -554,14 +582,6 @@ async function pollExport(id: number) {
                                             : 'Non Employee'
                                     }}
                                 </span>
-                            </td>
-
-                            <td class="py-4 font-medium text-slate-800 whitespace-nowrap">
-                                {{ declaration.name }}
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ declaration.employee_id }}
                             </td>
 
                             <td class="py-4">
@@ -618,11 +638,11 @@ async function pollExport(id: number) {
                             </td>
 
                             <td
-                                class="py-4 text-right sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] border-l border-border whitespace-nowrap shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]"
+                                class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]"
                             >
                                 <div
                                     v-if="declaration.status !== 'pending' && declaration.declaration"
-                                    class="flex items-center justify-end gap-2"
+                                    class="flex items-center justify-center gap-2"
                                 >
                                     <button
                                         type="button"
@@ -665,7 +685,7 @@ async function pollExport(id: number) {
                     <tbody v-else>
                         <tr>
                             <td
-                                :colspan="8 + coiQuestions.length"
+                                :colspan="7 + coiQuestions.length"
                                 class="py-10 text-center"
                             >
                                 <div class="flex flex-col items-center">
