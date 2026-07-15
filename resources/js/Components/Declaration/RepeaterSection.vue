@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { watch, watchEffect } from 'vue'
+import SearchSelect from '@/Components/SearchSelect.vue'
 
 interface FieldOption {
     value: string
@@ -299,23 +300,15 @@ const years = Array.from(
 
                     <!-- Select -->
 
-                    <select
+                    <SearchSelect
                         v-if="field.type === 'select'"
-                        :key="
-                            field.key === 'company'
-                                ? `company-${row.business_unit}`
-                                : field.key === 'department'
-                                    ? `department-${row.business_unit}`
-                                    : field.key
-                        "
                         v-model="row[field.key]"
-                        :class="[
-                            'w-full rounded-md border px-3 py-2 text-sm',
-                            getError(index, field.key)
-                                ? 'border-red-500 bg-red-50'
-                                : 'border-border'
-                        ]"
-                        @change="onSelectChange(row, field, index)"
+                        :options="getOptions(field, row)"
+                        placeholder="Select..."
+                        :disabled="field.disabled"
+                        @update:modelValue="
+                            onSelectChange(row, field, index)
+                        "
                     >
 
                         <option value="" selected disabled>
@@ -330,7 +323,7 @@ const years = Array.from(
                             {{ option.label }}
                         </option>
 
-                    </select>
+                    </SearchSelect>
 
                     <!-- Date Range -->
 
