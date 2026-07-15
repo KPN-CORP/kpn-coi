@@ -38,7 +38,7 @@ class StoreUserRequest extends FormRequest
 
             'nationality_type' => [
                 'required',
-                Rule::in(['indonesian', 'foreigner']),
+                Rule::in(['indonesian', 'Indonesian', 'foreigner']),
             ],
 
             'nationality' => [
@@ -51,8 +51,8 @@ class StoreUserRequest extends FormRequest
             'citizen_number' => [
                 'required',
                 Rule::when(
-                    $this->nationality_type === 'indonesian',
-                    ['digits:16'],
+                    $this->nationality_type === 'indonesian' || $this->nationality_type === 'Indonesian',
+                    ['min:15'],
                     ['max:10']
                 ),
             ],
