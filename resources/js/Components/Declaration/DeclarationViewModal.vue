@@ -34,6 +34,11 @@ function getFieldValue(
     fieldKey: string,
     value: any,
 ) {
+    // Multi-select values (e.g. company) arrive as an array of codes.
+    if (Array.isArray(value)) {
+        return value.join(', ')
+    }
+
     const question = getQuestionConfig(questionKey)
 
     const field = question?.fields.find(

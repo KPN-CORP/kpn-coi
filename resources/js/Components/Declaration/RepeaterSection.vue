@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { watch, watchEffect } from 'vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
+import MultiSelect from '@/Components/MultiSelect.vue'
 
 interface FieldOption {
     value: string
@@ -14,6 +15,8 @@ interface Field {
     type?: 'text' | 'select' | 'number' | 'date' | 'date_range' | 'year'
     min?: number
     max?: number
+    multiple?: boolean
+    disabled?: boolean
     options?: FieldOption[]
 }
 
@@ -117,24 +120,37 @@ function getOptions(
     }
 }
 
+// Options for a multi-select field (currently only "company"),
+// shaped for the MultiSelect component ({ code, name }).
+function getMultiOptions(
+    field: Field,
+    row: Record<string, any>,
+) {
+    if (field.key !== 'company' || !row.business_unit) {
+        return []
+    }
+
+    return props.companies
+        .filter(company =>
+            company.business_unit
+                .split(',')
+                .map(value => value.trim())
+                .includes(row.business_unit),
+        )
+        .map(company => ({
+            code: company.code,
+            name: company.name,
+        }))
+}
+
 function onSelectChange(
     row: Record<string, any>,
     field: Field,
     index: number,
 ) {
-
-    switch (field.key) {
-
-        case 'business_unit':
-
-            row.company = ''
-            row.department = ''
-
-            break
-
-        case 'company':
-
-            break
+    if (field.key === 'business_unit') {
+        // Reset the dependent company selection when the unit changes.
+        row.company = []
     }
 
     onInput(index, field.key)
@@ -317,10 +333,23 @@ const years = Array.from(
                         {{ field.label }}
                     </label>
 
+                    <!-- Multi Select -->
+
+                    <MultiSelect
+                        v-if="field.type === 'select' && field.multiple"
+                        :model-value="Array.isArray(row[field.key]) ? row[field.key] : []"
+                        :options="getMultiOptions(field, row)"
+                        placeholder="Select..."
+                        @update:modelValue="(val) => {
+                            row[field.key] = val
+                            onInput(index, field.key)
+                        }"
+                    />
+
                     <!-- Select -->
 
                     <SearchSelect
-                        v-if="field.type === 'select'"
+                        v-else-if="field.type === 'select'"
                         v-model="row[field.key]"
                         :options="getOptions(field, row)"
                         placeholder="Select..."

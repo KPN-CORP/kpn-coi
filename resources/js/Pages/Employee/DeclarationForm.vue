@@ -188,6 +188,10 @@ watch(
 )
 
 function isEmpty(value: unknown): boolean {
+    if (Array.isArray(value)) {
+        return value.length === 0
+    }
+
     return value === null || value === undefined || value === ''
 }
 
@@ -361,11 +365,7 @@ function validateForm(): boolean {
 
                 const value = detail[field.key]
 
-                if (
-                    value === null ||
-                    value === undefined ||
-                    value === ''
-                ) {
+                if (isEmpty(value)) {
 
                     clientErrors.value[key] =
                         'This field is required.'

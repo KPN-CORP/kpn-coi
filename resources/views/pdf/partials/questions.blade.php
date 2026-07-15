@@ -126,17 +126,29 @@ $noLabel = $locale === 'id' ? 'Tidak' : 'No';
                                             $field['key']
                                         );
 
-                                        $option = collect(
-                                            $field['options'] ?? []
-                                        )->firstWhere(
-                                            'value',
-                                            $valueSelected
-                                        );
+                                        if (is_array($valueSelected)) {
 
-                                        $display =
-                                            $option['label'][$locale]
-                                            ?? $option['label']['en']
-                                            ?? '-';
+                                            $names = collect($valueSelected)
+                                                ->map(fn ($code) => ($companyNames ?? [])[$code] ?? $code);
+
+                                            $display = $names->isNotEmpty()
+                                                ? $names->implode(', ')
+                                                : '-';
+
+                                        } else {
+
+                                            $option = collect(
+                                                $field['options'] ?? []
+                                            )->firstWhere(
+                                                'value',
+                                                $valueSelected
+                                            );
+
+                                            $display =
+                                                $option['label'][$locale]
+                                                ?? $option['label']['en']
+                                                ?? ($valueSelected ?: '-');
+                                        }
 
                                     } else {
 

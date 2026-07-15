@@ -313,6 +313,7 @@ return [
                 [
                     'key' => 'company',
                     'type' => 'select',
+                    'multiple' => true,
                     'label' => [
                         'id' => 'Perusahaan/PT Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
                         'en' => 'Company (Legal Entity) under the KPN Corporation Group Engaged in a Business Relationship',
@@ -320,7 +321,7 @@ return [
                 ],
                 [
                     'key' => 'department',
-                    'type' => 'select',
+                    'type' => 'text',
                     'label' => [
                         'id' => 'Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
                         'en' => 'Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
@@ -729,6 +730,7 @@ return [
                 [
                     'key' => 'company',
                     'type' => 'select',
+                    'multiple' => true,
                     'label' => [
                         'id' => 'Perusahaan/PT Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
                         'en' => 'Company (Legal Entity) under the KPN Corporation Group Engaged in a Business Relationship',
@@ -736,7 +738,7 @@ return [
                 ],
                 [
                     'key' => 'department',
-                    'type' => 'select',
+                    'type' => 'text',
                     'label' => [
                         'id' => 'Divisi/Departemen Dalam Grup KPN Corporation yang Memiliki Hubungan Bisnis',
                         'en' => 'Divisions/ Departments under the KPN Corporation Group Engaged in a Business Relationship',
