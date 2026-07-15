@@ -99,6 +99,9 @@ class ReportController extends Controller
                     ->orderByDesc('period')
                     ->pluck('period')
                     ->values(),
+
+                'companyNames' => \App\Models\Companies::query()
+                    ->pluck('contribution_level', 'contribution_level_code'),
             ]
         );
     }
