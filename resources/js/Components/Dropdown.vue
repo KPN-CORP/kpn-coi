@@ -43,7 +43,7 @@ const open = ref(false);
 </script>
 
 <template>
-    <div class="relative">
+    <div class="relative rounded-md border border-slate-500">
         <div @click="open = !open">
             <slot name="trigger" />
         </div>
@@ -68,13 +68,16 @@ const open = ref(false);
                 class="absolute z-50 mt-2 rounded-md shadow-lg"
                 :class="[widthClass, alignmentClasses]"
                 style="display: none"
-                @click="open = false"
+                @click.stop
             >
                 <div
                     class="rounded-md ring-1 ring-black ring-opacity-5"
                     :class="contentClasses"
                 >
-                    <slot name="content" />
+                    <slot
+                        name="content"
+                        :close="() => (open = false)"
+                    />
                 </div>
             </div>
         </Transition>
