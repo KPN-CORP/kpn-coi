@@ -218,7 +218,8 @@
     }
 </script>
 
-@include('pdf.partials.appendix')
+<!-- disable apendix -->
+<!-- @include('pdf.partials.appendix') -->
 
 {{-- @include('pdf.partials.footer') --}}
 
