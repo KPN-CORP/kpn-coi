@@ -123,9 +123,10 @@
 @include('pdf.partials.consent')
 
 @php
-    $date = $declaration->created_at->copy()->locale(
-        $locale === 'id' ? 'id' : 'en'
-    );
+    $date = $declaration->created_at
+        ->copy()
+        ->timezone('Asia/Jakarta')
+        ->locale($locale === 'id' ? 'id' : 'en');
 
     $footerText = $locale === 'id'
         ? 'Dideklarasikan oleh '

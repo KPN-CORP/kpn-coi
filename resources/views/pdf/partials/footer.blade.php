@@ -1,5 +1,10 @@
 @php
     $footer = config('coi.pdf_footer');
+
+    $footerDate = $declaration->created_at
+        ->copy()
+        ->timezone('Asia/Jakarta')
+        ->locale($locale === 'id' ? 'id' : 'en');
 @endphp
 
 @foreach($footer['paragraphs'] as $paragraph)
@@ -25,8 +30,8 @@
     {{ $declaration->user->employee->fullname }}
     <br>
     {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
-    {{ $declaration->created_at->locale($locale)->translatedFormat('d F Y') }}
+    {{ $footerDate->translatedFormat('d F Y') }}
     {{ $locale === 'id' ? 'Pukul' : 'at' }}
-    {{ $declaration->created_at->format('H:i:s') }}
+    {{ $footerDate->format('H:i:s') }}
 
 </div> --}}
