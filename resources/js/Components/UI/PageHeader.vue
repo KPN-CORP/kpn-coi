@@ -7,10 +7,10 @@ defineProps({
 
 <template>
     <div
-        class="mb-6 flex items-end justify-between"
+        class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
     >
         <div>
-            <h1 class="text-2xl font-bold">
+            <h1 class="text-xl font-bold sm:text-2xl">
                 {{ title }}
             </h1>
 
@@ -21,7 +21,7 @@ defineProps({
             </p>
         </div>
 
-        <div>
+        <div class="shrink-0">
             <slot name="actions" />
         </div>
     </div>

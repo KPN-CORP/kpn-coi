@@ -424,7 +424,7 @@ watch(
             title="Compliance Dashboard"
             description="Real-time overview of declaration submissions."
         />
-        <div class="mb-4 flex items-end justify-between">
+        <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div class="flex flex-wrap items-end gap-4">
 
                 <!-- Reporting Period -->

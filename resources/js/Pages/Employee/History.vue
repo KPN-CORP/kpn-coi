@@ -49,6 +49,10 @@ const props = defineProps<{
         links: any[]
         meta: {
             links: any[]
+            per_page: number
+            total: number
+            from: number | null
+            to: number | null
         }
     }
     periods: number[]
@@ -56,6 +60,20 @@ const props = defineProps<{
         period?: string
     }
 }>()
+
+function changePerPage(value: number) {
+    router.get(
+        route('employee.history'),
+        {
+            period: props.filters.period,
+            per_page: value,
+        },
+        {
+            preserveState: true,
+            replace: true,
+        },
+    )
+}
 
 function viewDeclaration(declaration: any) {
     
@@ -188,6 +206,7 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
                         route('employee.history'),
                         {
                             period: $event.target.value,
+                            per_page: props.declarations.meta.per_page,
                         },
                         {
                             preserveState: true,
@@ -298,6 +317,11 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
             </div>
             <Pagination
                 :links="props.declarations.meta.links"
+                :per-page="props.declarations.meta.per_page"
+                :total="props.declarations.meta.total"
+                :from="props.declarations.meta.from"
+                :to="props.declarations.meta.to"
+                @update:per-page="changePerPage"
             />
         </Card>
         <DeclarationViewModal

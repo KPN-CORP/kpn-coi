@@ -15,6 +15,12 @@ class HistoryController extends Controller
 {
     public function __invoke(Request $request): Response
     {
+        $perPage = (int) ($request->per_page ?? 10);
+
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 10;
+        }
+
         $declarations = CoiDeclaration::query()
             ->withCount('responses')
             ->where('user_id', $request->user()->id)
@@ -27,7 +33,7 @@ class HistoryController extends Controller
             )
             ->latest('period')
             ->latest('updated_at')
-            ->paginate(10)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render(

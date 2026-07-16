@@ -147,8 +147,8 @@ function exportExcel() {
             description="Direct reportees conflict of interest declarations tracking."
         />
 
-        <div class="mb-4 flex items-end justify-between">
-            <div class="flex flex-wrap items-end gap-4 mb-6">
+        <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div class="flex flex-wrap items-end gap-4">
 
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">

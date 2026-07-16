@@ -336,12 +336,12 @@ function applyFilter() {
             description="Manage non-HRIS users and imported accounts."
         >
             <template #actions>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
                     <input
                         v-model="filter.search"
                         type="text"
                         placeholder="Search user..."
-                        class="rounded-md border border-border px-3 py-2"
+                        class="min-w-0 flex-1 rounded-md border border-border px-3 py-2 sm:flex-none"
                         @input="applyFilter"
                     />
                     <button

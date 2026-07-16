@@ -346,9 +346,7 @@ async function pollExport(id: number) {
 
         <Card class="mb-6">
 
-            <div class="flex flex-wrap items-end justify-between gap-4">
-
-                <div class="flex flex-wrap items-end gap-4">
+            <div class="grid items-end gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
 
                     <!-- Reporting Period -->
                     <div class="flex flex-col gap-2">
@@ -358,7 +356,7 @@ async function pollExport(id: number) {
 
                         <select
                             v-model="filter.period"
-                            class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
                             @change="applyFilter"
                         >
                             <option
@@ -379,7 +377,7 @@ async function pollExport(id: number) {
 
                         <select
                             v-model="filter.type"
-                            class="rounded-md border border-border px-3 py-2 text-sm min-w-44"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
                             @change="onTypeChanged"
                         >
                             <option value="">
@@ -406,7 +404,7 @@ async function pollExport(id: number) {
 
                         <select
                             v-model="filter.business_unit"
-                            class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
                             @change="applyFilter"
                         >
                             <option value="">
@@ -431,7 +429,7 @@ async function pollExport(id: number) {
 
                         <select
                             v-model="filter.status"
-                            class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
                             @change="applyFilter"
                         >
                             <option value="">
@@ -462,13 +460,13 @@ async function pollExport(id: number) {
                             v-model="filter.search"
                             type="text"
                             placeholder="Employee Name / Employee ID"
-                            class="rounded-md border border-border px-3 py-2 text-sm min-w-64"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
                         >
                     </div>
 
                     <!-- Latest Submission -->
                     <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                        <label class="hidden text-sm font-medium text-slate-700 sm:block">
                             &nbsp;
                         </label>
 
@@ -484,8 +482,6 @@ async function pollExport(id: number) {
                             Latest Submission
                         </label>
                     </div>
-
-                </div>
 
             </div>
 

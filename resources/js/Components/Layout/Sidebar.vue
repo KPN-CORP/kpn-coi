@@ -9,6 +9,11 @@ defineProps<{
         icon: string
         route: string
     }[]
+    open?: boolean
+}>()
+
+defineEmits<{
+    close: []
 }>()
 
 function isActive(routeName: string) {
@@ -27,7 +32,8 @@ const groupedMenus = computed(() => {
 
 <template>
     <aside
-        class="fixed left-0 top-0 z-50 flex h-screen w-[260px] flex-col border-r border-border bg-white"
+        class="fixed left-0 top-0 z-50 flex h-screen w-[260px] flex-col border-r border-border bg-white transform transition-transform duration-200 ease-in-out lg:translate-x-0"
+        :class="open ? 'translate-x-0' : '-translate-x-full'"
     >
         <!-- Logo -->
 
@@ -43,6 +49,15 @@ const groupedMenus = computed(() => {
             >
                 KPN Compliance
             </span>
+
+            <!-- Mobile close button -->
+            <button
+                class="ml-auto text-slate-400 hover:text-primary lg:hidden"
+                aria-label="Close menu"
+                @click="$emit('close')"
+            >
+                <i class="fa-solid fa-xmark text-lg" />
+            </button>
         </div>
 
         <!-- Menu -->

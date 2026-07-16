@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import Sidebar from '@/Components/Layout/Sidebar.vue'
 import Topbar from '@/Components/Layout/Topbar.vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { router } from '@inertiajs/vue3'
 
 defineProps({
     navigation: {
@@ -18,16 +20,44 @@ defineProps({
     },
 })
 
+const sidebarOpen = ref(false)
+
+// Close the mobile drawer after navigating to a new page.
+let stopNavListener: (() => void) | undefined
+
+onMounted(() => {
+    stopNavListener = router.on('navigate', () => {
+        sidebarOpen.value = false
+    })
+})
+
+onUnmounted(() => {
+    stopNavListener?.()
+})
 </script>
 
 <template>
     <div class="flex min-h-screen bg-page">
-        <Sidebar :navigation="navigation" />
+        <Sidebar
+            :navigation="navigation"
+            :open="sidebarOpen"
+            @close="sidebarOpen = false"
+        />
 
-        <div class="ml-[260px] flex min-h-screen min-w-0 flex-1 flex-col">
-            <Topbar :user="user" />
+        <!-- Mobile backdrop -->
+        <div
+            v-if="sidebarOpen"
+            class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            @click="sidebarOpen = false"
+        />
 
-            <main class="min-w-0 p-6">
+        <div class="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-[260px]">
+            <Topbar
+                :user="user"
+                @toggle-sidebar="sidebarOpen = !sidebarOpen"
+            />
+
+            <main class="min-w-0 p-4 sm:p-6">
                 <slot />
             </main>
         </div>
