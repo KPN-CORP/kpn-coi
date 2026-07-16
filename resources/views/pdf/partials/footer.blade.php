@@ -25,6 +25,8 @@
     {{ $declaration->user->employee->fullname }}
     <br>
     {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
-    {{ $declaration->created_at->format('d F Y') }}
+    {{ $declaration->created_at->locale($locale)->translatedFormat('d F Y') }}
+    {{ $locale === 'id' ? 'Pukul' : 'at' }}
+    {{ $declaration->created_at->format('H:i:s') }}
 
 </div> --}}
