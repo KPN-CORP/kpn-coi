@@ -9,7 +9,7 @@
 
     <style>
         @page {
-            margin: 18mm 16mm 20mm 16mm;
+            margin: 18mm 16mm 40mm 16mm;
         }
 
         body {
@@ -148,12 +148,54 @@
     $pageTextAlign = $locale === 'id'
         ? 510
         : 535;
+
+    $formNumber = '003.FORM.CHC.III.2025';
+
+    $formNumberLabel = $locale === 'id' ? 'Nomor Form' : 'Form Number';
+
+    $notes = $locale === 'id'
+        ? [
+            'Pilih `Ya` pada jawaban yang sesuai.',
+            'Keluarga Inti adalah pasangan (suami/istri), orang tua, mertua, anak atau menantu yang terdaftar dalam dokumen kependudukan resmi yang dikeluarkan oleh negara.',
+            'Hubungan kekerabatan dalam 1 (satu) garis silsilah keluarga dan melibatkan 2 (dua) generasi yang dihitung mulai dari diri sendiri ke 2 (dua) generasi di atasnya (orang tua, mertua, kakek nenek dari diri sendiri dan pasangan), 2 (dua) generasi di bawahnya (anak, cucu) dan generasi setingkat (saudara kandung, pasangan).',
+        ]
+        : [
+            'Choose `Yes` on the appropriate answer.',
+            'The Immediate Family consists of the spouse (husband/wife), parents, parents-in-law, children, or children-in-law registered in the official civil documents issued by the state.',
+            'Kinship relationship within 1 (one) family lineage and involving 2 (two) generations, calculated from oneself to 2 (two) generations above (parents, parents-in-law, grandparents of oneself and spouse), 2 (two) generations below (children, grandchildren), and the same generation (siblings, spouse).',
+        ];
+
+    // Pre-wrap the notes into single lines so they can be drawn (and repeated
+    // on every page) via page_text, just above the footer line.
+    $noteLines = [];
+
+    foreach ($notes as $index => $note) {
+        $wrapped = wordwrap(($index + 1) . ') ' . $note, 140, "\n", true);
+
+        foreach (explode("\n", $wrapped) as $line) {
+            $noteLines[] = $line;
+        }
+    }
+
+    $noteLines[] = $formNumberLabel . ': ' . $formNumber;
 @endphp
 
 <script type="text/php">
     if (isset($pdf)) {
 
         $font = $fontMetrics->getFont('DejaVu Sans', 'normal');
+
+        // Footnotes + form number, repeated on every page above the footer.
+        @foreach($noteLines as $noteIndex => $noteLine)
+        $pdf->page_text(
+            45,
+            $pdf->get_height() - {{ 25 + (count($noteLines) - $noteIndex) * 9 }},
+            "{{ addslashes($noteLine) }}",
+            $font,
+            7,
+            [0, 0, 0]
+        );
+        @endforeach
 
         $pdf->page_text(
             120,
