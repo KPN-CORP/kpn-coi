@@ -32,9 +32,42 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CredentialController extends Controller
 {
+    /**
+     * Nationality is stored as a country name ("Indonesia", "Malaysia") to
+     * match the country list the form selects from. Anything not explicitly
+     * flagged foreigner is Indonesian -- the form only sends the country for
+     * foreigners, so it cannot be trusted to carry "Indonesia" itself.
+     */
+    private function resolveNationality(Request $request): string
+    {
+        return strtolower((string) $request->nationality_type) === 'foreigner'
+            ? (string) $request->nationality
+            : 'Indonesia';
+    }
+
     public function index(Request $request): Response
     {
         $search = $request->string('search');
+
+        $perPage = (int) ($request->per_page ?? 10);
+
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 10;
+        }
+
+        $sort = in_array(
+            $request->sort,
+            ['name', 'email', 'business_unit', 'date_of_joining'],
+            true
+        )
+            ? $request->sort
+            : 'name';
+
+        $direction = $request->direction === 'desc'
+            ? 'desc'
+            : 'asc';
+
+        $page = (int) $request->input('page', 1);
 
         $nonEmployees = NonEmployeeUser::query()
             ->select([
@@ -64,6 +97,18 @@ class CredentialController extends Controller
                     });
                 }
             )
+            // Business unit lives on the related non_employees row, so this
+            // filters through the relation rather than a users column.
+            ->when(
+                $request->filled('business_unit'),
+                fn ($query) => $query->whereHas(
+                    'employee',
+                    fn ($query) => $query->where(
+                        'group_company',
+                        $request->business_unit
+                    )
+                )
+            )
             ->get()
             ->map(fn ($user) => [
                 'id' => $user->id,
@@ -79,18 +124,24 @@ class CredentialController extends Controller
             ]);
             
 
+        // Rows are already in memory (the profile columns come from a relation),
+        // so sorting happens on the collection rather than in SQL.
         $users = $nonEmployees
-            ->sortBy('name')
+            ->sortBy(
+                fn ($user) => strtolower((string) $user[$sort]),
+                SORT_REGULAR,
+                $direction === 'desc'
+            )
             ->values();
 
         $paginated = new LengthAwarePaginator(
-            $users->forPage(
-                request('page', 1),
-                10
-            ),
+            // values() matters: forPage() keeps the original keys, so from page
+            // two on the slice would serialize as a JSON object instead of an
+            // array and the table would render empty.
+            $users->forPage($page, $perPage)->values(),
             $users->count(),
-            10,
-            request('page', 1),
+            $perPage,
+            $page,
             [
                 'path' => request()->url(),
                 'query' => request()->query(),
@@ -112,6 +163,10 @@ class CredentialController extends Controller
 
                 'filters' => [
                     'search' => $request->search,
+                    'business_unit' => $request->business_unit,
+                    'sort' => $sort,
+                    'direction' => $direction,
+                    'per_page' => $perPage,
                 ],
             ]
         );
@@ -141,9 +196,7 @@ class CredentialController extends Controller
                     'permanent_address' => $request->address,
                     'group_company' => $request->business_unit,
                     'date_of_joining' => $request->date_of_joining,
-                    'nationality' => $request->nationality_type === 'indonesian'
-                    ? 'Indonesian'
-                    : $request->nationality,
+                    'nationality' => $this->resolveNationality($request),
                 ]);
 
                 DB::afterCommit(function () use ($user, $password, $request) {
@@ -195,9 +248,7 @@ class CredentialController extends Controller
 
                 'date_of_joining' => $request->date_of_joining,
 
-                'nationality' => $request->nationality_type === 'indonesian' || $request->nationality_type === 'Indonesian'
-                    ? 'Indonesian'
-                    : $request->nationality,
+                'nationality' => $this->resolveNationality($request),
             ]);
         
             });

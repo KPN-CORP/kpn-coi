@@ -301,20 +301,79 @@ const props = defineProps<{
     users: {
         data: User[]
         links: any[]
-        meta: any
+        per_page: number
+        total: number
+        from: number | null
+        to: number | null
     }
 
     businessUnitOptions: string[]
 
     filters: {
         search?: string
+        business_unit?: string
+        sort?: string
+        direction?: string
+        per_page?: number
     }
 }>()
 
 
 const filter = useForm({
     search: props.filters.search ?? '',
+    business_unit: props.filters.business_unit ?? '',
+    sort: props.filters.sort ?? 'name',
+    direction: props.filters.direction ?? 'asc',
+    per_page: props.filters.per_page ?? 10,
 })
+
+const sortableColumns = [
+    { label: 'Name', key: 'name' },
+    { label: 'Email', key: 'email' },
+    { label: 'Business Unit', key: 'business_unit' },
+    { label: 'Date Of Join', key: 'date_of_joining' },
+]
+
+function formatDate(date: string | null) {
+    if (!date) {
+        return '-'
+    }
+
+    const d = new Date(date)
+
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+
+    return `${day}-${month}-${year}`
+}
+
+function toggleSort(column: string) {
+    if (filter.sort === column) {
+        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
+    } else {
+        filter.sort = column
+        filter.direction = 'asc'
+    }
+
+    applyFilter()
+}
+
+function sortIcon(column: string) {
+    if (filter.sort !== column) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return filter.direction === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
+}
+
+function changePerPage(value: number) {
+    filter.per_page = value
+
+    applyFilter()
+}
 
 function applyFilter() {
     router.get(
@@ -337,6 +396,24 @@ function applyFilter() {
         >
             <template #actions>
                 <div class="flex flex-wrap gap-2">
+                    <select
+                        v-model="filter.business_unit"
+                        class="min-w-40 rounded-md border border-border px-3 py-2 text-sm"
+                        @change="applyFilter"
+                    >
+                        <option value="">
+                            All Business Unit
+                        </option>
+
+                        <option
+                            v-for="item in businessUnitOptions"
+                            :key="item"
+                            :value="item"
+                        >
+                            {{ item }}
+                        </option>
+                    </select>
+
                     <input
                         v-model="filter.search"
                         type="text"
@@ -372,12 +449,16 @@ function applyFilter() {
                                 No
                             </th>
 
-                            <th class="py-3">
-                                Name
-                            </th>
-
-                            <th class="py-3">
-                                Email
+                            <th
+                                v-for="col in sortableColumns"
+                                :key="col.key"
+                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
+                                @click="toggleSort(col.key)"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </span>
                             </th>
 
                             <th class="py-3">
@@ -393,7 +474,7 @@ function applyFilter() {
                             class="border-b border-slate-100"
                         >
                             <td class="py-4 font-medium">
-                                {{ index + 1 }}
+                                {{ (props.users.from ?? 1) + index }}
                             </td>
 
                             <td class="py-4">
@@ -414,22 +495,33 @@ function applyFilter() {
                             </td>
 
                             <td class="py-4">
+                                {{ user.business_unit || '-' }}
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap">
+                                {{ formatDate(user.date_of_joining) }}
+                            </td>
+
+                            <td class="py-4">
                                 <div
                                     v-if="user.type === 'non_employee'"
                                     class="flex gap-2"
                                 >
-                                    <button
-                                        class="rounded-md border border-slate-300 px-3 py-1 text-sm"
+                                    <button                                    
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
                                         @click="openEditModal(user)"
                                     >
-                                        Edit
+                                        
+                                        <i class="fa-solid fa-pencil" /> Edit
                                     </button>
 
-                                    <button
-                                        class="rounded-md border border-red-300 px-3 py-1 text-sm text-red-600"
+                                    <button                     
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
                                         @click="openDeleteModal(user)"
-                                    >
-                                        Delete
+                                    >                                        
+                                        <i class="fa-solid fa-trash" /> Delete
                                     </button>
                                 </div>
 
@@ -445,7 +537,7 @@ function applyFilter() {
                     <tbody v-else>
                         <tr>
                             <td
-                                colspan="5"
+                                colspan="6"
                                 class="py-10 text-center text-slate-500"
                             >
                                 No users found.
@@ -455,8 +547,13 @@ function applyFilter() {
                 </table>
             </div>
             <Pagination
-                        :links="props.users.links"
-                    />
+                :links="props.users.links"
+                :per-page="props.users.per_page"
+                :total="props.users.total"
+                :from="props.users.from"
+                :to="props.users.to"
+                @update:per-page="changePerPage"
+            />
         </Card>
         <UserFormModal
             :show="showUserModal"

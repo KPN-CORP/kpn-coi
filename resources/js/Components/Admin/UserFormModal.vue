@@ -49,7 +49,11 @@ const emit = defineEmits<{
 }>()
 
 function isIndonesian(nationality?: string | null): boolean {
-    return nationality?.trim().toLowerCase() === 'indonesian'
+    const value = nationality?.trim().toLowerCase()
+
+    // "Indonesian" is legacy data written before nationality became a country
+    // name; still recognised so existing records open as Indonesian.
+    return value === 'indonesia' || value === 'indonesian'
 }
 
 const form = useForm({
@@ -84,38 +88,69 @@ const errors = reactive({
     date_of_joining: '',
 })
 
+// Per-type scratch values. Switching between Indonesian and Foreigner keeps
+// what was typed for the other type, so toggling back and forth before saving
+// does not silently discard it.
+const stash = reactive({
+    Indonesian: {
+        citizen_number: '',
+    },
+
+    foreigner: {
+        citizen_number: '',
+        nationality: '',
+    },
+})
+
+function resetFromUser(user?: User | null) {
+
+    const isLocal =
+        isIndonesian(user?.nationality) || !user?.nationality
+
+    form.defaults({
+        name: user?.name ?? '',
+        email: user?.email ?? '',
+        citizen_number: user?.citizen_number ?? '',
+        address: user?.address ?? '',
+        business_unit: user?.business_unit ?? '',
+        date_of_joining: user?.date_of_joining ?? '',
+        nationality_type: isLocal ? 'Indonesian' : 'foreigner',
+        nationality: isLocal ? '' : (user?.nationality ?? ''),
+    })
+
+    form.reset()
+
+    form.clearErrors()
+
+    // Seed the stash from the saved record so the first switch away and back
+    // restores the stored values rather than blanks.
+    stash.Indonesian.citizen_number = isLocal
+        ? (user?.citizen_number ?? '')
+        : ''
+
+    stash.foreigner.citizen_number = isLocal
+        ? ''
+        : (user?.citizen_number ?? '')
+
+    stash.foreigner.nationality = isLocal
+        ? ''
+        : (user?.nationality ?? '')
+
+    resettingPassword.value = false
+
+    Object.keys(errors).forEach(
+        key => errors[key as keyof typeof errors] = ''
+    )
+}
+
+// Reopening the modal for the same user does not change props.user, so
+// discarded edits would survive into the next open. Reset on every open.
 watch(
-    () => props.user,
-    (user) => {
-
-        const nationality = user?.nationality?.trim().toLowerCase()
-
-        form.defaults({
-            name: user?.name ?? '',
-            email: user?.email ?? '',
-            citizen_number: user?.citizen_number ?? '',
-            address: user?.address ?? '',
-            business_unit: user?.business_unit ?? '',
-            date_of_joining: user?.date_of_joining ?? '',
-            nationality_type: isIndonesian(user?.nationality) || !user?.nationality
-                ? 'Indonesian'
-                : 'foreigner',
-
-            nationality: isIndonesian(user?.nationality)
-                ? ''
-                : (user?.nationality ?? ''),
-        })
-
-        form.reset()
-
-        form.clearErrors()
-
-        resettingPassword.value = false
-
-        Object.keys(errors).forEach(
-            key => errors[key as keyof typeof errors] = ''
-        )
-
+    () => [props.show, props.user],
+    () => {
+        if (props.show) {
+            resetFromUser(props.user)
+        }
     },
     {
         immediate: true,
@@ -350,23 +385,48 @@ watch(() => form.address, () => {
     form.clearErrors('address')
 })
 
-watch(
-    () => form.nationality_type,
-    (value) => {
-        errors.nationality_type = ''
-        errors.nationality = ''
+/**
+ * Driven from the radio's @change rather than a watcher: a watcher also fires
+ * when form.reset() rewrites the type programmatically, which would stash the
+ * freshly reset values under the wrong type.
+ */
+function setNationalityType(value: string) {
 
-        form.clearErrors(
-            'nationality_type',
-            'nationality',
-            'citizen_number'
-        )
+    const current = form.nationality_type
 
-        if (value === 'Indonesian') {
-            form.nationality = ''
-        }
+    if (current === value) {
+        return
     }
-)
+
+    // Keep what is being left behind...
+    if (current === 'Indonesian') {
+        stash.Indonesian.citizen_number = form.citizen_number
+    } else {
+        stash.foreigner.citizen_number = form.citizen_number
+        stash.foreigner.nationality = form.nationality
+    }
+
+    form.nationality_type = value
+
+    // ...and bring back whatever that type had before.
+    if (value === 'Indonesian') {
+        form.citizen_number = stash.Indonesian.citizen_number
+        form.nationality = ''
+    } else {
+        form.citizen_number = stash.foreigner.citizen_number
+        form.nationality = stash.foreigner.nationality
+    }
+
+    errors.nationality_type = ''
+    errors.nationality = ''
+    errors.citizen_number = ''
+
+    form.clearErrors(
+        'nationality_type',
+        'nationality',
+        'citizen_number'
+    )
+}
 
 watch(() => form.nationality, () => {
     errors.nationality = ''
@@ -472,21 +532,25 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <span class="text-red-500">*</span>
                     </label>
 
-                    <div class="flex flex-wrap items-center gap-6 py-1">
+                    <div class="grid grid-cols-2 gap-3">
                         <label
                             v-for="option in [
                                 { value: 'Indonesian', label: 'Indonesian' },
                                 { value: 'foreigner', label: 'Foreigner' },
                             ]"
                             :key="option.value"
-                            class="flex cursor-pointer items-center gap-2 text-sm"
+                            class="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-3 text-sm transition"
+                            :class="form.nationality_type === option.value
+                                ? 'border-primary bg-red-50 font-bold text-primary'
+                                : 'border-border hover:bg-red-50 hover:text-primary'"
                         >
                             <input
-                                v-model="form.nationality_type"
                                 type="radio"
                                 name="nationality_type"
                                 :value="option.value"
+                                :checked="form.nationality_type === option.value"
                                 class="h-4 w-4 border-border text-primary focus:ring-primary"
+                                @change="setNationalityType(option.value)"
                             >
                             {{ option.label }}
                         </label>
@@ -500,73 +564,83 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     </p>
                 </div>
 
-                <div v-if="form.nationality_type === 'foreigner'">
-                    <label class="mb-1 block text-sm font-medium">
-                        Country of Nationality
-                        <span class="text-red-500">*</span>
-                    </label>
+                <!--
+                    Foreigners need both country and passport, so they share a
+                    row. Indonesians only have the KTP field, which keeps the
+                    full width.
+                -->
+                <div
+                    :class="form.nationality_type === 'foreigner'
+                        ? 'grid gap-4 sm:grid-cols-2'
+                        : ''"
+                >
+                    <div v-if="form.nationality_type === 'foreigner'">
+                        <label class="mb-1 block text-sm font-medium">
+                            Country of Nationality
+                            <span class="text-red-500">*</span>
+                        </label>
 
-                    <SearchSelect
-                        v-model="form.nationality"
-                        :options="nationalityOptions"
-                        placeholder="Select nationality..."
-                    />
+                        <SearchSelect
+                            v-model="form.nationality"
+                            :options="nationalityOptions"
+                            placeholder="Select nationality..."
+                        />
 
-                    <p
-                        v-if="getError('nationality')"
-                        class="mt-1 text-xs text-red-500"
-                    >
-                        {{ getError('nationality') }}
-                    </p>
+                        <p
+                            v-if="getError('nationality')"
+                            class="mt-1 text-xs text-red-500"
+                        >
+                            {{ getError('nationality') }}
+                        </p>
+                    </div>
+
+                    <!-- Citizenship Number -->
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            {{
+                                form.nationality_type === 'Indonesian'
+                                    ? 'Citizenship Number (KTP)'
+                                    : 'Passport ID'
+                            }}
+                            <span class="text-red-500">*</span>
+                        </label>
+
+                        <input
+                            v-model="form.citizen_number"
+                            type="text"
+                            :maxlength="form.nationality_type === 'Indonesian' || form.nationality_type === 'indonesian' ? 16 : 10"
+                            @input="onCitizenNumberInput"
+                            :class="[
+                                'w-full rounded-md border px-3 py-2',
+                                hasError('citizen_number')
+                                    ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                    : 'border-border'
+                            ]"
+                        />
+
+                        <p
+                            v-if="form.nationality_type === 'Indonesian'"
+                            class="mt-1 text-xs text-slate-500"
+                        >
+                            Must contain 16 digits.
+                        </p>
+
+                        <p
+                            v-else
+                            class="mt-1 text-xs text-slate-500"
+                        >
+                            Maximum 10 characters.
+                        </p>
+
+                        <p
+                            v-if="getError('citizen_number')"
+                            class="mt-1 text-xs text-red-500"
+                        >
+                            {{ getError('citizen_number') }}
+                        </p>
+                    </div>
                 </div>
-
-                <!-- Citizenship Number -->
-
-                <div>
-                    <label class="mb-1 block text-sm font-medium">
-                        {{
-                            form.nationality_type === 'Indonesian'
-                                ? 'Citizenship Number (KTP)'
-                                : 'Passport ID'
-                        }}
-                        <span class="text-red-500">*</span>
-                    </label>
-
-                    <input
-                        v-model="form.citizen_number"
-                        type="text"
-                        :maxlength="form.nationality_type === 'Indonesian' || form.nationality_type === 'indonesian' ? 16 : 10"
-                        @input="onCitizenNumberInput"
-                        :class="[
-                            'w-full rounded-md border px-3 py-2',
-                            hasError('citizen_number')
-                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                                : 'border-border'
-                        ]"
-                    />
-
-                    <p
-                        v-if="form.nationality_type === 'Indonesian'"
-                        class="mt-1 text-xs text-slate-500"
-                    >
-                        Must contain 16 digits.
-                    </p>
-
-                    <p
-                        v-else
-                        class="mt-1 text-xs text-slate-500"
-                    >
-                        Maximum 10 characters.
-                    </p>
-
-                    <p
-                        v-if="getError('citizen_number')"
-                        class="mt-1 text-xs text-red-500"
-                    >
-                        {{ getError('citizen_number') }}
-                    </p>
-                </div>
-                
 
                 <!-- Business Unit -->
                 <div :class="[
