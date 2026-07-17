@@ -111,6 +111,7 @@ interface User {
     citizen_number: string
     address: string
     business_unit: string
+    location_id: number | null
     date_of_joining: string
 }
 
@@ -308,6 +309,12 @@ const props = defineProps<{
     }
 
     businessUnitOptions: string[]
+
+    locationOptions: {
+        id: number
+        business_unit: string | null
+        label: string
+    }[]
 
     filters: {
         search?: string
@@ -560,6 +567,7 @@ function applyFilter() {
             :title="modalTitle"
             :user="selectedUser"
             :businessUnitOptions="businessUnitOptions"
+            :locationOptions="locationOptions"
             @close="showUserModal = false"
             @save="saveUser"
             @reset-password="resetPassword"

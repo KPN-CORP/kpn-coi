@@ -20,7 +20,17 @@ class NonEmployee extends Model
         'ktp',
         'nationality',
         'group_company',
+        'location_id',
     ];
+
+    /**
+     * Soft link: locations lives in the kpncorp database, so there is no FK.
+     * Eloquent still resolves it -- Location declares its own connection.
+     */
+    public function location()
+    {
+        return $this->belongsTo(Location::class, 'location_id');
+    }
 
 
     /**

@@ -17,6 +17,7 @@ use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Imports\NonEmployeeUserImport;
 use App\Models\Employee;
+use App\Models\Location;
 use App\Services\CredentialImportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -118,6 +119,7 @@ class CredentialController extends Controller
                 'email' => $user->email,
                 'citizen_number' => $user?->employee?->ktp,
                 'business_unit' => $user?->employee?->group_company,
+                'location_id' => $user?->employee?->location_id,
                 'date_of_joining' => $user?->employee?->date_of_joining,
                 'address' => $user?->employee?->permanent_address,
                 'nationality' => $user?->employee?->nationality,
@@ -154,12 +156,27 @@ class CredentialController extends Controller
             ->orderBy('group_company')
             ->pluck('group_company');
 
+        // Small enough (a few hundred) to hand over whole and filter in the
+        // form. company_name is translated to the app's business unit naming
+        // here so the frontend can match it against the selected unit directly.
+        $locationOptions = Location::query()
+            ->select(['id', 'company_name', 'area', 'city', 'state'])
+            ->orderBy('company_name')
+            ->orderBy('area')
+            ->get()
+            ->map(fn (Location $location) => [
+                'id' => $location->id,
+                'business_unit' => Location::businessUnitFor($location->company_name),
+                'label' => $location->label,
+            ])
+            ->values();
 
         return Inertia::render(
             'Admin/Credentials',
             [
                 'users' => $paginated,
                 'businessUnitOptions' => $businessUnitOptions,
+                'locationOptions' => $locationOptions,
 
                 'filters' => [
                     'search' => $request->search,
@@ -195,6 +212,7 @@ class CredentialController extends Controller
                     'ktp' => $request->citizen_number,
                     'permanent_address' => $request->address,
                     'group_company' => $request->business_unit,
+                    'location_id' => $request->location_id,
                     'date_of_joining' => $request->date_of_joining,
                     'nationality' => $this->resolveNationality($request),
                 ]);
@@ -245,6 +263,8 @@ class CredentialController extends Controller
                 'permanent_address' => $request->address,
 
                 'group_company' => $request->business_unit,
+
+                'location_id' => $request->location_id,
 
                 'date_of_joining' => $request->date_of_joining,
 

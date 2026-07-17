@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Location;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -61,7 +62,21 @@ class UpdateUserRequest extends FormRequest
             'business_unit' => [
                 'required',
             ],
-            
+
+            // locations lives in the kpncorp database, so no FK backs this --
+            // the rule is the only guard that the id exists and belongs to the
+            // selected business unit.
+            'location_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('kpncorp.locations', 'id')->where(
+                    fn ($query) => $query->where(
+                        'company_name',
+                        Location::companyNameFor($this->business_unit)
+                    )
+                ),
+            ],
+
             'date_of_joining' => [
                 'required',
             ],

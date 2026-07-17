@@ -30,8 +30,15 @@ interface User {
     citizen_number: string
     address: string
     business_unit: string
+    location_id: number | null
     date_of_joining: string
     nationality: string
+}
+
+interface LocationOption {
+    id: number
+    business_unit: string | null
+    label: string
 }
 
 const props = defineProps<{
@@ -40,7 +47,20 @@ const props = defineProps<{
     user?: User |null
     serverErrors: Record<string, string>
     businessUnitOptions: string[]
+    locationOptions: LocationOption[]
 }>()
+
+// Locations belong to a business unit, so the list only makes sense once one
+// is picked. The server already translated company_name into the app's
+// business unit naming, so this is a straight match.
+const locationsForBusinessUnit = computed(() =>
+    props.locationOptions
+        .filter(location => location.business_unit === form.business_unit)
+        .map(location => ({
+            value: location.id,
+            label: location.label,
+        })),
+)
 
 const emit = defineEmits<{
     close: []
@@ -63,6 +83,7 @@ const form = useForm({
     role: 'employee',
     address: '',
     business_unit: '',
+    location_id: props.user?.location_id ?? null,
     date_of_joining: '',
     nationality_type: isIndonesian(props.user?.nationality)
         ? 'Indonesian'
@@ -83,6 +104,7 @@ const errors = reactive({
     citizen_number: '',
     address: '',
     business_unit: '',
+    location_id: '',
     nationality_type: '',
     nationality: '',
     date_of_joining: '',
@@ -113,6 +135,7 @@ function resetFromUser(user?: User | null) {
         citizen_number: user?.citizen_number ?? '',
         address: user?.address ?? '',
         business_unit: user?.business_unit ?? '',
+        location_id: user?.location_id ?? null,
         date_of_joining: user?.date_of_joining ?? '',
         nationality_type: isLocal ? 'Indonesian' : 'foreigner',
         nationality: isLocal ? '' : (user?.nationality ?? ''),
@@ -386,6 +409,27 @@ watch(() => form.address, () => {
 })
 
 /**
+ * Same reasoning as setNationalityType: driven from @change, not a watcher, so
+ * that form.reset() does not wipe the location it just restored.
+ */
+function setBusinessUnit(value: string) {
+
+    if (form.business_unit === value) {
+        return
+    }
+
+    form.business_unit = value
+
+    // A location from the previous unit would not be valid under the new one.
+    form.location_id = null
+
+    errors.business_unit = ''
+    errors.location_id = ''
+
+    form.clearErrors('business_unit', 'location_id')
+}
+
+/**
  * Driven from the radio's @change rather than a watcher: a watcher also fires
  * when form.reset() rewrites the type programmatically, which would stash the
  * freshly reset values under the wrong type.
@@ -651,8 +695,9 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     </label>
 
                     <select
-                        v-model="form.business_unit"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                        :value="form.business_unit"
+                        class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                        @change="setBusinessUnit(($event.target as HTMLSelectElement).value)"
                     >
                         <option value="">
                             All Business Unit
@@ -672,6 +717,30 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         class="text-xs text-red-500"
                     >
                         {{ getError('business_unit') }}
+                    </p>
+                </div>
+
+                <!--
+                    Location is scoped to the selected business unit: nothing to
+                    show before one is picked, and some units (KPN Sugar) have no
+                    locations at all, so the field is hidden rather than shown empty.
+                -->
+                <div v-if="locationsForBusinessUnit.length">
+                    <label class="mb-1 block text-sm font-medium">
+                        Location
+                    </label>
+
+                    <SearchSelect
+                        v-model="form.location_id"
+                        :options="locationsForBusinessUnit"
+                        placeholder="Select location..."
+                    />
+
+                    <p
+                        v-if="getError('location_id')"
+                        class="mt-1 text-xs text-red-500"
+                    >
+                        {{ getError('location_id') }}
                     </p>
                 </div>
 
