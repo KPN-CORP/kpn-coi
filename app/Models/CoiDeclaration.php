@@ -34,6 +34,16 @@ class CoiDeclaration extends Model
         'status' => DeclarationStatus::class,
     ];
 
+    /**
+     * user_id is ambiguous on its own: `type` decides which database it
+     * points at. Both users tables auto-increment from 1, so their ids
+     * overlap -- reading the wrong relation returns a real but wrong person.
+     *
+     *   type = employee     -> user_id references kpncorp.users.id
+     *   type = non_employee -> user_id references (local) users.id
+     *
+     * Always branch on `type`, or use declarant() which does it for you.
+     */
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -42,6 +52,17 @@ class CoiDeclaration extends Model
     public function nonEmployeeUser()
     {
         return $this->belongsTo(NonEmployeeUser::class, 'user_id');
+    }
+
+    /**
+     * Resolve the declarant from the correct database based on `type`.
+     * A cross-database morphTo is not possible, so this switches explicitly.
+     */
+    public function declarant(): User|NonEmployeeUser|null
+    {
+        return $this->type === 'employee'
+            ? $this->user
+            : $this->nonEmployeeUser;
     }
 
     public function employee(): BelongsTo

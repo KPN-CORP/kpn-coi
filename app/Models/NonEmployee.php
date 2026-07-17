@@ -12,6 +12,7 @@ class NonEmployee extends Model
     protected $table = 'non_employees';
 
     protected $fillable = [
+        'user_id',
         'fullname',
         'email',
         'date_of_joining',
@@ -22,16 +23,21 @@ class NonEmployee extends Model
     ];
 
 
+    /**
+     * Declarations belong to the user, not to this profile row, so the local
+     * key must be user_id -- coi_declarations.user_id references users.id.
+     */
     public function coiDeclaration()
     {
         return $this->hasMany(
             CoiDeclaration::class,
+            'user_id',
             'user_id'
         )->where('type', 'non_employee');
     }
 
     public function user()
     {
-        return $this->belongsTo(NonEmployeeUser::class);
+        return $this->belongsTo(NonEmployeeUser::class, 'user_id');
     }
 }

@@ -1,8 +1,27 @@
 <script setup lang="ts">
-import { watch, reactive, ref } from 'vue'
+import { watch, reactive, ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/UI/Modal.vue'
+import SearchSelect from '@/Components/SearchSelect.vue'
+import countries from '@/Config/countries.json'
 import Swal from 'sweetalert2'
+
+// Stored value is the demonym string ("Malaysian"), matching existing data.
+// Deduplicated: some nationalities cover more than one country (Congolese,
+// Dominican), and a repeated value would collide as a v-for key.
+// Indonesia is excluded -- that is the other radio.
+const nationalityOptions = [
+    ...new Set(
+        countries
+            .filter(country => country.code !== 'ID')
+            .map(country => country.country),
+    ),
+]
+    .sort((a, b) => a.localeCompare(b))
+    .map(nationality => ({
+        value: nationality,
+        label: nationality,
+    }))
 
 interface User {
     id?: number
@@ -161,7 +180,7 @@ function validate() {
 
     if (
         form.nationality_type === 'foreigner' &&
-        !form.nationality.trim()
+        !form.nationality?.trim()
     ) {
 
         errors.nationality =
@@ -349,6 +368,11 @@ watch(
     }
 )
 
+watch(() => form.nationality, () => {
+    errors.nationality = ''
+    form.clearErrors('nationality')
+})
+
 watch(() => form.name, () => errors.name = '')
 watch(() => form.email, () => errors.email = '')
 watch(() => form.citizen_number, () => errors.citizen_number = '')
@@ -448,30 +472,44 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <span class="text-red-500">*</span>
                     </label>
 
-                    <select
-                        v-model="form.nationality_type"
-                        class="w-full rounded-md border border-border px-3 py-2"
-                    >
-                        <option value="Indonesian">
-                            Indonesian
-                        </option>
+                    <div class="flex flex-wrap items-center gap-6 py-1">
+                        <label
+                            v-for="option in [
+                                { value: 'Indonesian', label: 'Indonesian' },
+                                { value: 'foreigner', label: 'Foreigner' },
+                            ]"
+                            :key="option.value"
+                            class="flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                            <input
+                                v-model="form.nationality_type"
+                                type="radio"
+                                name="nationality_type"
+                                :value="option.value"
+                                class="h-4 w-4 border-border text-primary focus:ring-primary"
+                            >
+                            {{ option.label }}
+                        </label>
+                    </div>
 
-                        <option value="foreigner">
-                            Foreigner
-                        </option>
-                    </select>
+                    <p
+                        v-if="getError('nationality_type')"
+                        class="mt-1 text-xs text-red-500"
+                    >
+                        {{ getError('nationality_type') }}
+                    </p>
                 </div>
 
                 <div v-if="form.nationality_type === 'foreigner'">
-                    <input
+                    <label class="mb-1 block text-sm font-medium">
+                        Country of Nationality
+                        <span class="text-red-500">*</span>
+                    </label>
+
+                    <SearchSelect
                         v-model="form.nationality"
-                        type="text"
-                        :class="[
-                            'w-full rounded-md border px-3 py-2',
-                            hasError('nationality')
-                                ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                                : 'border-border'
-                        ]"
+                        :options="nationalityOptions"
+                        placeholder="Select nationality..."
                     />
 
                     <p

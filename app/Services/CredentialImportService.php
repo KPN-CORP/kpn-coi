@@ -46,14 +46,14 @@ class CredentialImportService
             );
 
             $citizenNumber = trim(
-                (string) $row['citizen_numberpassport_number']
+                (string) $row['citizen_number_passport_number']
             );
 
             $businessUnit = trim(
                 (string) $row['business_unit']
             );
             $doj = trim(
-                (string) $row['date_of_joining']
+                (string) $row['date_of_join']
             );
 
             $address = trim(
@@ -74,7 +74,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
 
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -100,7 +100,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -126,7 +126,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -138,7 +138,7 @@ class CredentialImportService
 
             }
 
-            if (blank($row['date_of_joining'])) {
+            if (blank($row['date_of_join'])) {
 
                 $errors->push([
 
@@ -152,7 +152,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -191,7 +191,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
 
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -220,7 +220,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -250,7 +250,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -287,7 +287,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -320,7 +320,7 @@ class CredentialImportService
 
                     'business_unit' => $businessUnit,
                     
-                    'date_of_joining' => $doj,
+                    'date_of_join' => $doj,
 
                     'address' => $address,
 
@@ -370,25 +370,29 @@ class CredentialImportService
 
                     'email' => trim($row['email']),
 
+                    // KTP is the only identity stable across promotion: email
+                    // moves to the office domain and ids differ per database.
+                    // 'citizen_number' => trim((string) $row['citizen_number_passport_number']),
+
                     'password' => Hash::make($password),
 
                 ]);
 
                 NonEmployee::query()->create([
 
-                    'id' => $user->id,
+                    'user_id' => $user->id,
 
                     'fullname' => trim($row['fullname']),
 
                     'email' => trim($row['email']),
 
-                    'ktp' => trim((string) $row['citizen_numberpassport_number']),
+                    'ktp' => trim((string) $row['citizen_number_passport_number']),
 
-                    'business_unit' => trim($row['business_unit']),
-                    
+                    'group_company' => trim($row['business_unit']),
+
                     'date_of_joining' => Carbon::createFromFormat(
                                             'd-m-Y',
-                                            trim($row['date_of_joining'])
+                                            trim($row['date_of_join'])
                                         )->format('Y-m-d'),
 
                     'permanent_address' => trim($row['permanent_address']),

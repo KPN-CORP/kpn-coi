@@ -39,9 +39,13 @@ class CredentialController extends Controller
         $nonEmployees = NonEmployeeUser::query()
             ->select([
                 'id',
+                'employee_id',
                 'name',
                 'email',
             ])
+            // Non-employees are users with no HRIS link yet. Once employee_id
+            // is set the profile is sourced from kpncorp.employees instead.
+            ->whereNull('employee_id')
             ->with('employee')
             ->when(
                 $search->isNotEmpty(),
@@ -64,7 +68,7 @@ class CredentialController extends Controller
             ->map(fn ($user) => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'employee_id' => null,
+                'employee_id' => $user->employee_id,
                 'type' => 'non_employee',
                 'email' => $user->email,
                 'citizen_number' => $user?->employee?->ktp,
@@ -123,11 +127,14 @@ class CredentialController extends Controller
                 $user = NonEmployeeUser::query()->create([
                     'name' => $request->name,
                     'email' => $request->email,
+                    // KTP is the only identity stable across promotion: email
+                    // moves to the office domain and ids differ per database.
+                    // 'citizen_number' => $request->citizen_number,
                     'password' => Hash::make($password),
                 ]);
 
                 NonEmployee::query()->create([
-                    'id' => $user->id,
+                    'user_id' => $user->id,
                     'fullname' => $request->name,
                     'email' => $request->email,
                     'ktp' => $request->citizen_number,
@@ -173,7 +180,7 @@ class CredentialController extends Controller
                 'email' => $request->email,
             ]);
 
-            $employee = NonEmployee::findOrFail($user->id);
+            $employee = $user->employee()->firstOrFail();
 
             $employee->update([
                 'fullname' => $request->name,
