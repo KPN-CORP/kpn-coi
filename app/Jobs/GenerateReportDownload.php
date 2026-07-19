@@ -59,6 +59,7 @@ class GenerateReportDownload implements ShouldQueue
                 type: $filters['type'] ?? null,
                 businessUnit: $filters['business_unit'] ?? null,
                 latestSubmission: (bool) ($filters['latest_submission'] ?? true),
+                declarationStatus: $filters['declaration_status'] ?? null,
             );
 
             $fileName = 'COI Report '

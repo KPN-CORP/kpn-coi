@@ -14,6 +14,14 @@ class CoiDeclaration extends Model
 {
     use SoftDeletes;
 
+    /**
+     * 2025 is a historical import: no interactive form, just a single Yes/No
+     * per employee stored under this response key, plus an uploaded attachment
+     * for the "Yes" rows. See the coi_2025 import SQL.
+     */
+    public const LEGACY_PERIOD = 2025;
+    public const LEGACY_CONFLICT_KEY = '2025_has_conflict';
+
     protected $connection = 'mysql';
     protected $table = 'coi_declarations'; // Adjust to your actual table name
     

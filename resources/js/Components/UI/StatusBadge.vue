@@ -6,6 +6,12 @@ const props = defineProps({
         type: String,
         required: true,
     },
+
+    // Optional display text override; the colour still follows `status`.
+    label: {
+        type: String,
+        default: null,
+    },
 })
 
 const badgeClass = computed(() => {
@@ -34,6 +40,6 @@ const badgeClass = computed(() => {
         class="inline-flex rounded-md border px-2 py-1 text-[11px] font-semibold uppercase"
         :class="badgeClass"
     >
-        {{ status.replaceAll('_', ' ') }}
+        {{ label ?? status.replaceAll('_', ' ') }}
     </span>
 </template>

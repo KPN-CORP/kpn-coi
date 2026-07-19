@@ -223,6 +223,7 @@ function applyFilter() {
 interface ReportFilters {
     period?: string | number
     status?: string
+    declaration_status?: string
     type?: string
     business_unit?: string
     search?: string
@@ -348,7 +349,9 @@ function openReport(
 ) {
     let total = props.stats.total
 
-    switch (filters.status) {
+    // Conflict moved to its own filter on the report, so it arrives as
+    // declaration_status rather than status.
+    switch (filters.status ?? filters.declaration_status) {
         case 'submitted':
             total = props.stats.submitted
             break
@@ -580,7 +583,7 @@ watch(
                             : 'Non Employee' }} <br> NOT YET SUBMITTED
                 </div>
             </Card>
-            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'conflict',})">
+            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({declaration_status: 'conflict',})">
                 <div class="stat-num text-red-600">
                     {{ stats.conflict }}
                 </div>

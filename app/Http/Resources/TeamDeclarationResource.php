@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Models\CoiDeclaration;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -68,6 +69,15 @@ class TeamDeclarationResource extends JsonResource
                             'answer'
                         ) === true
                 ),
+
+            // 2025 rows only: has the supporting document been uploaded yet?
+            'has_attachment' => (bool) data_get(
+                $this->responses->firstWhere(
+                    'question_key',
+                    CoiDeclaration::LEGACY_CONFLICT_KEY
+                )?->response_value,
+                'attachment'
+            ),
 
             'questions' => $this->responses
                 ->map(fn ($response) => [
