@@ -4,13 +4,26 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesDeclarationDates;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class SubmitDeclarationRequest extends FormRequest
 {
+    use ValidatesDeclarationDates;
+
     public function authorize(): bool
     {
         return true;
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $this->validateDeclarationDates($validator);
+            },
+        ];
     }
 
     public function rules(): array

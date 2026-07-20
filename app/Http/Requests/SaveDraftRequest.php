@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesDeclarationDates;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class SaveDraftRequest extends FormRequest
 {
+    use ValidatesDeclarationDates;
+
     public function authorize(): bool
     {
         return true;
@@ -26,6 +29,8 @@ class SaveDraftRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                $this->validateDeclarationDates($validator);
+
                 foreach ($this->input('responses', []) as $question => $response) {
 
                     if (!($response['answer'] ?? false)) {

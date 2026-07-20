@@ -265,6 +265,31 @@ function onInput(index: number, fieldKey: string) {
     emit('clearError', key)  // ← tell parent to clear this error
 }
 
+// Chrome's native date input lets you type a 6-digit year straight into the
+// year segment (it caps at 275760), which then reaches the server as a date
+// MySQL cannot store. Bound the field to a real 4-digit year.
+const MIN_DATE = '1900-01-01'
+const MAX_DATE = '9999-12-31'
+
+function onDateInput(
+    row: Record<string, any>,
+    fieldKey: string,
+    index: number,
+) {
+    const value = row[fieldKey]
+
+    if (typeof value === 'string' && value !== '') {
+        const [year, month = '01', day = '01'] = value.split('-')
+
+        // Keep the month/day the user already picked; only the year overflows.
+        if (year && year.length > 4) {
+            row[fieldKey] = `9999-${month}-${day}`
+        }
+    }
+
+    onInput(index, fieldKey)
+}
+
 function onNumberInput(
     row: Record<string, any>,
     field: Field,
@@ -385,13 +410,15 @@ const years = Array.from(
                             <input
                                 v-model="row[`${field.key}_from`]"
                                 type="date"
+                                :min="MIN_DATE"
+                                :max="MAX_DATE"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
                                     fromDateError(index, row, field)
                                         ? 'border-red-500 bg-red-50'
                                         : 'border-border'
                                 ]"
-                                @input="onInput(index, `${field.key}_from`)"
+                                @input="onDateInput(row, `${field.key}_from`, index)"
                             >
 
                         </div>
@@ -405,7 +432,8 @@ const years = Array.from(
                             <input
                                 v-model="row[`${field.key}_to`]"
                                 type="date"
-                                :min="row[`${field.key}_from`] || undefined"
+                                :min="row[`${field.key}_from`] || MIN_DATE"
+                                :max="MAX_DATE"
                                 :disabled="row[`${field.key}_current`]"
                                 :class="[
                                     'w-full rounded-md border px-3 py-2 text-sm',
@@ -414,7 +442,7 @@ const years = Array.from(
                                         ? 'border-red-500 bg-red-50'
                                         : 'border-border'
                                 ]"
-                                @input="onInput(index, `${field.key}_to`)"
+                                @input="onDateInput(row, `${field.key}_to`, index)"
                             >
 
                         </div>
