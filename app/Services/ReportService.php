@@ -23,7 +23,8 @@ class ReportService
         bool $latestSubmission = false,
         int $perPage = 20,
         ?string $sort = null,
-        string $direction = 'asc'
+        string $direction = 'asc',
+        ?string $declarationStatus = null
     ): LengthAwarePaginator {
         $records = $this->buildRecords(
             period: $period,
@@ -32,6 +33,7 @@ class ReportService
             type: $type,
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
+            declarationStatus: $declarationStatus,
         );
 
         if ($sort) {
@@ -71,7 +73,8 @@ class ReportService
         ?string $type,
         ?string $businessUnit,
         ?User $user = null,
-        bool $latestSubmission = false
+        bool $latestSubmission = false,
+        ?string $declarationStatus = null
     ): Collection {
         return $this->buildRecords(
             period: $period,
@@ -80,6 +83,7 @@ class ReportService
             type: $type,
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
+            declarationStatus: $declarationStatus,
         );
     }
 
@@ -89,7 +93,8 @@ class ReportService
         ?string $search,
         ?string $type,
         ?string $businessUnit,
-        bool $latestSubmission
+        bool $latestSubmission,
+        ?string $declarationStatus = null
     ): Collection {
         $employees = $type === 'non_employee'
             ? collect()
@@ -97,10 +102,13 @@ class ReportService
                 $period,
                 $businessUnit,
                 $search,
-                $status
+                $status,
+                $declarationStatus
             );
 
-        $nonEmployees = $type === 'employee'
+        // 2025 is an employee-only historical import, so there is no
+        // non-employee side for that period.
+        $nonEmployees = ($type === 'employee' || $period === CoiDeclaration::LEGACY_PERIOD)
             ? collect()
             : $this->nonEmployeeRecords(
                 $period
@@ -133,6 +141,8 @@ class ReportService
 
         }
 
+        // Form status = whether the form was submitted at all. Whether the
+        // submission declares a conflict is a separate axis, filtered below.
         if ($status) {
 
             $records = match ($status) {
@@ -151,11 +161,31 @@ class ReportService
                         'pending'
                     ),
 
+                default => $records,
+
+            };
+
+        }
+
+        if ($declarationStatus) {
+
+            $records = match ($declarationStatus) {
+
                 'conflict' =>
 
                     $records->where(
                         'has_conflict',
                         true
+                    ),
+
+                // Mirrors what the table renders: a row with no submission
+                // shows N/A, not Clear, so it must not land in this bucket --
+                // has_conflict is false for those too.
+                'clear' =>
+
+                    $records->filter(
+                        fn ($row) => $row['declaration'] !== null
+                            && $row['has_conflict'] === false
                     ),
 
                 default => $records,
@@ -168,20 +198,6 @@ class ReportService
             $records = $records->where(
                 'type',
                 $type
-            );
-        }
-
-        if ($status === 'pending') {
-            $records = $records->where(
-                'status',
-                'pending'
-            );
-        }
-
-        if ($status === 'conflict') {
-            $records = $records->where(
-                'has_conflict',
-                true
             );
         }
 
@@ -206,7 +222,8 @@ class ReportService
         int $period,
         ?string $businessUnit,
         ?string $search = null,
-        ?string $status = null
+        ?string $status = null,
+        ?string $declarationStatus = null
     ): Collection {
 
         // Preload declarations for the period once (small dataset) so that
@@ -263,8 +280,25 @@ class ReportService
                 fn ($query) => $query->whereNotIn('id', $submittedUserIds)
             )
             ->when(
-                $status === 'conflict',
+                $declarationStatus === 'conflict',
                 fn ($query) => $query->whereIn('id', $conflictUserIds)
+            )
+            // Only narrow to employees who submitted something -- a superset of
+            // "clear". Clear is a property of a declaration row, not of the
+            // employee: one employee can hold both a conflicting and a clear
+            // declaration in the same period, so excluding them here by
+            // conflict would drop their clear row too. The exact filter runs
+            // in memory in buildRecords().
+            ->when(
+                $declarationStatus === 'clear',
+                fn ($query) => $query->whereIn('id', $submittedUserIds)
+            )
+            // 2025 is a historical import, not a live cycle: only the imported
+            // employees have a record, so don't fan out "pending" across the
+            // whole HRIS -- show just the declared rows.
+            ->when(
+                $period === CoiDeclaration::LEGACY_PERIOD,
+                fn ($query) => $query->whereIn('id', $submittedUserIds)
             )
             ->whereNull('deleted_at')
             ->get()
@@ -287,6 +321,7 @@ class ReportService
                             : '-',
                         'status' => 'pending',
                         'has_conflict' => false,
+                        'has_attachment' => false,
                         'submitted_at' => null,
                         'declaration' => null,
                     ]];
@@ -296,6 +331,15 @@ class ReportService
 
                     $hasConflict = $declaration->responses->contains(
                         fn ($response) => data_get($response->response_value, 'answer') === true
+                    );
+
+                    // 2025 rows only: the uploaded supporting document, if any.
+                    $hasAttachment = (bool) data_get(
+                        $declaration->responses->firstWhere(
+                            'question_key',
+                            CoiDeclaration::LEGACY_CONFLICT_KEY
+                        )?->response_value,
+                        'attachment'
                     );
 
                     return [
@@ -314,6 +358,7 @@ class ReportService
                             : '-',
                         'status' => 'submitted',
                         'has_conflict' => $hasConflict,
+                        'has_attachment' => $hasAttachment,
                         'submitted_at' => $declaration->submitted_at,
                         'declaration' => [
                             'id' => $declaration->id,

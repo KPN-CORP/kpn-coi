@@ -57,6 +57,14 @@ class ReportController extends Controller
             ? 'desc'
             : 'asc';
 
+        // Whether the submission declares a conflict -- a separate axis from
+        // the form status. More values are expected here later.
+        $declarationStatus = $request->string('declaration_status')->toString();
+
+        if (! in_array($declarationStatus, ['clear', 'conflict'], true)) {
+            $declarationStatus = null;
+        }
+
         $records = app(
             ReportService::class
         )->getDeclarations(
@@ -70,6 +78,7 @@ class ReportController extends Controller
             perPage: $perPage,
             sort: $sort,
             direction: $direction,
+            declarationStatus: $declarationStatus,
         );
 
         return Inertia::render(
@@ -80,6 +89,7 @@ class ReportController extends Controller
                 'filters' => [
                     'period' => $request->period,
                     'status' => $request->status,
+                    'declaration_status' => $declarationStatus,
                     'type' => $request->type,
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
@@ -120,6 +130,7 @@ class ReportController extends Controller
             'filters' => [
                 'period' => (int) ($request->period ?? now()->year),
                 'status' => $request->status,
+                'declaration_status' => $request->declaration_status,
                 'type' => $request->type,
                 'business_unit' => $request->business_unit,
                 'search' => $request->search,
@@ -218,6 +229,30 @@ class ReportController extends Controller
                 $declaration->created_at->format('Ymd_His')
             )
         );
+    }
+
+    /**
+     * Stream the 2025 supporting document for a declaration so an admin can
+     * open it from the report. Admin-scoped (no owner check, unlike the
+     * employee-facing route).
+     */
+    public function attachment(CoiDeclaration $declaration): StreamedResponse
+    {
+        abort_unless(
+            $declaration->type === 'employee'
+                && (int) $declaration->period === CoiDeclaration::LEGACY_PERIOD,
+            404
+        );
+
+        $response = $declaration->responses()
+            ->where('question_key', CoiDeclaration::LEGACY_CONFLICT_KEY)
+            ->first();
+
+        $path = data_get($response?->response_value, 'attachment');
+
+        abort_if(! $path || ! Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->download($path);
     }
 
     /**

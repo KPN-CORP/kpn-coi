@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Employee\DeclarationController;
+use App\Http\Controllers\Employee\DeclarationAttachmentController;
 use App\Http\Controllers\Employee\HistoryController;
 use App\Http\Controllers\Manager\TeamHistoryController;
 use App\Http\Controllers\ProfileController;
@@ -48,6 +49,17 @@ Route::middleware(['auth:web,non_employee'])->prefix('employee')
             '/declarations/{declaration}/pdf',
             [DeclarationController::class, 'downloadPdf']
         )->name('declarations.pdf');
+
+        // 2025 historical import: supporting-document upload/download.
+        Route::post(
+            '/declarations/{declaration}/attachment',
+            [DeclarationAttachmentController::class, 'store']
+        )->name('declarations.attachment.store');
+
+        Route::get(
+            '/declarations/{declaration}/attachment',
+            [DeclarationAttachmentController::class, 'show']
+        )->name('declarations.attachment.show');
 
     });
 
@@ -138,6 +150,11 @@ Route::middleware(['auth:web'])->prefix('admin')
         '/report/declaration/{declaration}/pdf',
         [ReportController::class, 'exportPdf']
     )->name('report.declaration.pdf');
+
+    Route::get(
+        '/report/declaration/{declaration}/attachment',
+        [ReportController::class, 'attachment']
+    )->name('report.declaration.attachment');
 
     Route::post(
         '/credentials/{user}/reset-password',

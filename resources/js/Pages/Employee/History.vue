@@ -11,6 +11,7 @@ import Pagination from '@/Components/UI/Pagination.vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 import type { Flash } from '@/Config/inertia'
+import Swal from 'sweetalert2'
 
 const showViewModal = ref(false)
 
@@ -41,6 +42,8 @@ interface Declaration {
     created_at: string | null
     reviewed_at: string | null
     responses_count: number
+    has_conflict: boolean
+    has_attachment: boolean
 }
 
 const props = defineProps<{
@@ -58,21 +61,66 @@ const props = defineProps<{
     periods: number[]
     filters: {
         period?: string
+        sort?: string
+        direction?: string
     }
 }>()
 
-function changePerPage(value: number) {
+const sortKey = ref(props.filters.sort ?? '')
+const sortDir = ref(props.filters.direction ?? 'asc')
+
+const sortableColumns = [
+    { label: 'Period', key: 'period' },
+    { label: 'Form Status', key: 'status' },
+    { label: 'Submit Date', key: 'submitted_at' },
+    { label: 'Created Date', key: 'created_at' },
+]
+
+// Keep period / per_page / sort travelling together on every navigation.
+function reload(overrides: Record<string, unknown> = {}) {
     router.get(
         route('employee.history'),
         {
             period: props.filters.period,
-            per_page: value,
+            per_page: props.declarations.meta.per_page,
+            sort: sortKey.value || undefined,
+            direction: sortDir.value,
+            ...overrides,
         },
         {
             preserveState: true,
             replace: true,
         },
     )
+}
+
+function changePerPage(value: number) {
+    reload({ per_page: value })
+}
+
+function changePeriod(value: string) {
+    reload({ period: value })
+}
+
+function toggleSort(column: string) {
+    if (sortKey.value === column) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    } else {
+        sortKey.value = column
+        sortDir.value = 'asc'
+    }
+
+    reload()
+}
+
+function sortIcon(column: string) {
+    if (sortKey.value !== column) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return sortDir.value === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
 }
 
 function viewDeclaration(declaration: any) {
@@ -150,6 +198,73 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
         '_blank'
     )
 }
+
+// --- 2025 supporting-document upload/download ---
+
+function isLegacy(declaration: Declaration) {
+    return Number(declaration.period) === 2025
+}
+
+const uploadingId = ref<number | null>(null)
+const attachmentInput = ref<HTMLInputElement | null>(null)
+
+function chooseAttachment(declaration: Declaration) {
+    uploadingId.value = declaration.id
+    attachmentInput.value?.click()
+}
+
+function onAttachmentChosen(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    const id = uploadingId.value
+
+    if (!file || !id) {
+        return
+    }
+
+    const form = new FormData()
+    form.append('attachment', file)
+
+    router.post(
+        route('employee.declarations.attachment.store', id),
+        form,
+        {
+            forceFormData: true,
+            preserveScroll: true,
+
+            onSuccess: () => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Uploaded',
+                    text: 'Attachment uploaded successfully.',
+                    confirmButtonColor: '#ab2f2b',
+                })
+            },
+
+            onError: (errors) => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Upload Failed',
+                    text: errors.attachment
+                        ?? 'Could not upload the file. Please try again.',
+                    confirmButtonColor: '#ab2f2b',
+                })
+            },
+
+            onFinish: () => {
+                uploadingId.value = null
+                input.value = ''
+            },
+        },
+    )
+}
+
+function downloadAttachment(declaration: Declaration) {
+    window.open(
+        route('employee.declarations.attachment.show', declaration.id),
+        '_blank',
+    )
+}
 </script>
 
 <template>
@@ -201,19 +316,7 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
             <select
                 class="form-select"
                 :value="filters.period"
-                @change="
-                    router.get(
-                        route('employee.history'),
-                        {
-                            period: $event.target.value,
-                            per_page: props.declarations.meta.per_page,
-                        },
-                        {
-                            preserveState: true,
-                            replace: true,
-                        },
-                    )
-                "
+                @change="changePeriod(($event.target as HTMLSelectElement).value)"
             >
                 <option value="">
                     All Periods
@@ -234,10 +337,17 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th class="py-3">Period</th>
-                            <th class="py-3">Form Status</th>
-                            <th class="py-3">Submit Date</th>
-                            <th class="py-3">Created Date</th>
+                            <th
+                                v-for="col in sortableColumns"
+                                :key="col.key"
+                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
+                                @click="toggleSort(col.key)"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </span>
+                            </th>
                             <th class="py-3">Action</th>
                         </tr>
                     </thead>
@@ -247,6 +357,9 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
                             v-for="declaration in props.declarations.data"
                             :key="declaration.period"
                             class="border-b border-slate-100 text-center"
+                            :class="isLegacy(declaration) && declaration.has_conflict && !declaration.has_attachment
+                                ? 'bg-red-50'
+                                : ''"
                         >
                             <td class="py-4 font-semibold">
                                 {{ declaration.period }}
@@ -267,40 +380,76 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
 
                             <td class="py-4">
                                 <div class="flex justify-center gap-2">
-                                    <button
-                                        v-if="getActions(declaration.status).includes('continue')"
-                                        class="btn bg-yellow-400 hover:bg-yellow-500 hover:font-bold text-white btn-sm"
-                                        @click="continueDraft(declaration)"
-                                    >
-                                        Continue
-                                    </button>
-                                    <button
-                                        v-if="getActions(declaration.status).includes('view')"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        @click="viewDeclaration(declaration)"
-                                    >
-                                        <i class="fa-solid fa-eye" />
-                                        View
-                                    </button>
+                                    <!-- 2025 historical rows: attachment only -->
+                                    <template v-if="isLegacy(declaration)">
+                                        <button
+                                            v-if="!declaration.has_attachment"
+                                            type="button"
+                                            class="btn btn-primary-custom btn-sm"
+                                            @click="chooseAttachment(declaration)"
+                                        >
+                                            <i class="fa-solid fa-upload" />
+                                            Upload
+                                        </button>
 
-                                    <button
-                                        v-if="declaration.status === 'submitted'"
-                                        type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadPdf(declaration.id, declaration, 'id')"
-                                    >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        ID
-                                    </button>
-                                    <button
-                                        v-if="declaration.status === 'submitted'"
-                                        type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadPdf(declaration.id, declaration, 'en')"
-                                    >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        EN
-                                    </button>
+                                        <template v-else>
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline-primary-custom btn-sm"
+                                                @click="downloadAttachment(declaration)"
+                                            >
+                                                <i class="fa-solid fa-file-arrow-down" />
+                                                Download
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm"
+                                                @click="chooseAttachment(declaration)"
+                                            >
+                                                <i class="fa-solid fa-arrows-rotate" />
+                                                Replace
+                                            </button>
+                                        </template>
+                                    </template>
+
+                                    <!-- Regular declaration rows -->
+                                    <template v-else>
+                                        <button
+                                            v-if="getActions(declaration.status).includes('continue')"
+                                            class="btn bg-yellow-400 hover:bg-yellow-500 hover:font-bold text-white btn-sm"
+                                            @click="continueDraft(declaration)"
+                                        >
+                                            Continue
+                                        </button>
+                                        <button
+                                            v-if="getActions(declaration.status).includes('view')"
+                                            class="btn btn-outline-secondary btn-sm"
+                                            @click="viewDeclaration(declaration)"
+                                        >
+                                            <i class="fa-solid fa-eye" />
+                                            View
+                                        </button>
+
+                                        <button
+                                            v-if="declaration.status === 'submitted'"
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadPdf(declaration.id, declaration, 'id')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            ID
+                                        </button>
+                                        <button
+                                            v-if="declaration.status === 'submitted'"
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadPdf(declaration.id, declaration, 'en')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            EN
+                                        </button>
+                                    </template>
                                 </div>
                             </td>
                         </tr>
@@ -330,5 +479,14 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
             :declaration="selectedDeclaration"
             @close="showViewModal = false"
         />
+
+        <!-- Shared hidden picker for 2025 attachment upload/replace -->
+        <input
+            ref="attachmentInput"
+            type="file"
+            accept=".pdf,.doc,.docx"
+            class="hidden"
+            @change="onAttachmentChosen"
+        >
     </EmployeeLayout>
 </template>

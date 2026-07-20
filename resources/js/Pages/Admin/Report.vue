@@ -27,9 +27,11 @@ interface Declaration {
     employee_id: string
 
     status: string
+    declaration_status: string
     submitted_at: string | null
 
     has_conflict: boolean
+    has_attachment: boolean
 
     declaration?: any | null
     business_unit?: string | null
@@ -53,6 +55,7 @@ const props = defineProps<{
     filters: {
         period?: string
         status?: string
+        declaration_status?: string
         type?: string
         search?: string
         business_unit?: string
@@ -64,11 +67,10 @@ const props = defineProps<{
 }>()
 
 
-console.log(props.filters)
-
 const filter = useForm({
     period: props.filters.period ?? new Date().getFullYear(),
     status: props.filters.status ?? '',
+    declaration_status: props.filters.declaration_status ?? '',
     type: props.filters.type ?? '',
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
@@ -83,7 +85,7 @@ const sortableColumns = [
     { label: 'Period', key: 'period', class: '' },
     { label: 'Type', key: 'type', class: '' },
     { label: 'Form Status', key: 'status', class: '' },
-    { label: 'Conflict', key: 'has_conflict', class: '' },
+    { label: 'Declaration Status', key: 'has_conflict', class: 'min-w-64' },
     { label: 'Submitted At', key: 'submitted_at', class: '' },
 ]
 
@@ -106,6 +108,22 @@ function sortIcon(column: string) {
     return filter.direction === 'asc'
         ? 'fa-solid fa-sort-up text-slate-600'
         : 'fa-solid fa-sort-down text-slate-600'
+}
+
+// 2025 is a historical import with no per-question breakdown: the Q1..Qn
+// columns collapse into a single conflict mark, and the row's document is
+// opened directly instead of the review modal.
+const isLegacyReport = computed(() => Number(filter.period) === 2025)
+
+function openAttachment(declaration: Declaration) {
+    if (!declaration.declaration?.id) {
+        return
+    }
+
+    window.open(
+        route('admin.report.declaration.attachment', declaration.declaration.id),
+        '_blank',
+    )
 }
 
 const showReviewModal = ref(false)
@@ -443,6 +461,28 @@ async function pollExport(id: number) {
                             <option value="pending">
                                 Not Submitted
                             </option>
+                        </select>
+                    </div>
+
+                    
+                    <!-- Status -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            Declaration Status
+                        </label>
+
+                        <select
+                            v-model="filter.declaration_status"
+                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                            @change="applyFilter"
+                        >
+                            <option value="">
+                                All Status
+                            </option>
+
+                            <option value="clear">
+                                Clear
+                            </option>
 
                             <option value="conflict">
                                 Has Conflict
@@ -493,20 +533,23 @@ async function pollExport(id: number) {
             <div class="table-container">
                 <table
                     class="table-custom"
-                    :style="`table-layout: fixed; width: ${1250 + 56 * coiQuestions.length}px`"
+                    :style="`table-layout: fixed; width: ${1340 + (isLegacyReport ? 120 : 56 * coiQuestions.length)}px`"
                 >
                     <colgroup>
                         <col style="width: 260px">
                         <col style="width: 110px">
                         <col style="width: 150px">
-                        <col style="width: 150px">
-                        <col style="width: 140px">
+                        <col style="width: 180px">
+                        <col style="width: 200px">
                         <col style="width: 190px">
-                        <col
-                            v-for="question in coiQuestions"
-                            :key="question.key"
-                            style="width: 56px"
-                        >
+                        <template v-if="!isLegacyReport">
+                            <col
+                                v-for="question in coiQuestions"
+                                :key="question.key"
+                                style="width: 56px"
+                            >
+                        </template>
+                        <col v-else style="width: 120px">
                         <col style="width: 250px">
                     </colgroup>
                     <thead>
@@ -527,13 +570,22 @@ async function pollExport(id: number) {
                                     <i :class="sortIcon(col.key)" />
                                 </span>
                             </th>
+                            <template v-if="!isLegacyReport">
+                                <th
+                                    v-for="(question, i) in coiQuestions"
+                                    :key="question.key"
+                                    class="w-12 py-3 text-center"
+                                    :title="question.title.en"
+                                >
+                                    Q{{ i + 1 }}
+                                </th>
+                            </template>
                             <th
-                                v-for="(question, i) in coiQuestions"
-                                :key="question.key"
-                                class="w-12 py-3 text-center"
-                                :title="question.title.en"
+                                v-else
+                                class="py-3 text-center"
+                                title="Conflict of Interest declared"
                             >
-                                Q{{ i + 1 }}
+                                COI
                             </th>
                             <th
                                 class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]"
@@ -583,6 +635,9 @@ async function pollExport(id: number) {
                             <td class="py-4">
                                 <StatusBadge
                                     :status="declaration.status"
+                                    :label="declaration.status === 'pending'
+                                        ? 'Not Submitted'
+                                        : null"
                                 />
                             </td>
 
@@ -613,14 +668,37 @@ async function pollExport(id: number) {
                                 {{ formatDate(declaration.submitted_at) }}
                             </td>
 
+                            <template v-if="!isLegacyReport">
+                                <td
+                                    v-for="question in coiQuestions"
+                                    :key="question.key"
+                                    class="py-4 text-center"
+                                >
+                                    <span
+                                        v-if="questionAnswered(declaration, question.key)"
+                                        class="font-bold text-green-600"
+                                    >
+                                        ✓
+                                    </span>
+
+                                    <span
+                                        v-else
+                                        class="text-slate-300"
+                                    >
+                                        -
+                                    </span>
+                                </td>
+                            </template>
+
+                            <!-- 2025: single merged conflict mark -->
                             <td
-                                v-for="question in coiQuestions"
-                                :key="question.key"
+                                v-else
                                 class="py-4 text-center"
                             >
                                 <span
-                                    v-if="questionAnswered(declaration, question.key)"
-                                    class="font-bold text-green-600"
+                                    v-if="declaration.has_conflict"
+                                    class="font-bold text-red-600"
+                                    title="Has Conflict"
                                 >
                                     ✓
                                 </span>
@@ -636,44 +714,66 @@ async function pollExport(id: number) {
                             <td
                                 class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]"
                             >
-                                <div
-                                    v-if="declaration.status !== 'pending' && declaration.declaration"
-                                    class="flex items-center justify-center gap-2"
-                                >
+                                <!-- 2025: open the uploaded document directly -->
+                                <template v-if="isLegacyReport">
                                     <button
+                                        v-if="declaration.has_attachment"
                                         type="button"
                                         class="btn btn-outline-secondary btn-sm"
-                                        @click="openReview(declaration)"
+                                        @click="openAttachment(declaration)"
                                     >
-                                        <i class="fa-solid fa-eye" />
+                                        <i class="fa-solid fa-file-arrow-down" />
                                         View
                                     </button>
 
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadPdf(declaration.declaration.id, 'id')"
+                                    <span
+                                        v-else
+                                        class="text-xs text-slate-400"
                                     >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        ID
-                                    </button>
+                                        No Attachment
+                                    </span>
+                                </template>
 
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadPdf(declaration.declaration.id, 'en')"
+                                <template v-else>
+                                    <div
+                                        v-if="declaration.status !== 'pending' && declaration.declaration"
+                                        class="flex items-center justify-center gap-2"
                                     >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        EN
-                                    </button>
-                                </div>
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm"
+                                            @click="openReview(declaration)"
+                                        >
+                                            <i class="fa-solid fa-eye" />
+                                            View
+                                        </button>
 
-                                <span
-                                    v-else
-                                    class="text-xs text-slate-400"
-                                >
-                                    No Submission
-                                </span>
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadPdf(declaration.declaration.id, 'id')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            ID
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadPdf(declaration.declaration.id, 'en')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            EN
+                                        </button>
+                                    </div>
+
+                                    <span
+                                        v-else
+                                        class="text-xs text-slate-400"
+                                    >
+                                        No Submission
+                                    </span>
+                                </template>
                             </td>
                         </tr>
                     </tbody>
@@ -681,7 +781,7 @@ async function pollExport(id: number) {
                     <tbody v-else>
                         <tr>
                             <td
-                                :colspan="7 + coiQuestions.length"
+                                :colspan="7 + (isLegacyReport ? 1 : coiQuestions.length)"
                                 class="py-10 text-center"
                             >
                                 <div class="flex flex-col items-center">
