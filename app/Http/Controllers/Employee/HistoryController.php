@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Employee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeamDeclarationResource;
 use App\Models\CoiDeclaration;
-use App\Models\CoiResponse;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -31,18 +30,16 @@ class HistoryController extends Controller
         // account that is signed in so one never sees the other's rows.
         $type = $user instanceof User ? 'employee' : 'non_employee';
 
-        // The per-user set is tiny (one row per period), so the 2025 hide/pin
-        // rules are applied in memory rather than in awkward JSON SQL.
-        $all = CoiDeclaration::query()
+        // The per-user set is tiny (one row per period), so the 2025 pin rule
+        // is applied in memory rather than in awkward JSON SQL.
+        //
+        // Every 2025 row is shown, conflict or not -- all of them require a
+        // supporting document, and any still missing one is pinned to the top.
+        $visible = CoiDeclaration::query()
             ->with('responses')
             ->where('user_id', $user->id)
             ->where('type', $type)
             ->get();
-
-        // Rule 6: a 2025 "No" declaration has nothing to act on -> hide it.
-        $visible = $all->reject(
-            fn (CoiDeclaration $d) => $this->isLegacy($d) && ! $this->hasConflict($d)
-        );
 
         $periods = $visible
             ->pluck('period')
@@ -130,13 +127,6 @@ class HistoryController extends Controller
         return (int) $declaration->period === CoiDeclaration::LEGACY_PERIOD;
     }
 
-    private function hasConflict(CoiDeclaration $declaration): bool
-    {
-        return $declaration->responses->contains(
-            fn (CoiResponse $r) => data_get($r->response_value, 'answer') === true
-        );
-    }
-
     private function sortValue(CoiDeclaration $declaration, string $sort): int|string
     {
         return match ($sort) {
@@ -148,9 +138,13 @@ class HistoryController extends Controller
         };
     }
 
+    /**
+     * Every 2025 row needs a supporting document, whether or not a conflict
+     * was declared. Until it is uploaded the row counts as pending.
+     */
     private function isPendingUpload(CoiDeclaration $declaration): bool
     {
-        if (! $this->isLegacy($declaration) || ! $this->hasConflict($declaration)) {
+        if (! $this->isLegacy($declaration)) {
             return false;
         }
 

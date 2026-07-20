@@ -201,8 +201,17 @@ const downloadPdf = (id: number, declaration: any, locale: string) => {
 
 // --- 2025 supporting-document upload/download ---
 
+// 2025 is the imported historical period: every row needs a supporting
+// document, conflict or not.
 function isLegacy(declaration: Declaration) {
     return Number(declaration.period) === 2025
+}
+
+// Until the document is uploaded the row has no meaningful dates (created_at
+// is just the import moment), so the table shows "-" for both. Uploading
+// stamps them with the real submission time.
+function isPendingUpload(declaration: Declaration) {
+    return isLegacy(declaration) && !declaration.has_attachment
 }
 
 const uploadingId = ref<number | null>(null)
@@ -357,9 +366,7 @@ function downloadAttachment(declaration: Declaration) {
                             v-for="declaration in props.declarations.data"
                             :key="declaration.period"
                             class="border-b border-slate-100 text-center"
-                            :class="isLegacy(declaration) && declaration.has_conflict && !declaration.has_attachment
-                                ? 'bg-red-50'
-                                : ''"
+                            :class="isPendingUpload(declaration) ? 'bg-red-50' : ''"
                         >
                             <td class="py-4 font-semibold">
                                 {{ declaration.period }}
@@ -371,11 +378,19 @@ function downloadAttachment(declaration: Declaration) {
                                 />
                             </td>
                             <td class="py-4">
-                                {{ formatDate(declaration.submitted_at) }}
+                                {{
+                                    isPendingUpload(declaration)
+                                        ? '-'
+                                        : formatDate(declaration.submitted_at)
+                                }}
                             </td>
 
                             <td class="py-4">
-                                {{ formatDate(declaration.created_at) }}
+                                {{
+                                    isPendingUpload(declaration)
+                                        ? '-'
+                                        : formatDate(declaration.created_at)
+                                }}
                             </td>
 
                             <td class="py-4">
