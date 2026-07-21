@@ -3,8 +3,11 @@ import Card from '@/Components/UI/Card.vue'
 import Modal from '@/Components/UI/Modal.vue'
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
+import { useLocale } from '@/Composables/useLocale'
 
 const page = usePage()
+
+const { t, locale } = useLocale()
 
 const coiQuestions = computed(
     () => page.props.coiQuestions as any[]
@@ -31,7 +34,7 @@ function getFieldLabel(
         (f: any) => f.key === fieldKey
     )
 
-    return field?.label?.en ?? fieldKey
+    return field?.label?.[locale.value] ?? fieldKey
 }
 
 function getFieldValue(
@@ -65,7 +68,7 @@ function getFieldValue(
             (o: any) => o.value === value
         )
 
-        return option?.label?.en ?? value
+        return option?.label?.[locale.value] ?? value
     }
 
     return value
@@ -122,11 +125,11 @@ const emit = defineEmits<{
             class="flex items-center justify-between border-b border-border px-6 py-4"
         >
             <h2 class="text-lg font-bold">
-                Submitted Declaration - 
+                {{ t.declarationModal.viewTitle }} -
                 {{
                     declaration.type === 'employee'
-                        ? 'Employee'
-                        : 'Non Employee'
+                        ? t.common.employee
+                        : t.common.nonEmployee
                 }}
             </h2>
 
@@ -150,7 +153,7 @@ const emit = defineEmits<{
                         <label
                             class="mb-1 block text-xs font-semibold"
                         >
-                            Full Name
+                            {{ t.common.fullName }}
                         </label>
 
                         <input
@@ -164,7 +167,7 @@ const emit = defineEmits<{
                         <label
                             class="mb-1 block text-xs font-semibold"
                         >
-                            Employee ID / Citizenship ID
+                            {{ t.declarationModal.employeeIdCitizenship }}
                         </label>
 
                         <input
@@ -191,14 +194,14 @@ const emit = defineEmits<{
                     v-if="question.answer"
                     class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
                 >
-                    Yes
+                    {{ t.common.yes }}
                 </span>
 
                 <span
                     v-else
                     class="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700"
                 >
-                    No
+                    {{ t.common.no }}
                 </span>
 
                 <!-- Details -->
@@ -220,7 +223,7 @@ const emit = defineEmits<{
                                 class="border border-border bg-slate-100 p-2 text-left text-xs font-semibold"
                             >
 
-                            {{ field.label.en }}
+                            {{ field.label[locale] }}
 
                             </th>
 
@@ -248,7 +251,7 @@ const emit = defineEmits<{
                                 -
                                 {{
                                     detail[`${field.key}_current`]
-                                        ? 'Current'
+                                        ? t.common.current
                                         : formatDate(detail[`${field.key}_to`])
                                 }}
                             </template>
@@ -292,7 +295,7 @@ const emit = defineEmits<{
 
                             <strong>
 
-                            {{ required.label.en }}
+                            {{ required.label[locale] }}
 
                             </strong>
 
@@ -324,7 +327,7 @@ const emit = defineEmits<{
                 class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 @click="emit('close')"
             >
-                Close
+                {{ t.common.close }}
             </button>
         </div>
     </Modal>

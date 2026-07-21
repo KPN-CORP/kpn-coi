@@ -4,6 +4,9 @@ import { useForm } from '@inertiajs/vue3'
 
 import Modal from '@/Components/UI/Modal.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 interface User {
     id: number
@@ -136,11 +139,11 @@ const userOptions = computed(() =>
         >
             <div>
                 <h2 class="text-lg font-bold">
-                    Assign Users
+                    {{ t.roleForm.assignUsers }}
                 </h2>
 
                 <p class="text-sm text-slate-500">
-                    Role:
+                    {{ t.roleForm.role }}
                     <span class="font-medium">
                         {{ role?.name }}
                     </span>
@@ -161,19 +164,19 @@ const userOptions = computed(() =>
         <div class="p-6">
             <div>
                 <label class="form-label">
-                    Assigned Users
+                    {{ t.roleForm.assignedUsers }}
                 </label>
 
                 <MultiSelect
                     v-model="form.users"
                     :options="userOptions"
-                    placeholder="Select users"
+                    :placeholder="t.roleForm.selectUsers"
                 />
                 <div
                     class="mt-2 text-xs text-slate-500"
                 >
                     {{ form.users.length }}
-                    user(s) selected
+                    {{ t.roleForm.usersSelected }}
                 </div>
             </div>
         </div>
@@ -188,7 +191,7 @@ const userOptions = computed(() =>
                 class="btn-outline-custom"
                 @click="emit('close')"
             >
-                Cancel
+                {{ t.common.cancel }}
             </button>
 
             <button
@@ -202,7 +205,7 @@ const userOptions = computed(() =>
                     class="fa-solid fa-spinner fa-spin"
                 />
 
-                Save Assignment
+                {{ t.roleForm.saveAssignment }}
             </button>
         </div>
     </Modal>

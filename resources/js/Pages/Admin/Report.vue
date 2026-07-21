@@ -9,7 +9,9 @@ import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
 import debounce from 'lodash/debounce'
+import { useLocale } from '@/Composables/useLocale'
 
+const { t, locale } = useLocale()
 
 const page = usePage()
 
@@ -80,14 +82,14 @@ const filter = useForm({
     direction: props.filters.direction ?? 'asc'
 })
 
-const sortableColumns = [
-    { label: 'Full Name', key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
-    { label: 'Period', key: 'period', class: '' },
-    { label: 'Type', key: 'type', class: '' },
-    { label: 'Form Status', key: 'status', class: '' },
-    { label: 'Declaration Status', key: 'has_conflict', class: 'min-w-64' },
-    { label: 'Submitted At', key: 'submitted_at', class: '' },
-]
+const sortableColumns = computed(() => [
+    { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
+    { label: t.value.common.period, key: 'period', class: '' },
+    { label: t.value.report.columnType, key: 'type', class: '' },
+    { label: t.value.report.columnFormStatus, key: 'status', class: '' },
+    { label: t.value.report.columnDeclarationStatus, key: 'has_conflict', class: 'min-w-64' },
+    { label: t.value.report.columnSubmittedAt, key: 'submitted_at', class: '' },
+])
 
 function toggleSort(column: string) {
     if (filter.sort === column) {
@@ -169,7 +171,7 @@ function getQuestionTitle(key: string) {
         (q: any) => q.key === key,
     )
 
-    return question?.title?.en ?? key
+    return question?.title?.[locale.value] ?? key
 }
 
 function downloadPdf(
@@ -299,7 +301,7 @@ async function exportExcel() {
         pollExport(data.id)
     } catch (e) {
         exportState.value = 'idle'
-        alert('Could not start the export. Please try again.')
+        alert(t.value.report.exportStartFailed)
     }
 }
 
@@ -322,7 +324,7 @@ async function pollExport(id: number) {
         }
 
         if (data.status === 'failed') {
-            alert(data.error ?? 'The export failed.')
+            alert(data.error ?? t.value.report.exportFailed)
             exportState.value = 'idle'
             return
         }
@@ -330,7 +332,7 @@ async function pollExport(id: number) {
         setTimeout(() => pollExport(id), 3000)
     } catch (e) {
         exportState.value = 'idle'
-        alert('Lost connection while generating the export.')
+        alert(t.value.report.exportConnectionLost)
     }
 }
 </script>
@@ -338,8 +340,8 @@ async function pollExport(id: number) {
 <template>
     <AdminLayout>
         <PageHeader
-            title="Reports"
-            description="Monitor and export declarations."
+            :title="t.report.title"
+            :description="t.report.description"
         >
             <template #actions>
                 <button
@@ -353,8 +355,8 @@ async function pollExport(id: number) {
                     />
                     {{
                         exportState === 'generating'
-                            ? 'Generating…'
-                            : 'Export Report'
+                            ? t.report.generating
+                            : t.report.exportReport
                     }}
                 </button>
             </template>
@@ -369,7 +371,7 @@ async function pollExport(id: number) {
                     <!-- Reporting Period -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            Reporting Period
+                            {{ t.dashboard.reportingPeriod }}
                         </label>
 
                         <select
@@ -390,7 +392,7 @@ async function pollExport(id: number) {
                     <!-- Declaration Type -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            Declaration Type
+                            {{ t.dashboard.declarationType }}
                         </label>
 
                         <select
@@ -399,14 +401,14 @@ async function pollExport(id: number) {
                             @change="onTypeChanged"
                         >
                             <option value="">
-                                All Types
+                                {{ t.report.allTypes }}
                             </option>
                             <option value="employee">
-                                Employee
+                                {{ t.common.employee }}
                             </option>
 
                             <option value="non_employee">
-                                Non Employee
+                                {{ t.common.nonEmployee }}
                             </option>
                         </select>
                     </div>
@@ -417,7 +419,7 @@ async function pollExport(id: number) {
                         class="flex flex-col gap-2"
                     >
                         <label class="text-sm font-medium text-slate-700">
-                            Business Unit
+                            {{ t.common.businessUnit }}
                         </label>
 
                         <select
@@ -426,7 +428,7 @@ async function pollExport(id: number) {
                             @change="applyFilter"
                         >
                             <option value="">
-                                All Business Unit
+                                {{ t.teamHistory.allBusinessUnits }}
                             </option>
 
                             <option
@@ -442,7 +444,7 @@ async function pollExport(id: number) {
                     <!-- Status -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            Form Status
+                            {{ t.report.columnFormStatus }}
                         </label>
 
                         <select
@@ -451,15 +453,15 @@ async function pollExport(id: number) {
                             @change="applyFilter"
                         >
                             <option value="">
-                                All Status
+                                {{ t.common.allStatus }}
                             </option>
 
                             <option value="submitted">
-                                Submitted
+                                {{ t.common.submitted }}
                             </option>
 
                             <option value="pending">
-                                Not Submitted
+                                {{ t.common.notSubmitted }}
                             </option>
                         </select>
                     </div>
@@ -468,7 +470,7 @@ async function pollExport(id: number) {
                     <!-- Status -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            Declaration Status
+                            {{ t.report.columnDeclarationStatus }}
                         </label>
 
                         <select
@@ -477,15 +479,15 @@ async function pollExport(id: number) {
                             @change="applyFilter"
                         >
                             <option value="">
-                                All Status
+                                {{ t.common.allStatus }}
                             </option>
 
                             <option value="clear">
-                                Clear
+                                {{ t.common.clear }}
                             </option>
 
                             <option value="conflict">
-                                Has Conflict
+                                {{ t.common.hasConflict }}
                             </option>
                         </select>
                     </div>
@@ -493,13 +495,13 @@ async function pollExport(id: number) {
                     <!-- Search -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            Search
+                            {{ t.common.search }}
                         </label>
 
                         <input
                             v-model="filter.search"
                             type="text"
-                            placeholder="Employee Name / Employee ID"
+                            :placeholder="t.report.searchPlaceholder"
                             class="w-full rounded-md border border-border px-3 py-2 text-sm"
                         >
                     </div>
@@ -519,7 +521,7 @@ async function pollExport(id: number) {
                                 class="h-4 w-4 rounded border-border"
                                 @change="applyFilter"
                             >
-                            Latest Submission
+                            {{ t.report.latestSubmission }}
                         </label>
                     </div>
 
@@ -584,25 +586,21 @@ async function pollExport(id: number) {
                                     <div
                                         class="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-lg bg-slate-800 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/question:visible group-hover/question:opacity-100"
                                     >
-                                        {{ question.title.en }}
-                                        <br>
-                                        ____________________________________________
-                                        <br>                                        
-                                        {{ question.title.id }}
+                                        {{ question.title[locale] }}
                                     </div>
                                 </th>
                             </template>
                             <th
                                 v-else
                                 class="py-3 text-center"
-                                title="Conflict of Interest declared"
+                                :title="t.report.coiTooltip"
                             >
                                 COI
                             </th>
                             <th
                                 class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]"
                             >
-                                Action
+                                {{ t.common.action }}
                             </th>
                         </tr>
                     </thead>
@@ -638,8 +636,8 @@ async function pollExport(id: number) {
                                 >
                                     {{
                                         declaration.type === 'employee'
-                                            ? 'Employee'
-                                            : 'Non Employee'
+                                            ? t.common.employee
+                                            : t.common.nonEmployee
                                     }}
                                 </span>
                             </td>
@@ -648,7 +646,7 @@ async function pollExport(id: number) {
                                 <StatusBadge
                                     :status="declaration.status"
                                     :label="declaration.status === 'pending'
-                                        ? 'Not Submitted'
+                                        ? t.common.notSubmitted
                                         : null"
                                 />
                             </td>
@@ -658,21 +656,21 @@ async function pollExport(id: number) {
                                     v-if="declaration.status === 'pending'"
                                     class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
                                 >
-                                    N/A
+                                    {{ t.common.na }}
                                 </span>
 
                                 <span
                                     v-else-if="declaration.has_conflict"
                                     class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
                                 >
-                                    Has Conflict
+                                    {{ t.common.hasConflict }}
                                 </span>
 
                                 <span
                                     v-else
                                     class="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700"
                                 >
-                                    Clear
+                                    {{ t.common.clear }}
                                 </span>
                             </td>
 
@@ -710,7 +708,7 @@ async function pollExport(id: number) {
                                 <span
                                     v-if="declaration.has_conflict"
                                     class="font-bold text-red-600"
-                                    title="Has Conflict"
+                                    :title="t.common.hasConflict"
                                 >
                                     ✓
                                 </span>
@@ -735,14 +733,14 @@ async function pollExport(id: number) {
                                         @click="openAttachment(declaration)"
                                     >
                                         <i class="fa-solid fa-file-arrow-down" />
-                                        View
+                                        {{ t.common.view }}
                                     </button>
 
                                     <span
                                         v-else
                                         class="text-xs text-slate-400"
                                     >
-                                        No Attachment
+                                        {{ t.report.noAttachment }}
                                     </span>
                                 </template>
 
@@ -757,7 +755,7 @@ async function pollExport(id: number) {
                                             @click="openReview(declaration)"
                                         >
                                             <i class="fa-solid fa-eye" />
-                                            View
+                                            {{ t.common.view }}
                                         </button>
 
                                         <button
@@ -783,7 +781,7 @@ async function pollExport(id: number) {
                                         v-else
                                         class="text-xs text-slate-400"
                                     >
-                                        No Submission
+                                        {{ t.common.noSubmission }}
                                     </span>
                                 </template>
                             </td>
@@ -804,13 +802,13 @@ async function pollExport(id: number) {
                                     <div
                                         class="mt-3 font-semibold text-slate-600"
                                     >
-                                        No declarations found
+                                        {{ t.report.noDeclarationsFound }}
                                     </div>
 
                                     <div
                                         class="text-sm text-slate-500"
                                     >
-                                        No employee declarations available.
+                                        {{ t.report.noEmployeeDeclarations }}
                                     </div>
                                 </div>
                             </td>

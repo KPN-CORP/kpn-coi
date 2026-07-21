@@ -12,7 +12,7 @@ import { Link, useForm, usePage, router } from '@inertiajs/vue3'
 import { ref, watch, computed } from 'vue'
 import { route } from 'ziggy-js'
 import Swal from 'sweetalert2'
-import { locales } from '@/Config/locales'
+import { useLocale } from '@/Composables/useLocale'
 
 interface DeclarationData {
     name: string
@@ -43,7 +43,11 @@ const props = defineProps<{
     departments: { code: string; name: string; business_unit: string }[]
 }>()
 
-const locale = computed(() => locales[props.locale])
+// The whole form — chrome AND the COI questions/consent — follows the global
+// EN/ID toggle. `locale` is the active dictionary; `currentLocale` is the
+// 'en'|'id' string used to index the per-question title/label objects and to
+// stamp the submitted declaration (drives the saved language + PDF).
+const { t: locale, locale: currentLocale } = useLocale()
 
 const submitted = ref(false)
 const clientErrors = ref<Record<string, string>>({})
@@ -77,11 +81,6 @@ const form = useForm({
     consent: false,
 })
 
-const currentLocale = ref(
-    props.locale === 'id' ? 'id' : 'en'
-)
-
-
 const flash = computed(() => page.props.flash as {
     success?: string
     error?: string
@@ -91,20 +90,20 @@ const usePreviousData = async () => {
     if (!props.previousDeclaration?.responses?.length) {
         await Swal.fire({
             icon: 'info',
-            title: 'No Previous Declaration',
-            text: 'No submitted declaration was found from the previous period.',
+            title: locale.value.declaration.noPreviousTitle,
+            text: locale.value.declaration.noPreviousText,
         })
 
         return
     }
 
     const result = await Swal.fire({
-        title: 'Use Previous Declaration?',
-        text: 'This will replace all current answers with your previous submitted declaration.',
+        title: locale.value.declaration.usePreviousTitle,
+        text: locale.value.declaration.usePreviousText,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Yes, Use Data',
-        cancelButtonText: 'Cancel',
+        confirmButtonText: locale.value.declaration.yesUseData,
+        cancelButtonText: locale.value.common.cancel,
         confirmButtonColor: '#ab2f2b',
         reverseButtons: true,
     })
@@ -122,8 +121,8 @@ const usePreviousData = async () => {
 
     await Swal.fire({
         icon: 'success',
-        title: 'Data Loaded',
-        text: 'Previous declaration data has been successfully loaded.',
+        title: locale.value.declaration.dataLoadedTitle,
+        text: locale.value.declaration.dataLoadedText,
         timer: 1500,
         showConfirmButton: false,
     })
@@ -312,7 +311,7 @@ function validateForm(): boolean {
                     if (!detail[`${field.key}_from`]) {
 
                         clientErrors.value[fromKey] =
-                            'This field is required.'
+                            locale.value.validation.required
 
                         valid = false
                     }
@@ -323,7 +322,7 @@ function validateForm(): boolean {
                     ) {
 
                         clientErrors.value[toKey] =
-                            'This field is required.'
+                            locale.value.validation.required
 
                         valid = false
                     }
@@ -336,7 +335,7 @@ function validateForm(): boolean {
                     ) {
 
                         clientErrors.value[toKey] =
-                            "Finish Date can't be earlier than Start Date."
+                            locale.value.validation.dateRange
 
                         valid = false
                     }
@@ -352,7 +351,7 @@ function validateForm(): boolean {
                     if (!detail[field.key]) {
 
                         clientErrors.value[key] =
-                            'This field is required.'
+                            locale.value.validation.required
 
                         valid = false
                     }
@@ -368,7 +367,7 @@ function validateForm(): boolean {
                 if (isEmpty(value)) {
 
                     clientErrors.value[key] =
-                        'This field is required.'
+                        locale.value.validation.required
 
                     valid = false
                 }
@@ -399,7 +398,7 @@ function validateForm(): boolean {
                             ) {
 
                                 clientErrors.value[requiredKey] =
-                                    'This field is required.'
+                                    locale.value.validation.required
 
                                 valid = false
                             }
@@ -422,6 +421,8 @@ function validateForm(): boolean {
 function saveDraft() {
     processingAction.value = 'draft'
 
+    form.locale = currentLocale.value
+
     form.post(route('employee.declarations.draft'), {
         preserveScroll: true,
 
@@ -430,7 +431,7 @@ function saveDraft() {
                 toast: true,
                 position: 'top-end',
                 icon: 'success',
-                title: 'Draft saved successfully.',
+                title: locale.value.declaration.draftSaved,
                 showConfirmButton: false,
                 timer: 2000,
                 timerProgressBar: true,
@@ -455,7 +456,7 @@ async function submit() {
     if (hasEmptyFields()) {
         Swal.fire({
             icon: 'warning',
-            title: 'Please complete all required fields.',
+            title: locale.value.declaration.completeRequired,
         })
 
         processingAction.value = null
@@ -471,25 +472,15 @@ async function submit() {
 
     const { isConfirmed } = await Swal.fire({
         icon: 'warning',
-        title: currentLocale.value === 'id'
-            ? 'Konfirmasi Terakhir'
-            : 'Final Confirmation',
+        title: locale.value.declaration.finalConfirmTitle,
 
         html: `
             <p class="mb-3">
-                ${
-                    currentLocale.value === 'id'
-                        ? 'Deklarasi ini tidak dapat diubah setelah dikirim.'
-                        : 'This declaration cannot be edited after submission.'
-                }
+                ${locale.value.declaration.finalConfirmCannotEdit}
             </p>
 
             <p class="mb-2">
-                ${
-                    currentLocale.value === 'id'
-                        ? 'Silakan ketik ulang nama lengkap Anda di bawah ini untuk mengonfirmasi:'
-                        : 'Please type your full name below to confirm:'
-                }
+                ${locale.value.declaration.finalConfirmType}
             </p>
 
             <p style="font-weight:600;margin-bottom:8px;">
@@ -497,32 +488,19 @@ async function submit() {
             </p>
 
             <p style="font-size:12px;color:#6b7280;">
-                ${
-                    currentLocale.value === 'id'
-                        ? '⚠ Huruf besar dan kecil harus sesuai.'
-                        : '⚠ Uppercase and lowercase letters must match.'
-                }
+                ${locale.value.declaration.finalConfirmCase}
             </p>
         `,
 
         input: 'text',
 
-        inputPlaceholder:
-            currentLocale.value === 'id'
-                ? 'Ketik nama lengkap Anda'
-                : 'Type your full name',
+        inputPlaceholder: locale.value.declaration.typeFullName,
 
         showCancelButton: true,
 
-        confirmButtonText:
-            currentLocale.value === 'id'
-                ? 'Kirim'
-                : 'Submit',
+        confirmButtonText: locale.value.common.submit,
 
-        cancelButtonText:
-            currentLocale.value === 'id'
-                ? 'Batal'
-                : 'Cancel',
+        cancelButtonText: locale.value.common.cancel,
 
         buttonsStyling: false,
 
@@ -555,9 +533,7 @@ async function submit() {
             if (value?.trim() !== fullName) {
 
                 Swal.showValidationMessage(
-                    currentLocale.value === 'id'
-                        ? 'Nama lengkap yang dimasukkan tidak sesuai.'
-                        : 'The full name does not match.'
+                    locale.value.declaration.nameMismatch
                 )
 
                 return false
@@ -571,6 +547,8 @@ async function submit() {
         processingAction.value = null
         return
     }
+
+    form.locale = currentLocale.value
 
     form.post(route('employee.declarations.submit'), {
         onFinish: () => {
@@ -686,32 +664,20 @@ function onAnswerChanged(questionKey: string) {
 
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-6 text-xs text-slate-600">
             <p class="font-semibold text-slate-800 mb-2">
-                {{ currentLocale === 'id' ? 'Catatan:' : 'Notes:' }}
+                {{ locale.declaration.notesTitle }}
             </p>
 
             <ol class="list-decimal list-inside space-y-1">
                 <li>
-                    {{
-                        currentLocale === 'id'
-                            ? 'Pilih "Ya" pada jawaban yang sesuai.'
-                            : 'Choose "Yes" on the appropriate answer.'
-                    }}
+                    {{ locale.declaration.note1 }}
                 </li>
 
                 <li>
-                    {{
-                        currentLocale === 'id'
-                            ? 'Keluarga Inti terdiri dari pasangan (suami/istri), orang tua, mertua, anak, atau menantu yang terdaftar dalam dokumen kependudukan resmi yang diterbitkan oleh pemerintah.'
-                            : "The Immediate Family consists of the Employee's spouse (husband/wife), parents, parents-in-law, children, or children-in-law registered in official civil documents issued by the government."
-                    }}
+                    {{ locale.declaration.note2 }}
                 </li>
 
                 <li>
-                    {{
-                        currentLocale === 'id'
-                            ? 'Hubungan kekerabatan dalam 1 (satu) garis keturunan keluarga dan melibatkan 2 (dua) generasi, dihitung dari diri sendiri ke atas 2 (dua) generasi (orang tua, mertua, kakek/nenek dari diri sendiri maupun pasangan), ke bawah 2 (dua) generasi (anak, cucu), dan satu generasi yang sama (saudara kandung, pasangan).'
-                            : 'Kinship relationship within 1 (one) family lineage and involving 2 (two) generations, calculated from oneself to 2 (two) generations above (parents, parents-in-law, grandparents of oneself and spouse), 2 (two) generations below (children, grandchildren), and the same generation (siblings, spouse).'
-                    }}
+                    {{ locale.declaration.note3 }}
                 </li>
             </ol>
         </div>
@@ -765,6 +731,7 @@ function onAnswerChanged(questionKey: string) {
                     }))
                 "
                 :question-key="question.key"
+                :locale="currentLocale"
                 :business-units="props.businessUnits"
                 :companies="props.companies"
                 :departments="props.departments"
@@ -778,7 +745,7 @@ function onAnswerChanged(questionKey: string) {
         <Card class="mb-6 bg-slate-50 card-custom">
             <ConsentSection
                 v-model="form.consent"
-                :locale="props.locale"
+                :locale="currentLocale"
             />
     
             <div
@@ -788,7 +755,7 @@ function onAnswerChanged(questionKey: string) {
                     :href="route('employee.history')"
                     class="rounded-md border border-border bg-white px-4 py-2 text-sm font-medium text-text hover:bg-slate-50"
                 >
-                    Cancel
+                    {{ locale.common.cancel }}
                 </Link>
                 <button
                     type="button"
@@ -800,7 +767,7 @@ function onAnswerChanged(questionKey: string) {
                         v-if="processingAction === 'draft'"
                         class="loading loading-spinner loading-xs"
                     />
-                    {{ processingAction === 'draft' ? 'Saving...' : 'Save Draft' }}
+                    {{ processingAction === 'draft' ? locale.common.saving : locale.declaration.saveDraft }}
                 </button>
 
                 <button
@@ -813,7 +780,7 @@ function onAnswerChanged(questionKey: string) {
                         v-if="processingAction === 'submit'"
                         class="loading loading-spinner loading-xs"
                     />
-                    {{ processingAction === 'submit' ? 'Submitting...' : 'Submit' }}
+                    {{ processingAction === 'submit' ? locale.common.submitting : locale.common.submit }}
                 </button>
             </div>
         </Card>

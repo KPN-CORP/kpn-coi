@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps({
     status: {
@@ -33,6 +36,15 @@ const badgeClass = computed(() => {
             return 'bg-slate-50 text-slate-600 border-slate-200'
     }
 })
+
+const displayLabel = computed(() => {
+    if (props.label) {
+        return props.label
+    }
+
+    return t.value.status[props.status]
+        ?? props.status.replaceAll('_', ' ')
+})
 </script>
 
 <template>
@@ -40,6 +52,6 @@ const badgeClass = computed(() => {
         class="inline-flex rounded-md border px-2 py-1 text-[11px] font-semibold uppercase"
         :class="badgeClass"
     >
-        {{ label ?? status.replaceAll('_', ' ') }}
+        {{ displayLabel }}
     </span>
 </template>

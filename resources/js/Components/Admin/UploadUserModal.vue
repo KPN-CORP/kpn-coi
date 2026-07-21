@@ -2,6 +2,9 @@
 import { ref, watch } from 'vue'
 import Modal from '@/Components/UI/Modal.vue'
 import { route } from 'ziggy-js'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps<{
     show: boolean
@@ -43,7 +46,7 @@ function handleFileChange(event: Event) {
 
     if (!['xlsx', 'xls'].includes(extension ?? '')) {
 
-        alert('Only Excel (.xlsx, .xls) files are allowed.')
+        alert(t.value.uploadModal.onlyExcel)
 
         target.value = ''
 
@@ -82,7 +85,7 @@ function upload() {
             class="flex items-center justify-between border-b border-border px-6 py-4"
         >
             <h2 class="text-lg font-bold">
-                Upload Users
+                {{ t.uploadModal.title }}
             </h2>
 
             <button
@@ -104,11 +107,11 @@ function upload() {
                 class="rounded-lg border border-blue-200 bg-blue-50 p-4"
             >
                 <div class="font-semibold text-slate-800">
-                    Excel Template
+                    {{ t.uploadModal.excelTemplate }}
                 </div>
 
                 <p class="mt-1 text-sm text-slate-600">
-                    Download the template before uploading your data.
+                    {{ t.uploadModal.templateHint }}
                 </p>
 
                 <a
@@ -117,7 +120,7 @@ function upload() {
                 >
                     <i class="fa-solid fa-download mr-2" />
 
-                    Download Template
+                    {{ t.uploadModal.downloadTemplate }}
                 </a>
             </div>
 
@@ -125,7 +128,7 @@ function upload() {
 
             <div>
                 <label class="mb-2 block text-sm font-medium">
-                    Excel File
+                    {{ t.uploadModal.excelFile }}
                 </label>
 
                 <input
@@ -136,7 +139,7 @@ function upload() {
                 >
 
                 <p class="mt-2 text-xs text-slate-500">
-                    Supported format: .xlsx, .xls
+                    {{ t.uploadModal.supportedFormat }}
                 </p>
 
                 <div
@@ -162,7 +165,7 @@ function upload() {
                 :disabled="uploading"
                 @click="emit('close')"
             >
-                Cancel
+                {{ t.common.cancel }}
             </button>
 
             <button
@@ -178,8 +181,8 @@ function upload() {
 
                 {{
                     uploading
-                        ? 'Uploading...'
-                        : 'Upload'
+                        ? t.common.uploading
+                        : t.common.upload
                 }}
             </button>
         </div>

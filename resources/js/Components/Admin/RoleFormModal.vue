@@ -5,6 +5,9 @@ import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/UI/Modal.vue'
 import Card from '@/Components/UI/Card.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 interface Role {
     id?: number
@@ -180,11 +183,11 @@ function submit() {
         >
             <div>
                 <h2 class="text-lg font-bold text-slate-900">
-                    {{ role ? 'Edit Role' : 'Create Role' }}
+                    {{ role ? t.roleForm.editRole : t.roleForm.createRole }}
                 </h2>
 
                 <p class="mt-1 text-sm text-slate-500">
-                    Configure role access and permissions.
+                    {{ t.roleForm.subtitle }}
                 </p>
             </div>
 
@@ -207,7 +210,7 @@ function submit() {
 
                 <div>
                     <label class="form-label">
-                        Role Name
+                        {{ t.roleForm.roleName }}
                         <span class="text-danger">*</span>
                     </label>
 
@@ -215,7 +218,7 @@ function submit() {
                         v-model="form.name"
                         type="text"
                         class="w-full rounded-md border border-border px-3 py-2"
-                        placeholder="Enter role name"
+                        :placeholder="t.roleForm.enterRoleName"
                     >
                 </div>
 
@@ -226,13 +229,13 @@ function submit() {
                         class="mb-4 border-b border-border pb-2"
                     >
                         <h3 class="font-semibold">
-                            Data Restrictions
+                            {{ t.roleForm.dataRestrictions }}
                         </h3>
 
                         <p
                             class="text-sm text-slate-500"
                         >
-                            Restrict accessible employee data.
+                            {{ t.roleForm.dataRestrictionsHint }}
                         </p>
                     </div>
 
@@ -243,7 +246,7 @@ function submit() {
 
                         <div>
                             <label class="form-label">
-                                Work Area
+                                {{ t.roleForm.workArea }}
                             </label>
 
                             <MultiSelect
@@ -251,7 +254,7 @@ function submit() {
                                     form.restrictions.work_area_code
                                 "
                                 :options="workAreas"
-                                placeholder="Select work area"
+                                :placeholder="t.roleForm.selectWorkArea"
                             />
                         </div>
 
@@ -259,7 +262,7 @@ function submit() {
 
                         <div>
                             <label class="form-label">
-                                Group Company
+                                {{ t.roleForm.groupCompany }}
                             </label>
 
                             <MultiSelect
@@ -267,7 +270,7 @@ function submit() {
                                     form.restrictions.group_company
                                 "
                                 :options="groupCompanies"
-                                placeholder="Select company"
+                                :placeholder="t.roleForm.selectCompany"
                             />
                         </div>
 
@@ -275,7 +278,7 @@ function submit() {
 
                         <div>
                             <label class="form-label">
-                                Contribution Level
+                                {{ t.roleForm.contributionLevel }}
                             </label>
 
                             <MultiSelect
@@ -283,7 +286,7 @@ function submit() {
                                     form.restrictions.contribution_level_code
                                 "
                                 :options="contributionLevels"
-                                placeholder="Select contribution level"
+                                :placeholder="t.roleForm.selectContributionLevel"
                             />
                         </div>
                     </div>
@@ -294,12 +297,12 @@ function submit() {
                 <div>
                     <div class="mb-3 flex items-center justify-between">
                         <label class="form-label mb-0">
-                            Permissions
+                            {{ t.roleForm.permissions }}
                         </label>
 
                         <span class="badge badge-info">
                             {{ form.permissions.length }}
-                            Selected
+                            {{ t.roleForm.selected }}
                         </span>
                     </div>
 
@@ -349,7 +352,7 @@ function submit() {
                 class="btn-outline-custom"
                 @click="emit('close')"
             >
-                Cancel
+                {{ t.common.cancel }}
             </button>
 
             <button
@@ -363,7 +366,7 @@ function submit() {
                     class="fa-solid fa-spinner fa-spin"
                 />
 
-                {{ role ? 'Update Role' : 'Create Role' }}
+                {{ role ? t.roleForm.updateRole : t.roleForm.createRole }}
             </button>
         </div>
     </Modal>

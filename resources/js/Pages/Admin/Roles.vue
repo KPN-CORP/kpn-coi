@@ -12,6 +12,9 @@ import RoleFormModal from '@/Components/Admin/RoleFormModal.vue'
 import { router } from '@inertiajs/vue3'
 import DeleteRoleModal from '@/Components/Admin/DeleteRoleModal.vue'
 import AssignRoleModal from '@/Components/Admin/AssignRoleModal.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 const showDeleteModal = ref(false)
 
@@ -109,8 +112,8 @@ function deleteRole(role: Role) {
 <template>
     <AdminLayout>
         <PageHeader
-            title="Role Management"
-            description="Manage roles, permissions and data scope."
+            :title="t.roles.title"
+            :description="t.roles.description"
         >
             <template #actions>
                 <button
@@ -121,7 +124,7 @@ function deleteRole(role: Role) {
                         class="fa-solid fa-plus"
                     />
 
-                    Create Role
+                    {{ t.roles.createRole }}
                 </button>
             </template>
         </PageHeader>
@@ -136,15 +139,15 @@ function deleteRole(role: Role) {
                     <thead>
                         <tr>
                             <th>
-                                Role
+                                {{ t.roles.columnRole }}
                             </th>
 
                             <th>
-                                Permissions
+                                {{ t.roles.columnPermissions }}
                             </th>
 
                             <th>
-                                Actions
+                                {{ t.common.actions }}
                             </th>
                         </tr>
                     </thead>
@@ -162,7 +165,7 @@ function deleteRole(role: Role) {
                                 {{
                                     role.permissions.length
                                 }}
-                                Permissions
+                                {{ t.roles.permissionsSuffix }}
                             </td>
 
                             <td>
@@ -173,20 +176,20 @@ function deleteRole(role: Role) {
                                         class="btn btn-outline-secondary btn-sm"
                                         @click="openEdit(role)"
                                     >
-                                        Edit
+                                        {{ t.common.edit }}
                                     </button>
 
                                     <button
                                         class="btn bg-white border text-red-600 border-red-600 hover:bg-red-600 hover:text-white btn-sm"
                                         @click="openDelete(role)"
                                     >
-                                        Delete
+                                        {{ t.common.delete }}
                                     </button>
                                     <button
                                         class="btn border border-black hover:bg-black hover:text-white btn-sm"
                                         @click="openAssign(role)"
                                     >
-                                        Assign
+                                        {{ t.common.assign }}
                                     </button>
                                 </div>
                             </td>
@@ -202,7 +205,7 @@ function deleteRole(role: Role) {
                                 colspan="4"
                                 class="py-8 text-center"
                             >
-                                No roles found.
+                                {{ t.roles.noRoles }}
                             </td>
                         </tr>
                     </tbody>

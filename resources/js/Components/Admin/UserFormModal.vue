@@ -5,6 +5,9 @@ import Modal from '@/Components/UI/Modal.vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
 import countries from '@/Config/countries.json'
 import Swal from 'sweetalert2'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 // Stored value is the demonym string ("Malaysian"), matching existing data.
 // Deduplicated: some nationalities cover more than one country (Congolese,
@@ -197,7 +200,7 @@ function validate() {
 
     if (!form.name.trim()) {
 
-        errors.name = 'Full Name is required.'
+        errors.name = t.value.userForm.nameRequired
 
         valid = false
 
@@ -207,7 +210,7 @@ function validate() {
 
     if (!email) {
 
-        errors.email = 'Email is required.'
+        errors.email = t.value.userForm.emailRequired
 
         valid = false
 
@@ -219,7 +222,7 @@ function validate() {
         if (!emailRegex.test(email)) {
 
             errors.email =
-                'Please enter a valid email address.'
+                t.value.userForm.emailInvalid
 
             valid = false
 
@@ -230,7 +233,7 @@ function validate() {
     if (!form.nationality_type) {
 
         errors.nationality_type =
-            'Nationality Type is required.'
+            t.value.userForm.nationalityTypeRequired
 
         valid = false
 
@@ -242,7 +245,7 @@ function validate() {
     ) {
 
         errors.nationality =
-            'Nationality is required.'
+            t.value.userForm.nationalityRequired
 
         valid = false
 
@@ -252,8 +255,8 @@ function validate() {
 
         errors.citizen_number =
             form.nationality_type === 'Indonesian'
-                ? 'Citizenship Number is required.'
-                : 'Passport ID is required.'
+                ? t.value.userForm.ktpRequired
+                : t.value.userForm.passportRequired
 
         valid = false
 
@@ -263,7 +266,7 @@ function validate() {
     ) {
 
         errors.citizen_number =
-            'Please input correct Citizenship Number.'
+            t.value.userForm.ktpInvalid
 
         valid = false
 
@@ -273,7 +276,7 @@ function validate() {
     ) {
 
         errors.citizen_number =
-            'Passport ID must not exceed 10 characters.'
+            t.value.userForm.passportTooLong
 
         valid = false
 
@@ -282,7 +285,7 @@ function validate() {
     if (!form.business_unit) {
 
         errors.business_unit =
-            'Business Unit is required.'
+            t.value.userForm.businessUnitRequired
 
         valid = false
 
@@ -291,7 +294,7 @@ function validate() {
     if (!form.date_of_joining) {
 
         errors.date_of_joining =
-            'Date of Joining is required.'
+            t.value.userForm.dateOfJoiningRequired
 
         valid = false
 
@@ -300,7 +303,7 @@ function validate() {
     if (!form.address.trim()) {
 
         errors.address =
-            'Address is required.'
+            t.value.userForm.addressRequired
 
         valid = false
 
@@ -331,17 +334,17 @@ async function resetPassword() {
 
     const result = await Swal.fire({
 
-        title: 'Reset Password?',
+        title: t.value.userForm.resetPasswordTitle,
 
-        text: 'A new password will be generated and sent to the user email.',
+        text: t.value.userForm.resetPasswordText,
 
         icon: 'warning',
 
         showCancelButton: true,
 
-        confirmButtonText: 'Reset Password',
+        confirmButtonText: t.value.userForm.resetPassword,
 
-        cancelButtonText: 'Cancel',
+        cancelButtonText: t.value.common.cancel,
 
         confirmButtonColor: '#ab2f2b',
 
@@ -518,7 +521,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Full Name
+                        {{ t.common.fullName }}
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -545,7 +548,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Email
+                        {{ t.common.email }}
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -572,15 +575,15 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Nationality
+                        {{ t.userForm.nationality }}
                         <span class="text-red-500">*</span>
                     </label>
 
                     <div class="grid grid-cols-2 gap-3">
                         <label
                             v-for="option in [
-                                { value: 'Indonesian', label: 'Indonesian' },
-                                { value: 'foreigner', label: 'Foreigner' },
+                                { value: 'Indonesian', label: t.userForm.indonesian },
+                                { value: 'foreigner', label: t.userForm.foreigner },
                             ]"
                             :key="option.value"
                             class="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-3 text-sm transition"
@@ -620,14 +623,14 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                 >
                     <div v-if="form.nationality_type === 'foreigner'">
                         <label class="mb-1 block text-sm font-medium">
-                            Country of Nationality
+                            {{ t.userForm.countryOfNationality }}
                             <span class="text-red-500">*</span>
                         </label>
 
                         <SearchSelect
                             v-model="form.nationality"
                             :options="nationalityOptions"
-                            placeholder="Select nationality..."
+                            :placeholder="t.userForm.selectNationality"
                         />
 
                         <p
@@ -644,8 +647,8 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <label class="mb-1 block text-sm font-medium">
                             {{
                                 form.nationality_type === 'Indonesian'
-                                    ? 'Citizenship Number (KTP)'
-                                    : 'Passport ID'
+                                    ? t.userForm.ktpLabel
+                                    : t.userForm.passportId
                             }}
                             <span class="text-red-500">*</span>
                         </label>
@@ -667,14 +670,14 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                             v-if="form.nationality_type === 'Indonesian'"
                             class="mt-1 text-xs text-slate-500"
                         >
-                            Must contain 16 digits.
+                            {{ t.userForm.ktpHint }}
                         </p>
 
                         <p
                             v-else
                             class="mt-1 text-xs text-slate-500"
                         >
-                            Maximum 10 characters.
+                            {{ t.userForm.passportHint }}
                         </p>
 
                         <p
@@ -690,7 +693,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                 <div :class="[
                         'flex flex-col gap-2']">
                     <label class="text-sm font-medium text-slate-700">
-                        Business Unit
+                        {{ t.common.businessUnit }}
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -700,7 +703,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         @change="setBusinessUnit(($event.target as HTMLSelectElement).value)"
                     >
                         <option value="">
-                            All Business Unit
+                            {{ t.teamHistory.allBusinessUnits }}
                         </option>
 
                         <option
@@ -727,13 +730,13 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                 -->
                 <div v-if="locationsForBusinessUnit.length">
                     <label class="mb-1 block text-sm font-medium">
-                        Location
+                        {{ t.userForm.location }}
                     </label>
 
                     <SearchSelect
                         v-model="form.location_id"
                         :options="locationsForBusinessUnit"
-                        placeholder="Select location..."
+                        :placeholder="t.userForm.selectLocation"
                     />
 
                     <p
@@ -748,7 +751,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Date Of Join
+                        {{ t.credentials.columnDateOfJoin }}
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -777,7 +780,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                 <div>
                     <label class="mb-1 block text-sm font-medium">
-                        Permanent Address
+                        {{ t.userForm.permanentAddress }}
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -819,8 +822,8 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                     {{
                         resettingPassword
-                            ? 'Resetting...'
-                            : 'Reset Password'
+                            ? t.userForm.resetting
+                            : t.userForm.resetPassword
                     }}
                 </button>
             </div>
@@ -832,7 +835,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     :disabled="form.processing"
                     @click="emit('close')"
                 >
-                    Cancel
+                    {{ t.common.cancel }}
                 </button>
 
                 <button
@@ -848,8 +851,8 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
 
                     {{
                         form.processing
-                            ? 'Saving...'
-                            : 'Save'
+                            ? t.common.saving
+                            : t.common.save
                     }}
                 </button>
             </div>

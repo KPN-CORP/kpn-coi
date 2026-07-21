@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
 import { useNavigation } from '@/Composables/useNavigation'
+import { useLocale } from '@/Composables/useLocale'
 import { computed } from 'vue'
+
+const { t } = useLocale()
 
 defineProps<{
     navigation: {
@@ -100,7 +103,7 @@ const groupedMenus = computed(() => {
         <button class="flex items-center gap-3 border-t border-l-4 hover:border-transparent px-6 py-3 text-sm font-light text-text transition-all border-primary hover:bg-red-50 text-primary hover:font-bold"
             @click="router.post(route('logout'))"
         >
-            Logout
+            {{ t.nav.logout }}
         </button>
         <div
             class="border-t border-border p-4"
@@ -108,13 +111,13 @@ const groupedMenus = computed(() => {
             <div
                 class="text-xs text-slate-400"
             >
-                KPN Compliance System
+                {{ t.nav.systemName }}
             </div>
 
             <div
                 class="mt-1 text-xs text-slate-400"
             >
-                Version 1.0.0
+                {{ t.nav.version }}
             </div>
         </div>
     </aside>

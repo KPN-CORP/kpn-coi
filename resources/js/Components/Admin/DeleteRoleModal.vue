@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import Modal from '@/Components/UI/Modal.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 interface Role {
     id: number
@@ -29,7 +32,7 @@ const emit = defineEmits<{
             class="flex items-center justify-between border-b border-border px-6 py-4"
         >
             <h2 class="text-lg font-bold">
-                Delete Role
+                {{ t.roles.deleteRoleTitle }}
             </h2>
 
             <button
@@ -55,7 +58,7 @@ const emit = defineEmits<{
             </div>
 
             <p class="text-center text-sm text-slate-600">
-                Are you sure you want to delete role
+                {{ t.roles.deleteRoleConfirm }}
                 <span class="font-semibold text-slate-900">
                     "{{ role?.name }}"
                 </span>?
@@ -64,7 +67,7 @@ const emit = defineEmits<{
             <p
                 class="mt-2 text-center text-xs text-slate-500"
             >
-                This action cannot be undone.
+                {{ t.roles.cannotBeUndone }}
             </p>
         </div>
 
@@ -78,7 +81,7 @@ const emit = defineEmits<{
                 class="btn btn-outline-secondary"
                 @click="emit('close')"
             >
-                Cancel
+                {{ t.common.cancel }}
             </button>
 
             <button
@@ -87,7 +90,7 @@ const emit = defineEmits<{
                 class="btn btn-primary-custom"
                 @click="emit('confirm', role.id)"
             >
-                Delete
+                {{ t.common.delete }}
             </button>
         </div>
     </Modal>

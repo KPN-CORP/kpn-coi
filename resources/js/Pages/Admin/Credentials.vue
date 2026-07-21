@@ -2,7 +2,7 @@
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import UserFormModal from '@/Components/Admin/UserFormModal.vue'
 import UploadUserModal from '@/Components/Admin/UploadUserModal.vue'
 import DeleteUserModal from '@/Components/Admin/DeleteUserModal.vue'
@@ -10,10 +10,19 @@ import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import Pagination from '@/Components/UI/Pagination.vue'
 import Swal from 'sweetalert2'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 const showUserModal = ref(false)
 
-const modalTitle = ref('Add User')
+const modalMode = ref<'add' | 'edit'>('add')
+
+const modalTitle = computed(() =>
+    modalMode.value === 'add'
+        ? t.value.credentials.addUser
+        : t.value.credentials.editUser,
+)
 
 const selectedUser = ref<User | null>(null)
 
@@ -52,9 +61,9 @@ function uploadUsers(file: File | null) {
 
                     icon: 'success',
 
-                    title: 'Import Completed',
+                    title: t.value.credentials.importCompletedTitle,
 
-                    text: 'Users imported successfully.',
+                    text: t.value.credentials.importCompletedText,
 
                     confirmButtonColor: '#ab2f2b',
 
@@ -72,7 +81,7 @@ function uploadUsers(file: File | null) {
 
                     icon: 'error',
 
-                    title: 'Import Failed',
+                    title: t.value.credentials.importFailedTitle,
 
                     html: `
                         <p>${message}</p>
@@ -83,7 +92,7 @@ function uploadUsers(file: File | null) {
                             href="${route('admin.credentials.import.error')}"
                             class="text-primary underline"
                         >
-                            Download Error Report
+                            ${t.value.credentials.downloadErrorReport}
                         </a>
                     `,
 
@@ -116,13 +125,13 @@ interface User {
 }
 
 function openAddModal() {
-    modalTitle.value = 'Add User'
+    modalMode.value = 'add'
     selectedUser.value = null
     showUserModal.value = true
 }
 
 function openEditModal(user: any) {
-    modalTitle.value = 'Edit User'
+    modalMode.value = 'edit'
 
     selectedUser.value = user
 
@@ -137,17 +146,17 @@ async function saveUser(payload: any) {
 
         const result = await Swal.fire({
 
-            title: 'Create User?',
+            title: t.value.credentials.createUserTitle,
 
-            text: 'A new account will be created and the login credentials will be sent to the user email.',
+            text: t.value.credentials.createUserText,
 
             icon: 'question',
 
             showCancelButton: true,
 
-            confirmButtonText: 'Create User',
+            confirmButtonText: t.value.credentials.createUserConfirm,
 
-            cancelButtonText: 'Cancel',
+            cancelButtonText: t.value.common.cancel,
 
             confirmButtonColor: '#ab2f2b',
 
@@ -175,11 +184,11 @@ async function saveUser(payload: any) {
 
                 icon: 'success',
 
-                title: 'Success',
+                title: t.value.swal.success,
 
                 text: isEdit
-                    ? 'User updated successfully.'
-                    : 'User created successfully. Login credentials have been sent to the user email.',
+                    ? t.value.credentials.userUpdated
+                    : t.value.credentials.userCreated,
 
                 confirmButtonColor: '#ab2f2b',
 
@@ -193,7 +202,7 @@ async function saveUser(payload: any) {
 
     Swal.fire({
         icon: 'error',
-        title: 'Validation Failed',
+        title: t.value.credentials.validationFailed,
         text: Object.values(errors)[0],
         confirmButtonColor: '#ab2f2b',
     })
@@ -244,9 +253,9 @@ async function resetPassword() {
 
                     icon: 'success',
 
-                    title: 'Password Reset',
+                    title: t.value.credentials.passwordResetTitle,
 
-                    text: 'A new password has been generated and sent to the user email.',
+                    text: t.value.credentials.passwordResetText,
 
                     confirmButtonColor: '#ab2f2b',
 
@@ -283,9 +292,9 @@ function deleteUser() {
 
                     icon: 'success',
 
-                    title: 'Success',
+                    title: t.value.swal.success,
 
-                    text: 'User deleted successfully.',
+                    text: t.value.credentials.userDeleted,
 
                     confirmButtonColor: '#ab2f2b',
 
@@ -334,12 +343,12 @@ const filter = useForm({
     per_page: props.filters.per_page ?? 10,
 })
 
-const sortableColumns = [
-    { label: 'Name', key: 'name' },
-    { label: 'Email', key: 'email' },
-    { label: 'Business Unit', key: 'business_unit' },
-    { label: 'Date Of Join', key: 'date_of_joining' },
-]
+const sortableColumns = computed(() => [
+    { label: t.value.common.name, key: 'name' },
+    { label: t.value.common.email, key: 'email' },
+    { label: t.value.common.businessUnit, key: 'business_unit' },
+    { label: t.value.credentials.columnDateOfJoin, key: 'date_of_joining' },
+])
 
 function formatDate(date: string | null) {
     if (!date) {
@@ -398,8 +407,8 @@ function applyFilter() {
 <template>
     <AdminLayout>
         <PageHeader
-            title="Credentials Database"
-            description="Manage non-HRIS users and imported accounts."
+            :title="t.credentials.title"
+            :description="t.credentials.description"
         >
             <template #actions>
                 <div class="flex flex-wrap gap-2">
@@ -409,7 +418,7 @@ function applyFilter() {
                         @change="applyFilter"
                     >
                         <option value="">
-                            All Business Unit
+                            {{ t.teamHistory.allBusinessUnits }}
                         </option>
 
                         <option
@@ -424,7 +433,7 @@ function applyFilter() {
                     <input
                         v-model="filter.search"
                         type="text"
-                        placeholder="Search user..."
+                        :placeholder="t.credentials.searchPlaceholder"
                         class="min-w-0 flex-1 rounded-md border border-border px-3 py-2 sm:flex-none"
                         @input="applyFilter"
                     />
@@ -432,14 +441,14 @@ function applyFilter() {
                         class="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary"
                         @click="showUploadModal = true"
                     >
-                        Upload Users
+                        {{ t.credentials.uploadUsers }}
                     </button>
 
                     <button
                         class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white"
                         @click="openAddModal"
                     >
-                        Add User
+                        {{ t.credentials.addUser }}
                     </button>
                 </div>
             </template>
@@ -453,7 +462,7 @@ function applyFilter() {
                             class="border-b border-border text-left text-xs uppercase text-slate-500"
                         >
                             <th class="py-3">
-                                No
+                                {{ t.credentials.columnNo }}
                             </th>
 
                             <th
@@ -469,7 +478,7 @@ function applyFilter() {
                             </th>
 
                             <th class="py-3">
-                                Action
+                                {{ t.common.action }}
                             </th>
                         </tr>
                     </thead>
@@ -520,7 +529,7 @@ function applyFilter() {
                                         @click="openEditModal(user)"
                                     >
                                         
-                                        <i class="fa-solid fa-pencil" /> Edit
+                                        <i class="fa-solid fa-pencil" /> {{ t.common.edit }}
                                     </button>
 
                                     <button                     
@@ -528,7 +537,7 @@ function applyFilter() {
                                         class="btn btn-outline-primary-custom btn-sm"
                                         @click="openDeleteModal(user)"
                                     >                                        
-                                        <i class="fa-solid fa-trash" /> Delete
+                                        <i class="fa-solid fa-trash" /> {{ t.common.delete }}
                                     </button>
                                 </div>
 
@@ -547,7 +556,7 @@ function applyFilter() {
                                 colspan="6"
                                 class="py-10 text-center text-slate-500"
                             >
-                                No users found.
+                                {{ t.credentials.noUsers }}
                             </td>
                         </tr>
                     </tbody>

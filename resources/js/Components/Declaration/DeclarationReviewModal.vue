@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import Card from '@/Components/UI/Card.vue'
 import Modal from '@/Components/UI/Modal.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 defineProps({
     show: {
@@ -31,7 +34,7 @@ const emit = defineEmits<{
             class="flex items-center justify-between border-b border-border px-6 py-4"
         >
             <h2 class="text-lg font-bold">
-                Review Submitted Declaration
+                {{ t.declarationModal.reviewTitle }}
             </h2>
 
             <button
@@ -54,7 +57,7 @@ const emit = defineEmits<{
                         <label
                             class="mb-1 block text-xs font-semibold"
                         >
-                            Full Name
+                            {{ t.common.fullName }}
                         </label>
 
                         <input
@@ -68,7 +71,7 @@ const emit = defineEmits<{
                         <label
                             class="mb-1 block text-xs font-semibold"
                         >
-                            Employee ID
+                            {{ t.common.employeeId }}
                         </label>
 
                         <input
@@ -95,14 +98,14 @@ const emit = defineEmits<{
                     v-if="question.answer"
                     class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
                 >
-                    Yes
+                    {{ t.common.yes }}
                 </span>
 
                 <span
                     v-else
                     class="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700"
                 >
-                    No
+                    {{ t.common.no }}
                 </span>
 
                 <!-- Details -->
@@ -158,7 +161,7 @@ const emit = defineEmits<{
                 class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 @click="emit('close')"
             >
-                Close
+                {{ t.common.close }}
             </button>
         </div>
     </Modal>

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import Modal from '@/Components/UI/Modal.vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 defineProps<{
     show: boolean
@@ -20,11 +23,11 @@ const emit = defineEmits<{
     >
         <div class="p-6">
             <h3 class="text-lg font-semibold">
-                Delete User
+                {{ t.credentials.deleteUserTitle }}
             </h3>
 
             <p class="mt-2 text-sm text-slate-600">
-                Are you sure you want to delete
+                {{ t.credentials.deleteUserConfirm }}
                 <strong>{{ userName }}</strong>?
             </p>
 
@@ -34,7 +37,7 @@ const emit = defineEmits<{
                     class="rounded-md border border-border px-4 py-2"
                     @click="emit('close')"
                 >
-                    Cancel
+                    {{ t.common.cancel }}
                 </button>
 
                 <button
@@ -42,7 +45,7 @@ const emit = defineEmits<{
                     class="rounded-md bg-red-600 px-4 py-2 text-white"
                     @click="emit('delete')"
                 >
-                    Delete
+                    {{ t.common.delete }}
                 </button>
             </div>
         </div>

@@ -11,6 +11,9 @@ import Chart from 'chart.js/auto'
 import { useForm, router } from '@inertiajs/vue3'
 import type { Chart as ChartInstance } from 'chart.js'
 import Swal from 'sweetalert2'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t, locale } = useLocale()
 
 const statusChart = ref<ChartInstance | null>(null)
 const barChart = ref<ChartInstance | null>(null)
@@ -48,7 +51,10 @@ function renderStatusChart() {
         type: 'doughnut',
 
         data: {
-            labels: ['Submitted', 'Not Submitted'],
+            labels: [
+                t.value.common.submitted,
+                t.value.common.notSubmitted,
+            ],
 
             datasets: [{
                 data: [
@@ -368,9 +374,9 @@ function openReport(
     if (total === 0) {
         Swal.fire({
             icon: 'info',
-            title: 'No Data',
-            text: 'There is no data available for the selected filter.',
-            confirmButtonText: 'OK',
+            title: t.value.dashboard.noDataTitle,
+            text: t.value.dashboard.noDataText,
+            confirmButtonText: t.value.common.ok,
         })
 
         return
@@ -419,13 +425,18 @@ watch(
         deep: true,
     },
 )
+
+// Chart labels are baked in at render time, so redraw on language change.
+watch(locale, () => {
+    renderStatusChart()
+})
 </script>
 
 <template>
     <AdminLayout>
         <PageHeader
-            title="Compliance Dashboard"
-            description="Real-time overview of declaration submissions."
+            :title="t.dashboard.title"
+            :description="t.dashboard.description"
         />
         <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div class="flex flex-wrap items-end gap-4">
@@ -433,7 +444,7 @@ watch(
                 <!-- Reporting Period -->
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
-                        Reporting Period
+                        {{ t.dashboard.reportingPeriod }}
                     </label>
 
                     <select
@@ -454,7 +465,7 @@ watch(
                 <!-- Declaration Type -->
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
-                        Declaration Type
+                        {{ t.dashboard.declarationType }}
                     </label>
 
                     <select
@@ -463,11 +474,11 @@ watch(
                         @change="onTypeChanged"
                     >
                         <option value="employee">
-                            Employee
+                            {{ t.common.employee }}
                         </option>
 
                         <option value="non_employee">
-                            Non Employee
+                            {{ t.common.nonEmployee }}
                         </option>
                     </select>
                 </div>
@@ -476,7 +487,7 @@ watch(
                 <div :class="[
                         'flex flex-col gap-2']">
                     <label class="text-sm font-medium text-slate-700">
-                        Business Unit
+                        {{ t.common.businessUnit }}
                     </label>
 
                     <select
@@ -485,7 +496,7 @@ watch(
                         @change="applyFilter"
                     >
                         <option value="">
-                            All Business Unit
+                            {{ t.teamHistory.allBusinessUnits }}
                         </option>
 
                         <option
@@ -536,7 +547,7 @@ watch(
                     @click="downloadDashboardPdf"
                 >
                     <i class="fa-solid fa-file-pdf mr-2" />
-                    Download PDF
+                    {{ t.dashboard.downloadPdf }}
                 </button>
 
                 <!-- <button
@@ -558,9 +569,9 @@ watch(
                     {{ stats.total }}
                 </div>
                 <div class="stat-title">
-                    TOTAL {{ filter.type === 'employee'
-                            ? 'Employee'
-                            : 'Non Employee' }}
+                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
+                            ? t.common.employee
+                            : t.common.nonEmployee }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'submitted',})">
@@ -568,9 +579,9 @@ watch(
                     {{ stats.submitted }}
                 </div>
                 <div class="stat-title">
-                    TOTAL {{ filter.type === 'employee'
-                            ? 'Employee'
-                            : 'Non Employee' }} <br> SUBMITTED
+                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
+                            ? t.common.employee
+                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiSubmitted }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'pending',})">
@@ -578,9 +589,9 @@ watch(
                     {{ stats.pending }}
                 </div>
                 <div class="stat-title">
-                    TOTAL {{ filter.type === 'employee'
-                            ? 'Employee'
-                            : 'Non Employee' }} <br> NOT YET SUBMITTED
+                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
+                            ? t.common.employee
+                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiNotSubmitted }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({declaration_status: 'conflict',})">
@@ -588,9 +599,9 @@ watch(
                     {{ stats.conflict }}
                 </div>
                 <div class="stat-title">
-                    TOTAL {{ filter.type === 'employee'
-                            ? 'Employee'
-                            : 'Non Employee' }} <br> WITH POTENTIAL CONFLICT OF INTEREST
+                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
+                            ? t.common.employee
+                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiConflict }}
                 </div>
             </Card>
         </div>
@@ -603,7 +614,7 @@ watch(
             <Card class="card-custom md:col-span-4 bg-white">
                 <div class="mb-4">
                     <h2 class="font-semibold">
-                        Overall Status
+                        {{ t.dashboard.overallStatus }}
                     </h2>
                 </div>
 
@@ -617,7 +628,7 @@ watch(
             <Card class="card-custom md:col-span-8 bg-white">
                 <div class="mb-4">
                     <h2 class="font-semibold">
-                        Submissions by Business Unit
+                        {{ t.dashboard.submissionsByBusinessUnit }}
                     </h2>
                 </div>
 

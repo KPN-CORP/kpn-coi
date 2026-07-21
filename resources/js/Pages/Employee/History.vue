@@ -12,6 +12,9 @@ import { Link, router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 import type { Flash } from '@/Config/inertia'
 import Swal from 'sweetalert2'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t, locale } = useLocale()
 
 const showViewModal = ref(false)
 
@@ -69,12 +72,12 @@ const props = defineProps<{
 const sortKey = ref(props.filters.sort ?? '')
 const sortDir = ref(props.filters.direction ?? 'asc')
 
-const sortableColumns = [
-    { label: 'Period', key: 'period' },
-    { label: 'Form Status', key: 'status' },
-    { label: 'Submit Date', key: 'submitted_at' },
-    { label: 'Created Date', key: 'created_at' },
-]
+const sortableColumns = computed(() => [
+    { label: t.value.history.columnPeriod, key: 'period' },
+    { label: t.value.history.columnFormStatus, key: 'status' },
+    { label: t.value.history.columnSubmitDate, key: 'submitted_at' },
+    { label: t.value.history.columnCreatedDate, key: 'created_at' },
+])
 
 // Keep period / per_page / sort travelling together on every navigation.
 function reload(overrides: Record<string, unknown> = {}) {
@@ -148,12 +151,12 @@ function getQuestionTitle(key: string) {
         q => q.key === key,
     )
 
-    return question?.title?.en ?? key
+    return question?.title?.[locale.value] ?? key
 }
 
 function continueDraft(declaration: any) {
     router.visit(
-        route('employee.language'),
+        route('employee.declarations.create', { locale: locale.value }),
     )
 }
 
@@ -244,8 +247,8 @@ function onAttachmentChosen(event: Event) {
             onSuccess: () => {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Uploaded',
-                    text: 'Attachment uploaded successfully.',
+                    title: t.value.history.uploadSuccessTitle,
+                    text: t.value.history.uploadSuccessText,
                     confirmButtonColor: '#ab2f2b',
                 })
             },
@@ -253,9 +256,9 @@ function onAttachmentChosen(event: Event) {
             onError: (errors) => {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Upload Failed',
+                    title: t.value.history.uploadFailedTitle,
                     text: errors.attachment
-                        ?? 'Could not upload the file. Please try again.',
+                        ?? t.value.history.uploadFailedText,
                     confirmButtonColor: '#ab2f2b',
                 })
             },
@@ -279,8 +282,8 @@ function downloadAttachment(declaration: Declaration) {
 <template>
     <EmployeeLayout>
         <PageHeader
-            title="History"
-            description="Your conflict of interest declaration records."
+            :title="t.history.title"
+            :description="t.history.description"
         >
             <FlashMessage
                 type="success"
@@ -293,11 +296,11 @@ function downloadAttachment(declaration: Declaration) {
             />
             <template #actions>
                 <Link
-                    :href="route('employee.language')"
+                    :href="route('employee.declarations.create', { locale: locale })"
                     class="btn-primary-custom"
                 >
                     <i class="fa-solid fa-plus" />
-                    Create Declaration
+                    {{ t.history.createDeclaration }}
                 </Link>
             </template>
         </PageHeader>
@@ -317,8 +320,7 @@ function downloadAttachment(declaration: Declaration) {
             <i class="fa-solid fa-triangle-exclamation" />
 
             <span>
-                You have not submitted the conflict of interest declaration,
-                please submit immediately.
+                {{ t.history.notSubmittedWarning }}
             </span>
         </div>
         <div class="mb-6 flex items-center gap-3">
@@ -328,7 +330,7 @@ function downloadAttachment(declaration: Declaration) {
                 @change="changePeriod(($event.target as HTMLSelectElement).value)"
             >
                 <option value="">
-                    All Periods
+                    {{ t.history.allPeriods }}
                 </option>
 
                 <option
@@ -357,7 +359,7 @@ function downloadAttachment(declaration: Declaration) {
                                     <i :class="sortIcon(col.key)" />
                                 </span>
                             </th>
-                            <th class="py-3">Action</th>
+                            <th class="py-3">{{ t.common.action }}</th>
                         </tr>
                     </thead>
 
@@ -404,7 +406,7 @@ function downloadAttachment(declaration: Declaration) {
                                             @click="chooseAttachment(declaration)"
                                         >
                                             <i class="fa-solid fa-upload" />
-                                            Upload
+                                            {{ t.common.upload }}
                                         </button>
 
                                         <template v-else>
@@ -414,7 +416,7 @@ function downloadAttachment(declaration: Declaration) {
                                                 @click="downloadAttachment(declaration)"
                                             >
                                                 <i class="fa-solid fa-file-arrow-down" />
-                                                Download
+                                                {{ t.common.download }}
                                             </button>
 
                                             <button
@@ -423,7 +425,7 @@ function downloadAttachment(declaration: Declaration) {
                                                 @click="chooseAttachment(declaration)"
                                             >
                                                 <i class="fa-solid fa-arrows-rotate" />
-                                                Replace
+                                                {{ t.common.replace }}
                                             </button>
                                         </template>
                                     </template>
@@ -435,7 +437,7 @@ function downloadAttachment(declaration: Declaration) {
                                             class="btn bg-yellow-400 hover:bg-yellow-500 hover:font-bold text-white btn-sm"
                                             @click="continueDraft(declaration)"
                                         >
-                                            Continue
+                                            {{ t.common.continue }}
                                         </button>
                                         <button
                                             v-if="getActions(declaration.status).includes('view')"
@@ -443,7 +445,7 @@ function downloadAttachment(declaration: Declaration) {
                                             @click="viewDeclaration(declaration)"
                                         >
                                             <i class="fa-solid fa-eye" />
-                                            View
+                                            {{ t.common.view }}
                                         </button>
 
                                         <button
@@ -473,7 +475,7 @@ function downloadAttachment(declaration: Declaration) {
                                 colspan="4"
                                 class="py-8 text-center text-slate-500"
                             >
-                                No declaration records found.
+                                {{ t.history.noRecords }}
                             </td>
                         </tr>
                     </tbody>

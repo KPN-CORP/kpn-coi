@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3'
 import { computed } from 'vue'
+import { useLocale } from '@/Composables/useLocale'
+
+const { t } = useLocale()
 
 const props = defineProps<{
     links: any[]
@@ -51,7 +54,7 @@ function onPerPageChange(event: Event) {
     >
         <!-- Left: rows per page -->
         <div class="flex items-center gap-2 text-sm text-slate-600">
-            <span>Rows per page</span>
+            <span>{{ t.pagination.rowsPerPage }}</span>
 
             <select
                 :value="perPage"
@@ -71,7 +74,7 @@ function onPerPageChange(event: Event) {
                 v-if="total != null"
                 class="ml-1 text-slate-400"
             >
-                {{ from ?? 0 }}–{{ to ?? 0 }} of {{ total }}
+                {{ from ?? 0 }}–{{ to ?? 0 }} {{ t.pagination.of }} {{ total }}
             </span>
         </div>
 

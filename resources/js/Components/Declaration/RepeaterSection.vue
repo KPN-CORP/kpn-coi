@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { watch, watchEffect } from 'vue'
+import { computed, watch, watchEffect } from 'vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
+import { locales } from '@/Config/locales'
 
 interface FieldOption {
     value: string
@@ -29,6 +30,9 @@ const props = defineProps<{
     questionKey: string
     errors: Record<string, string>
 
+    // Follows the declaration form's chosen language.
+    locale?: 'en' | 'id'
+
     businessUnits: {
         code: string
         name: string
@@ -46,6 +50,8 @@ const props = defineProps<{
         business_unit: string
     }[]
 }>()
+
+const t = computed(() => locales[props.locale ?? 'en'])
 
 function getOptions(
     field: Field,
@@ -255,7 +261,7 @@ function toDateError(
     }
 
     if (isDateRangeReversed(row, field)) {
-        return "Finish Date can't be earlier than Start Date."
+        return t.value.validation.dateRange
     }
 
     return undefined
@@ -364,7 +370,7 @@ const years = Array.from(
                         v-if="field.type === 'select' && field.multiple"
                         :model-value="Array.isArray(row[field.key]) ? row[field.key] : []"
                         :options="getMultiOptions(field, row)"
-                        placeholder="Select..."
+                        :placeholder="t.common.selectPlaceholder"
                         @update:modelValue="(val) => {
                             row[field.key] = val
                             onInput(index, field.key)
@@ -377,7 +383,7 @@ const years = Array.from(
                         v-else-if="field.type === 'select'"
                         v-model="row[field.key]"
                         :options="getOptions(field, row)"
-                        placeholder="Select..."
+                        :placeholder="t.common.selectPlaceholder"
                         :disabled="field.disabled"
                         @update:modelValue="
                             onSelectChange(row, field, index)
@@ -385,7 +391,7 @@ const years = Array.from(
                     >
 
                         <option value="" selected disabled>
-                            Select...
+                            {{ t.common.selectPlaceholder }}
                         </option>
 
                         <option
@@ -458,7 +464,7 @@ const years = Array.from(
                                 :for="`${field.key}_current_${index}`"
                                 class="text-sm"
                             >
-                                Current
+                                {{ t.common.current }}
                             </label>
                         </div>
 
@@ -485,7 +491,7 @@ const years = Array.from(
                             @change="onSelectChange(row, field, index)"
                         >
                             <option value="" disabled>
-                                Select year...
+                                {{ t.repeater.selectYear }}
                             </option>
 
                             <option
@@ -573,7 +579,7 @@ const years = Array.from(
                 class="mt-3 rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
                 @click="removeRow(index)"
             >
-                Remove
+                {{ t.repeater.remove }}
             </button>
         </div>
 
@@ -582,7 +588,7 @@ const years = Array.from(
             class="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary/5"
             @click="addRow"
         >
-            + Add More
+            {{ t.repeater.addMore }}
         </button>
     </div>
 </template>

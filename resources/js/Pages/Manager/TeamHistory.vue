@@ -7,7 +7,9 @@ import { ref, computed } from 'vue'
 import DeclarationReviewModal from '@/Components/Declaration/DeclarationReviewModal.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import { useLocale } from '@/Composables/useLocale'
 
+const { t, locale } = useLocale()
 
 const page = usePage()
 
@@ -89,7 +91,7 @@ function getQuestionTitle(key: string) {
         q => q.key === key,
     )
 
-    return question?.title?.en ?? key
+    return question?.title?.[locale.value] ?? key
 }
 
 function applyFilter() {
@@ -143,8 +145,8 @@ function exportExcel() {
 <template>
     <ManagerLayout>
         <PageHeader
-            title="Team History"
-            description="Direct reportees conflict of interest declarations tracking."
+            :title="t.teamHistory.title"
+            :description="t.teamHistory.description"
         />
 
         <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -152,7 +154,7 @@ function exportExcel() {
 
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
-                        Declaration Period
+                        {{ t.teamHistory.declarationPeriod }}
                     </label>
 
                     <select
@@ -161,7 +163,7 @@ function exportExcel() {
                         @change="applyFilter"
                     >
                         <option value="">
-                            All Period
+                            {{ t.teamHistory.allPeriods }}
                         </option>
 
                         <option
@@ -177,7 +179,7 @@ function exportExcel() {
                 <!-- Business Unit -->
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
-                        Business Unit
+                        {{ t.common.businessUnit }}
                     </label>
 
                     <select
@@ -186,7 +188,7 @@ function exportExcel() {
                         @change="applyFilter"
                     >
                         <option value="">
-                            All Business Unit
+                            {{ t.teamHistory.allBusinessUnits }}
                         </option>
 
                         <option
@@ -202,7 +204,7 @@ function exportExcel() {
                 <!-- Form Status -->
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-700">
-                        Form Status
+                        {{ t.teamHistory.formStatus }}
                     </label>
 
                     <select
@@ -211,19 +213,19 @@ function exportExcel() {
                         @change="applyFilter"
                     >
                         <option value="">
-                            All Status
+                            {{ t.common.allStatus }}
                         </option>
 
                         <option value="pending">
-                            Not Submitted
+                            {{ t.common.notSubmitted }}
                         </option>
 
                         <option value="submitted">
-                            Submitted
+                            {{ t.common.submitted }}
                         </option>
 
                         <option value="conflict">
-                            Has Conflict
+                            {{ t.common.hasConflict }}
                         </option>
                     </select>
                 </div>
@@ -236,7 +238,7 @@ function exportExcel() {
                     @click="exportExcel"
                 >
                     <i class="fa-solid fa-file-excel mr-2" />
-                    Export Excel
+                    {{ t.teamHistory.exportExcel }}
                 </button>
 
             </div>
@@ -249,13 +251,13 @@ function exportExcel() {
                         <tr
                             class="border-b border-border text-left text-xs uppercase text-slate-500"
                         >
-                            <th class="py-3">Period</th>
-                            <th class="py-3">Name</th>
-                            <th class="py-3">Designation</th>
-                            <th class="py-3">Level</th>
-                            <th class="py-3">Business Unit</th>
-                            <th class="py-3">Declaration Status</th>
-                            <th class="py-3">Conflict Indicator</th>
+                            <th class="py-3">{{ t.common.period }}</th>
+                            <th class="py-3">{{ t.common.name }}</th>
+                            <th class="py-3">{{ t.teamHistory.columnDesignation }}</th>
+                            <th class="py-3">{{ t.teamHistory.columnLevel }}</th>
+                            <th class="py-3">{{ t.common.businessUnit }}</th>
+                            <th class="py-3">{{ t.teamHistory.columnDeclarationStatus }}</th>
+                            <th class="py-3">{{ t.teamHistory.columnConflictIndicator }}</th>
                             <!-- <th class="py-3">Action</th> -->
                         </tr>
                     </thead>
@@ -297,21 +299,21 @@ function exportExcel() {
                                     v-if="declaration.status === 'pending'"
                                     class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
                                 >
-                                    N/A
+                                    {{ t.common.na }}
                                 </span>
 
                                 <span
                                     v-else-if="declaration.has_conflict"
                                     class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
                                 >
-                                    Has Conflict
+                                    {{ t.common.hasConflict }}
                                 </span>
 
                                 <span
                                     v-else
                                     class="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700"
                                 >
-                                    Clear
+                                    {{ t.common.clear }}
                                 </span>
                             </td>
 

@@ -39,12 +39,6 @@ Route::middleware(['auth:web,non_employee'])->prefix('employee')
             [DeclarationController::class, 'submit']
         )->name('declarations.submit');
 
-        Route::get('/language', function () {
-            return Inertia::render('Employee/LanguageSelection', [
-                'declarations' => [],
-            ]);
-        })->name('language');
-
         Route::get(
             '/declarations/{declaration}/pdf',
             [DeclarationController::class, 'downloadPdf']
