@@ -574,10 +574,22 @@ async function pollExport(id: number) {
                                 <th
                                     v-for="(question, i) in coiQuestions"
                                     :key="question.key"
-                                    class="w-12 py-3 text-center"
-                                    :title="question.title.en"
+                                    class="group/question relative w-12 py-3 text-center"
                                 >
-                                    Q{{ i + 1 }}
+                                    <span
+                                        class="cursor-help underline decoration-dotted decoration-slate-300 underline-offset-4"
+                                    >
+                                        Q{{ i + 1 }}
+                                    </span>
+                                    <div
+                                        class="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-lg bg-slate-800 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/question:visible group-hover/question:opacity-100"
+                                    >
+                                        {{ question.title.en }}
+                                        <br>
+                                        ____________________________________________
+                                        <br>                                        
+                                        {{ question.title.id }}
+                                    </div>
                                 </th>
                             </template>
                             <th
