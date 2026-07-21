@@ -194,6 +194,25 @@ function isEmpty(value: unknown): boolean {
     return value === null || value === undefined || value === ''
 }
 
+// The company select is filtered by the row's business unit, and some units
+// have no companies at all. When that list is empty the field cannot be filled,
+// so it is exempt from the required check — the business unit itself stays
+// required and is validated on its own.
+function companyOptionsEmpty(detail: Record<string, any>): boolean {
+    const businessUnit = detail.business_unit
+
+    if (!businessUnit) {
+        return true
+    }
+
+    return !props.companies.some(company =>
+        company.business_unit
+            .split(',')
+            .map(value => value.trim())
+            .includes(businessUnit),
+    )
+}
+
 function hasEmptyFields() {
 
     for (const question of coiQuestions.value) {
@@ -207,6 +226,11 @@ function hasEmptyFields() {
         for (const detail of response.details) {
 
             for (const field of question.fields) {
+
+                // Exempt company when its business-unit-filtered options are empty.
+                if (field.key === 'company' && companyOptionsEmpty(detail)) {
+                    continue
+                }
 
                 if (field.type === 'date_range') {
 
@@ -299,6 +323,11 @@ function validateForm(): boolean {
         response.details.forEach((detail, index) => {
 
             question.fields.forEach(field => {
+
+                // Exempt company when its business-unit-filtered options are empty.
+                if (field.key === 'company' && companyOptionsEmpty(detail)) {
+                    return
+                }
 
                 if (field.type === 'date_range') {
 
