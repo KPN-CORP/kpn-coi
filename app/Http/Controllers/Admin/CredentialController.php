@@ -80,7 +80,9 @@ class CredentialController extends Controller
             // Non-employees are users with no HRIS link yet. Once employee_id
             // is set the profile is sourced from kpncorp.employees instead.
             ->whereNull('employee_id')
-            ->with('employee')
+            // employee.location backs the legacy location_id -> office_area
+            // fallback below, so records still on location_id prefill correctly.
+            ->with('employee.location')
             ->when(
                 $search->isNotEmpty(),
                 function ($query) use ($search) {
@@ -115,11 +117,17 @@ class CredentialController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'employee_id' => $user->employee_id,
+                'nik' => $user?->employee?->employee_id,
+                'phone' => $user?->employee?->personal_mobile_number,
                 'type' => 'non_employee',
                 'email' => $user->email,
                 'citizen_number' => $user?->employee?->ktp,
                 'business_unit' => $user?->employee?->group_company,
-                'location_id' => $user?->employee?->location_id,
+                // Fall back to the legacy location's area so records still on
+                // location_id show their office area on edit; saving then
+                // migrates them onto office_area + work_area_code.
+                'office_area' => $user?->employee?->office_area
+                    ?: $user?->employee?->location?->area,
                 'date_of_joining' => $user?->employee?->date_of_joining,
                 'address' => $user?->employee?->permanent_address,
                 'nationality' => $user?->employee?->nationality,
@@ -156,18 +164,20 @@ class CredentialController extends Controller
             ->orderBy('group_company')
             ->pluck('group_company');
 
-        // Small enough (a few hundred) to hand over whole and filter in the
-        // form. company_name is translated to the app's business unit naming
-        // here so the frontend can match it against the selected unit directly.
-        $locationOptions = Location::query()
-            ->select(['id', 'company_name', 'area', 'city', 'state'])
-            ->orderBy('company_name')
+        // Office areas (locations.area) offered per business unit. company_name
+        // is translated to the app's business unit naming so the frontend can
+        // match it against the selected unit directly. The work_area code is
+        // resolved from the chosen area at save time.
+        $officeAreaOptions = Location::query()
+            ->select(['company_name', 'area'])
+            ->whereNotNull('area')
+            ->where('area', '!=', '')
+            ->distinct()
             ->orderBy('area')
             ->get()
             ->map(fn (Location $location) => [
-                'id' => $location->id,
                 'business_unit' => Location::businessUnitFor($location->company_name),
-                'label' => $location->label,
+                'office_area' => $location->area,
             ])
             ->values();
 
@@ -176,7 +186,7 @@ class CredentialController extends Controller
             [
                 'users' => $paginated,
                 'businessUnitOptions' => $businessUnitOptions,
-                'locationOptions' => $locationOptions,
+                'officeAreaOptions' => $officeAreaOptions,
 
                 'filters' => [
                     'search' => $request->search,
@@ -207,12 +217,18 @@ class CredentialController extends Controller
 
                 NonEmployee::query()->create([
                     'user_id' => $user->id,
+                    'employee_id' => $request->nik,
                     'fullname' => $request->name,
                     'email' => $request->email,
+                    'personal_mobile_number' => $request->phone,
                     'ktp' => $request->citizen_number,
                     'permanent_address' => $request->address,
                     'group_company' => $request->business_unit,
-                    'location_id' => $request->location_id,
+                    'office_area' => $request->office_area,
+                    'work_area_code' => Location::workAreaFor(
+                        $request->business_unit,
+                        $request->office_area,
+                    ),
                     'date_of_joining' => $request->date_of_joining,
                     'nationality' => $this->resolveNationality($request),
                 ]);
@@ -254,9 +270,13 @@ class CredentialController extends Controller
             $employee = $user->employee()->firstOrFail();
 
             $employee->update([
+                'employee_id' => $request->nik,
+
                 'fullname' => $request->name,
 
                 'email' => $request->email,
+
+                'personal_mobile_number' => $request->phone,
 
                 'ktp' => $request->citizen_number,
 
@@ -264,7 +284,12 @@ class CredentialController extends Controller
 
                 'group_company' => $request->business_unit,
 
-                'location_id' => $request->location_id,
+                'office_area' => $request->office_area,
+
+                'work_area_code' => Location::workAreaFor(
+                    $request->business_unit,
+                    $request->office_area,
+                ),
 
                 'date_of_joining' => $request->date_of_joining,
 

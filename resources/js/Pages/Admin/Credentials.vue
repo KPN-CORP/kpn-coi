@@ -114,13 +114,15 @@ function openDeleteModal(user: any) {
 interface User {
     id: number
     employee_id: string | null
+    nik: string | null
+    phone: string | null
     name: string
     email: string
     type: string
     citizen_number: string
     address: string
     business_unit: string
-    location_id: number | null
+    office_area: string | null
     date_of_joining: string
 }
 
@@ -319,10 +321,9 @@ const props = defineProps<{
 
     businessUnitOptions: string[]
 
-    locationOptions: {
-        id: number
+    officeAreaOptions: {
         business_unit: string | null
-        label: string
+        office_area: string
     }[]
 
     filters: {
@@ -576,7 +577,7 @@ function applyFilter() {
             :title="modalTitle"
             :user="selectedUser"
             :businessUnitOptions="businessUnitOptions"
-            :locationOptions="locationOptions"
+            :officeAreaOptions="officeAreaOptions"
             @close="showUserModal = false"
             @save="saveUser"
             @reset-password="resetPassword"

@@ -24,6 +24,8 @@ class CredentialTemplateExport implements WithEvents,
         'Property',
     ];
 
+    // Columns mirror the Add User form. Nationality accepts a country name
+    // ("Indonesia" for locals, otherwise the foreign country).
     public function headings(): array
     {
         return [
@@ -32,9 +34,17 @@ class CredentialTemplateExport implements WithEvents,
 
             'Email',
 
+            'NIK',
+
+            'Phone Number',
+
+            'Nationality',
+
             'Citizen Number / Passport Number',
 
             'Business Unit',
+
+            'Office Location',
 
             'Date of Join',
 
@@ -52,9 +62,17 @@ class CredentialTemplateExport implements WithEvents,
 
                 'john.doe@email.com',
 
+                'EMP001',
+
+                '081234567890',
+
+                'Indonesia',
+
                 '3171234567890001',
 
                 'KPN Corporation',
+
+                'Head Office',
 
                 '17-01-2020',
 
@@ -68,9 +86,17 @@ class CredentialTemplateExport implements WithEvents,
 
                 'jane.doe@email.com',
 
-                '3171234567890002',
+                'EMP002',
+
+                '081298765432',
+
+                'Malaysia',
+
+                'A12345678',
 
                 'Plantations',
+
+                'Estate Office',
 
                 '20-05-2025',
 
@@ -86,15 +112,21 @@ class CredentialTemplateExport implements WithEvents,
         return [
             AfterSheet::class => function (AfterSheet $event) {
 
-                $event->sheet
-                    ->getStyle('C2:C1000')
-                    ->getNumberFormat()
-                    ->setFormatCode(NumberFormat::FORMAT_NUMBER);
+                // Keep identity/phone columns as text so long digits (16-digit
+                // KTP), leading zeros (phone) and alphanumeric passports are
+                // preserved instead of being mangled into numbers.
+                foreach (['C', 'D', 'F'] as $column) {
+                    $event->sheet
+                        ->getStyle("{$column}2:{$column}1000")
+                        ->getNumberFormat()
+                        ->setFormatCode(NumberFormat::FORMAT_TEXT);
+                }
 
+                // Business Unit dropdown (column G).
                 for ($row = 2; $row <= 1000; $row++) {
 
                     $validation = $event->sheet
-                        ->getCell("D{$row}")
+                        ->getCell("G{$row}")
                         ->getDataValidation();
 
                     $validation->setType(DataValidation::TYPE_LIST);

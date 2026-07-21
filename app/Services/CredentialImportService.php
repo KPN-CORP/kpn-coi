@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Mail\NonEmployeeCredentialMail;
+use App\Models\Location;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use Carbon\Carbon;
@@ -14,9 +15,70 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class CredentialImportService
 {
+    /**
+     * Read a Date of Join from a spreadsheet cell. Excel stores date-formatted
+     * cells as a serial number (e.g. 45582), so a plain text parse fails; that
+     * case is handled here alongside text in dd-mm-yyyy or dd/mm/yyyy. Returns
+     * null when the value is not a usable date.
+     */
+    private function parseDate(mixed $value): ?Carbon
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        // Date-formatted cells come through as a numeric serial, not text.
+        if (is_numeric($value)) {
+            try {
+                return Carbon::instance(
+                    ExcelDate::excelToDateTimeObject((float) $value)
+                );
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        $text = trim((string) $value);
+
+        foreach (['d-m-Y', 'd/m/Y', 'd.m.Y', 'Y-m-d'] as $format) {
+            try {
+                $date = Carbon::createFromFormat('!' . $format, $text);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            // Guard against lenient parsing accepting e.g. 32-13-2024.
+            if ($date !== false && $date->format($format) === $text) {
+                return $date;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Nationality is stored as a country name to match the form. A blank cell
+     * or an "Indonesia"/"Indonesian" value is treated as a local; anything else
+     * is kept as the foreign country the row provided.
+     */
+    private function resolveNationality(mixed $value): string
+    {
+        $nationality = trim((string) $value);
+
+        if (
+            $nationality === ''
+            || in_array(strtolower($nationality), ['indonesia', 'indonesian'], true)
+        ) {
+            return 'Indonesia';
+        }
+
+        return $nationality;
+    }
+
     public function import(
         Collection $rows
     ): void {
@@ -52,9 +114,13 @@ class CredentialImportService
             $businessUnit = trim(
                 (string) $row['business_unit']
             );
-            $doj = trim(
-                (string) $row['date_of_join']
-            );
+            $parsedDoj = $this->parseDate($row['date_of_join'] ?? null);
+
+            // Show a readable date in error reports even when the cell held an
+            // Excel serial number.
+            $doj = $parsedDoj
+                ? $parsedDoj->format('d-m-Y')
+                : trim((string) $row['date_of_join']);
 
             $address = trim(
                 (string) $row['permanent_address']
@@ -164,20 +230,7 @@ class CredentialImportService
 
             }
 
-            try {
-
-                $date = Carbon::createFromFormat(
-                    'd-m-Y',
-                    $doj
-                );
-
-                if (
-                    $date->format('d-m-Y') !== $doj
-                ) {
-                    throw new \Exception();
-                }
-
-            } catch (\Throwable $e) {
+            if ($parsedDoj === null) {
 
                 $errors->push([
 
@@ -195,7 +248,7 @@ class CredentialImportService
 
                     'address' => $address,
 
-                    'error' => 'Date of Joining must be in dd-mm-yyyy format.',
+                    'error' => 'Date of Joining must be a valid date (dd-mm-yyyy or dd/mm/yyyy).',
 
                 ]);
 
@@ -382,18 +435,31 @@ class CredentialImportService
 
                     'user_id' => $user->id,
 
+                    'employee_id' => trim((string) ($row['nik'] ?? '')) ?: null,
+
                     'fullname' => trim($row['fullname']),
 
                     'email' => trim($row['email']),
 
+                    'personal_mobile_number' => trim((string) ($row['phone_number'] ?? '')) ?: null,
+
                     'ktp' => trim((string) $row['citizen_number_passport_number']),
+
+                    'nationality' => $this->resolveNationality($row['nationality'] ?? null),
 
                     'group_company' => trim($row['business_unit']),
 
-                    'date_of_joining' => Carbon::createFromFormat(
-                                            'd-m-Y',
-                                            trim($row['date_of_join'])
-                                        )->format('Y-m-d'),
+                    // Office location the importer typed. Kept as-is; the
+                    // work_area code is only filled when the area matches a
+                    // location for that business unit, otherwise left empty.
+                    'office_area' => trim((string) ($row['office_location'] ?? '')) ?: null,
+
+                    'work_area_code' => Location::workAreaFor(
+                        trim($row['business_unit']),
+                        trim((string) ($row['office_location'] ?? '')),
+                    ),
+
+                    'date_of_joining' => $this->parseDate($row['date_of_join'] ?? null)?->format('Y-m-d'),
 
                     'permanent_address' => trim($row['permanent_address']),
 

@@ -181,6 +181,8 @@ export default {
     },
 
     userForm: {
+        nik: 'NIK',
+        phoneNumber: 'Phone Number',
         nationality: 'Nationality',
         indonesian: 'Indonesian',
         foreigner: 'Foreigner',
@@ -192,6 +194,8 @@ export default {
         passportHint: 'Maximum 10 characters.',
         location: 'Location',
         selectLocation: 'Select location...',
+        officeLocation: 'Office Location',
+        selectOfficeLocation: 'Select office location...',
         permanentAddress: 'Permanent Address',
         resetPassword: 'Reset Password',
         resetting: 'Resetting...',

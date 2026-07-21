@@ -24,6 +24,20 @@ class UpdateUserRequest extends FormRequest
                 'max:50',
             ],
 
+            // NIK -> non_employees.employee_id
+            'nik' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            // Phone -> non_employees.personal_mobile_number
+            'phone' => [
+                'nullable',
+                'string',
+                'max:30',
+            ],
+
             'name' => [
                 'required',
                 'string',
@@ -63,18 +77,12 @@ class UpdateUserRequest extends FormRequest
                 'required',
             ],
 
-            // locations lives in the kpncorp database, so no FK backs this --
-            // the rule is the only guard that the id exists and belongs to the
-            // selected business unit.
-            'location_id' => [
+            // Office area (locations.area). Free-form so the dropdown selection
+            // is accepted; the work_area code is resolved from it at save time.
+            'office_area' => [
                 'nullable',
-                'integer',
-                Rule::exists('kpncorp.locations', 'id')->where(
-                    fn ($query) => $query->where(
-                        'company_name',
-                        Location::companyNameFor($this->business_unit)
-                    )
-                ),
+                'string',
+                'max:255',
             ],
 
             'date_of_joining' => [

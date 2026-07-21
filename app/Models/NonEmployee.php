@@ -13,14 +13,18 @@ class NonEmployee extends Model
 
     protected $fillable = [
         'user_id',
+        'employee_id',
         'fullname',
         'email',
+        'personal_mobile_number',
         'date_of_joining',
         'permanent_address',
         'ktp',
         'nationality',
         'group_company',
         'location_id',
+        'work_area_code',
+        'office_area',
     ];
 
     /**

@@ -57,6 +57,23 @@ class Location extends Model
     }
 
     /**
+     * Resolve the work_area code for an office area within a business unit.
+     * Returns null when the area does not match any location (import allows a
+     * free-typed office area that keeps office_area but leaves work_area empty).
+     */
+    public static function workAreaFor(?string $businessUnit, ?string $area): ?string
+    {
+        if ($area === null || trim($area) === '') {
+            return null;
+        }
+
+        return self::query()
+            ->where('company_name', self::companyNameFor($businessUnit))
+            ->where('area', $area)
+            ->value('work_area');
+    }
+
+    /**
      * "Head Office - Jakarta — Jakarta Selatan, DKI Jakarta"
      */
     public function getLabelAttribute(): string

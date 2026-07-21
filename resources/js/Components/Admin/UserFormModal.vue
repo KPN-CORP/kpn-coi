@@ -28,20 +28,21 @@ const nationalityOptions = [
 
 interface User {
     id?: number
+    nik?: string
+    phone?: string
     name: string
     email: string
     citizen_number: string
     address: string
     business_unit: string
-    location_id: number | null
+    office_area: string | null
     date_of_joining: string
     nationality: string
 }
 
-interface LocationOption {
-    id: number
+interface OfficeAreaOption {
     business_unit: string | null
-    label: string
+    office_area: string
 }
 
 const props = defineProps<{
@@ -50,20 +51,36 @@ const props = defineProps<{
     user?: User |null
     serverErrors: Record<string, string>
     businessUnitOptions: string[]
-    locationOptions: LocationOption[]
+    officeAreaOptions: OfficeAreaOption[]
 }>()
 
-// Locations belong to a business unit, so the list only makes sense once one
+// Office areas belong to a business unit, so the list only makes sense once one
 // is picked. The server already translated company_name into the app's
 // business unit naming, so this is a straight match.
-const locationsForBusinessUnit = computed(() =>
-    props.locationOptions
-        .filter(location => location.business_unit === form.business_unit)
-        .map(location => ({
-            value: location.id,
-            label: location.label,
-        })),
-)
+const officeAreasForBusinessUnit = computed(() => {
+    const options = props.officeAreaOptions
+        .filter(option => option.business_unit === form.business_unit)
+        .map(option => ({
+            value: option.office_area,
+            label: option.office_area,
+        }))
+
+    // Exception: a record can carry a free-typed office_area that never matched
+    // a location (so work_area_code/location_id stayed empty) — e.g. from
+    // import. That value isn't in the location list, so surface it here as its
+    // own option so it still shows selected on edit.
+    if (
+        form.office_area
+        && !options.some(option => option.value === form.office_area)
+    ) {
+        options.unshift({
+            value: form.office_area as string,
+            label: form.office_area as string,
+        })
+    }
+
+    return options
+})
 
 const emit = defineEmits<{
     close: []
@@ -81,12 +98,14 @@ function isIndonesian(nationality?: string | null): boolean {
 
 const form = useForm({
     employee_id: '',
+    nik: props.user?.nik ?? '',
+    phone: props.user?.phone ?? '',
     name: '',
     email: '',
     role: 'employee',
     address: '',
     business_unit: '',
-    location_id: props.user?.location_id ?? null,
+    office_area: props.user?.office_area ?? null,
     date_of_joining: '',
     nationality_type: isIndonesian(props.user?.nationality)
         ? 'Indonesian'
@@ -107,7 +126,7 @@ const errors = reactive({
     citizen_number: '',
     address: '',
     business_unit: '',
-    location_id: '',
+    office_area: '',
     nationality_type: '',
     nationality: '',
     date_of_joining: '',
@@ -133,12 +152,14 @@ function resetFromUser(user?: User | null) {
         isIndonesian(user?.nationality) || !user?.nationality
 
     form.defaults({
+        nik: user?.nik ?? '',
+        phone: user?.phone ?? '',
         name: user?.name ?? '',
         email: user?.email ?? '',
         citizen_number: user?.citizen_number ?? '',
         address: user?.address ?? '',
         business_unit: user?.business_unit ?? '',
-        location_id: user?.location_id ?? null,
+        office_area: user?.office_area ?? null,
         date_of_joining: user?.date_of_joining ?? '',
         nationality_type: isLocal ? 'Indonesian' : 'foreigner',
         nationality: isLocal ? '' : (user?.nationality ?? ''),
@@ -423,13 +444,13 @@ function setBusinessUnit(value: string) {
 
     form.business_unit = value
 
-    // A location from the previous unit would not be valid under the new one.
-    form.location_id = null
+    // An office area from the previous unit would not be valid under the new one.
+    form.office_area = null
 
     errors.business_unit = ''
-    errors.location_id = ''
+    errors.office_area = ''
 
-    form.clearErrors('business_unit', 'location_id')
+    form.clearErrors('business_unit', 'office_area')
 }
 
 /**
@@ -569,6 +590,59 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     >
                         {{ getError('email') }}
                     </p>
+                </div>
+
+                <!-- NIK & Phone -->
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            {{ t.userForm.nik }}
+                        </label>
+
+                        <input
+                            v-model="form.nik"
+                            type="text"
+                            :class="[
+                                'w-full rounded-md border px-3 py-2',
+                                hasError('nik')
+                                    ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                    : 'border-border'
+                            ]"
+                        >
+
+                        <p
+                            v-if="getError('nik')"
+                            class="mt-1 text-xs text-red-500"
+                        >
+                            {{ getError('nik') }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium">
+                            {{ t.userForm.phoneNumber }}
+                        </label>
+
+                        <input
+                            v-model="form.phone"
+                            type="text"
+                            inputmode="tel"
+                            :class="[
+                                'w-full rounded-md border px-3 py-2',
+                                hasError('phone')
+                                    ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                    : 'border-border'
+                            ]"
+                        >
+
+                        <p
+                            v-if="getError('phone')"
+                            class="mt-1 text-xs text-red-500"
+                        >
+                            {{ getError('phone') }}
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Nationality -->
@@ -724,26 +798,27 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                 </div>
 
                 <!--
-                    Location is scoped to the selected business unit: nothing to
-                    show before one is picked, and some units (KPN Sugar) have no
-                    locations at all, so the field is hidden rather than shown empty.
+                    Office location is scoped to the selected business unit:
+                    nothing to show before one is picked, and some units have no
+                    office areas at all, so the field is hidden rather than shown
+                    empty.
                 -->
-                <div v-if="locationsForBusinessUnit.length">
+                <div v-if="officeAreasForBusinessUnit.length">
                     <label class="mb-1 block text-sm font-medium">
-                        {{ t.userForm.location }}
+                        {{ t.userForm.officeLocation }}
                     </label>
 
                     <SearchSelect
-                        v-model="form.location_id"
-                        :options="locationsForBusinessUnit"
-                        :placeholder="t.userForm.selectLocation"
+                        v-model="form.office_area"
+                        :options="officeAreasForBusinessUnit"
+                        :placeholder="t.userForm.selectOfficeLocation"
                     />
 
                     <p
-                        v-if="getError('location_id')"
+                        v-if="getError('office_area')"
                         class="mt-1 text-xs text-red-500"
                     >
-                        {{ getError('location_id') }}
+                        {{ getError('office_area') }}
                     </p>
                 </div>
 

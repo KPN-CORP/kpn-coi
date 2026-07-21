@@ -181,6 +181,8 @@ export default {
     },
 
     userForm: {
+        nik: 'NIK',
+        phoneNumber: 'Nomor Telepon',
         nationality: 'Kewarganegaraan',
         indonesian: 'WNI (Indonesia)',
         foreigner: 'WNA (Asing)',
@@ -192,6 +194,8 @@ export default {
         passportHint: 'Maksimal 10 karakter.',
         location: 'Lokasi',
         selectLocation: 'Pilih lokasi...',
+        officeLocation: 'Lokasi Kantor',
+        selectOfficeLocation: 'Pilih lokasi kantor...',
         permanentAddress: 'Alamat Sesuai Identitas',
         resetPassword: 'Reset Kata Sandi',
         resetting: 'Memproses...',
