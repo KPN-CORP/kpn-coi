@@ -23,8 +23,22 @@ class DashboardService
     public function getDashboardData(Request $request): array
     {
         $type = $request->type ?? 'employee';
+        $period = $request->period == null
+            ? (string) now()->year
+            : $request->period;
+
+        // Only people who had already joined by the end of the selected
+        // period count toward that period's totals. Rows without a join
+        // date are kept so they are never silently dropped.
+        $joinedInPeriod = fn ($query) => $query->where(
+            fn ($query) => $query
+                ->whereNull('date_of_joining')
+                ->orWhereYear('date_of_joining', '<=', (int) $period)
+        );
+
         $employeeQuery = Employee::query()
         ->whereNull('deleted_at')
+        ->tap($joinedInPeriod)
         ->when(
             $request->filled('business_unit')
             && $request->type === 'employee',
@@ -34,7 +48,8 @@ class DashboardService
             )
         );
 
-        $nonEmployeeQuery = NonEmployee::query();
+        $nonEmployeeQuery = NonEmployee::query()
+            ->tap($joinedInPeriod);
 
         $nonEmployeeQuery->when(
             $request->filled('business_unit')
@@ -53,12 +68,9 @@ class DashboardService
         );
 
         $declarationQuery
-            ->when(
-                $request->filled('period'),
-                fn ($query) => $query->where(
-                    'period',
-                    (int) $request->period
-                )
+            ->where(
+                'period',
+                (int) $period
             )
             ->when(
                 $request->filled('status'),
@@ -107,45 +119,6 @@ class DashboardService
             ->distinct('user_id')
             ->count('user_id');
 
-        $query = CoiDeclaration::query()
-            ->with([
-                'user',
-                'responses',
-            ]);
-
-        $this->dataScopeService->apply(
-            $query,
-            Auth::user()
-        );
-
-        $query->when(
-            $request->filled('period'),
-            fn ($query) => $query->where(
-                'period',
-                (int) $request->period
-            )
-        );
-
-        $query->when(
-            $request->filled('status'),
-            fn ($query) => $query->where(
-                'status',
-                $request->status
-            )
-        );
-
-        $query->when(
-            $request->filled('business_unit'),
-            function ($query) use ($request) {
-
-                $userIds = Employee::query()
-                    ->where('group_company', $request->business_unit)
-                    ->pluck('id');
-
-                $query->whereIn('user_id', $userIds);
-            }
-        );
-
         $declarations = (clone $declarationQuery)
             ->with([
                 'user.employee',
@@ -182,12 +155,9 @@ class DashboardService
             ->select('id', 'group_company')
             ->whereNotNull('group_company')
             ->with([
-                'coiDeclaration' => fn ($query) => $query->when(
-                    $request->filled('period'),
-                    fn ($query) => $query->where(
-                        'period',
-                        (int) $request->period
-                    )
+                'coiDeclaration' => fn ($query) => $query->where(
+                    'period',
+                    (int) $period
                 ),
             ])
             ->get()
@@ -226,7 +196,7 @@ class DashboardService
             'rawDeclarations' => $declarations->items(),
 
             'filters' => [
-                'period' => $request->period,
+                'period' => $period,
                 'status' => $request->status,
                 'business_unit' => $request->business_unit,
                 'type' => $request->type,
@@ -239,6 +209,7 @@ class DashboardService
                 $employeeQuery,
                 $totalEmployees,
                 $totalDeclarations,
+                (int) $period,
             ),
             'charts' => [
                 'status' => [
@@ -268,22 +239,20 @@ class DashboardService
         Builder $employeeQuery,
         int $totalEmployees,
         int $totalDeclarations,
+        int $period,
     ): array
     {
         $type = $request->type ?? 'employee';
-        
+
         if ($type === 'employee') {
 
             $rows = (clone $employeeQuery)
                 ->select('id', 'group_company')
                 ->whereNotNull('group_company')
                 ->with([
-                    'coiDeclaration' => fn ($query) => $query->when(
-                        $request->filled('period'),
-                        fn ($query) => $query->where(
-                            'period',
-                            (int) $request->period
-                        )
+                    'coiDeclaration' => fn ($query) => $query->where(
+                        'period',
+                        $period
                     ),
                 ])
                 ->get()
@@ -321,7 +290,7 @@ class DashboardService
                     ],
 
                     [
-                        'label' => 'Pending',
+                        'label' => 'Not Submitted',
 
                         'backgroundColor' => '#E2E8F0',
 
@@ -354,7 +323,7 @@ class DashboardService
 
             'labels' => [
                 'Submitted',
-                'Pending',
+                'Not Submitted',
             ],
 
             'datasets' => [

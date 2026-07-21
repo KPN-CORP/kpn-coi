@@ -48,7 +48,7 @@ function renderStatusChart() {
         type: 'doughnut',
 
         data: {
-            labels: ['Submitted', 'Pending'],
+            labels: ['Submitted', 'Not Submitted'],
 
             datasets: [{
                 data: [
@@ -518,7 +518,7 @@ watch(
                         </option>
 
                         <option value="pending">
-                            Pending
+                            Not Submitted
                         </option>
 
                         <option value="conflict">

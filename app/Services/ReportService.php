@@ -106,9 +106,7 @@ class ReportService
                 $declarationStatus
             );
 
-        // 2025 is an employee-only historical import, so there is no
-        // non-employee side for that period.
-        $nonEmployees = ($type === 'employee' || $period === CoiDeclaration::LEGACY_PERIOD)
+        $nonEmployees = $type === 'employee'
             ? collect()
             : $this->nonEmployeeRecords(
                 $period
@@ -293,12 +291,13 @@ class ReportService
                 $declarationStatus === 'clear',
                 fn ($query) => $query->whereIn('id', $submittedUserIds)
             )
-            // 2025 is a historical import, not a live cycle: only the imported
-            // employees have a record, so don't fan out "pending" across the
-            // whole HRIS -- show just the declared rows.
-            ->when(
-                $period === CoiDeclaration::LEGACY_PERIOD,
-                fn ($query) => $query->whereIn('id', $submittedUserIds)
+            // Mirror the dashboard: only employees who had already joined by
+            // the end of the period count toward it. Unknown join dates are
+            // kept so they are never silently dropped.
+            ->where(
+                fn ($query) => $query
+                    ->whereNull('date_of_joining')
+                    ->orWhereYear('date_of_joining', '<=', $period)
             )
             ->whereNull('deleted_at')
             ->get()
@@ -383,6 +382,13 @@ class ReportService
     ): Collection {
     
         return NonEmployee::query()
+            // Mirror the dashboard: only people who had already joined by the
+            // end of the period count toward it. Unknown join dates are kept.
+            ->where(
+                fn ($query) => $query
+                    ->whereNull('date_of_joining')
+                    ->orWhereYear('date_of_joining', '<=', $period)
+            )
             ->with([
                 'coiDeclaration' => fn ($query) => $query
                     ->where('period', $period)
