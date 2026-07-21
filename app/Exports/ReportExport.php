@@ -9,7 +9,8 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 class ReportExport implements WithMultipleSheets
 {
     public function __construct(
-        protected Collection $data
+        protected Collection $data,
+        protected ?int $period = null
     ) {}
 
     public function sheets(): array
@@ -17,7 +18,8 @@ class ReportExport implements WithMultipleSheets
         return [
 
             new ReportSheet(
-                $this->data
+                $this->data,
+                $this->period
             ),
 
         ];

@@ -52,8 +52,10 @@ class GenerateReportDownload implements ShouldQueue
         try {
             $filters = $download->filters ?? [];
 
+            $period = (int) ($filters['period'] ?? now()->year);
+
             $records = $reportService->getAllDeclarations(
-                period: (int) ($filters['period'] ?? now()->year),
+                period: $period,
                 status: $filters['status'] ?? null,
                 search: $filters['search'] ?? null,
                 type: $filters['type'] ?? null,
@@ -73,7 +75,7 @@ class GenerateReportDownload implements ShouldQueue
                 .'.xlsx';
 
             Excel::store(
-                new ReportExport($records),
+                new ReportExport($records, $period),
                 $relativePath,
                 'local'
             );
