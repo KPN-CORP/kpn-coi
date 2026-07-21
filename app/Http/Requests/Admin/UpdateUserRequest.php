@@ -24,17 +24,21 @@ class UpdateUserRequest extends FormRequest
                 'max:50',
             ],
 
-            // NIK -> non_employees.employee_id
+            // NIK -> non_employees.employee_id. Digits only, stored as a string
+            // so a leading zero is preserved.
             'nik' => [
                 'nullable',
                 'string',
+                'regex:/^[0-9]*$/',
                 'max:50',
             ],
 
-            // Phone -> non_employees.personal_mobile_number
+            // Phone -> non_employees.personal_mobile_number. Digits only,
+            // accepts a leading zero (e.g. 081199922290).
             'phone' => [
                 'nullable',
                 'string',
+                'regex:/^[0-9]*$/',
                 'max:30',
             ],
 

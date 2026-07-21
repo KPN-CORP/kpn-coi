@@ -181,7 +181,7 @@ export default {
     },
 
     userForm: {
-        nik: 'NIK',
+        nik: 'Employee ID',
         phoneNumber: 'Phone Number',
         nationality: 'Nationality',
         indonesian: 'Indonesian',

@@ -395,6 +395,24 @@ function onCitizenNumberInput(event: Event) {
     form.citizen_number = input.value
 }
 
+// Employee ID / NIK and phone are digits only. Kept as strings so a leading
+// zero (e.g. 081199922290) is preserved rather than dropped by a number input.
+function onNikInput(event: Event) {
+    const input = event.target as HTMLInputElement
+
+    input.value = input.value.replace(/\D/g, '')
+
+    form.nik = input.value
+}
+
+function onPhoneInput(event: Event) {
+    const input = event.target as HTMLInputElement
+
+    input.value = input.value.replace(/\D/g, '')
+
+    form.phone = input.value
+}
+
 function hasError(field: string) {
     return !!errors[field] || !!props.serverErrors[field]
 }
@@ -603,6 +621,8 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <input
                             v-model="form.nik"
                             type="text"
+                            inputmode="numeric"
+                            @input="onNikInput"
                             :class="[
                                 'w-full rounded-md border px-3 py-2',
                                 hasError('nik')
@@ -627,7 +647,8 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <input
                             v-model="form.phone"
                             type="text"
-                            inputmode="tel"
+                            inputmode="numeric"
+                            @input="onPhoneInput"
                             :class="[
                                 'w-full rounded-md border px-3 py-2',
                                 hasError('phone')

@@ -181,7 +181,7 @@ export default {
     },
 
     userForm: {
-        nik: 'NIK',
+        nik: 'Nomor Induk Karyawan',
         phoneNumber: 'Nomor Telepon',
         nationality: 'Kewarganegaraan',
         indonesian: 'WNI (Indonesia)',
