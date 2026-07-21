@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 
@@ -9,10 +9,11 @@ import Pagination from '@/Components/UI/Pagination.vue'
 
 import RoleFormModal from '@/Components/Admin/RoleFormModal.vue'
 
-import { router } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import DeleteRoleModal from '@/Components/Admin/DeleteRoleModal.vue'
 import AssignRoleModal from '@/Components/Admin/AssignRoleModal.vue'
 import { useLocale } from '@/Composables/useLocale'
+import debounce from 'lodash/debounce'
 
 const { t } = useLocale()
 
@@ -71,7 +72,64 @@ const props = defineProps<{
         code: string
         name: string
     }[]
+
+    filters: {
+        search?: string
+        sort?: string
+        direction?: string
+        per_page?: number
+    }
 }>()
+
+const filter = useForm({
+    search: props.filters?.search ?? '',
+    sort: props.filters?.sort ?? 'name',
+    direction: props.filters?.direction ?? 'asc',
+    per_page: props.filters?.per_page ?? 10,
+})
+
+function applyFilter() {
+    router.get(
+        route('admin.roles'),
+        filter.data(),
+        {
+            preserveState: true,
+            replace: true,
+        },
+    )
+}
+
+function toggleSort(column: string) {
+    if (filter.sort === column) {
+        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
+    } else {
+        filter.sort = column
+        filter.direction = 'asc'
+    }
+
+    applyFilter()
+}
+
+function sortIcon(column: string) {
+    if (filter.sort !== column) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return filter.direction === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
+}
+
+function changePerPage(value: number) {
+    filter.per_page = value
+
+    applyFilter()
+}
+
+watch(
+    () => filter.search,
+    debounce(() => applyFilter(), 400),
+)
 
 const showModal = ref(false)
 
@@ -107,6 +165,27 @@ function deleteRole(role: Role) {
         ),
     )
 }
+
+// Permissions are managed per menu, so count the distinct menus a role can
+// reach rather than every underlying permission (e.g. all `credential.*`
+// counts as one). Only the menu modules are counted.
+const MENU_MODULES = [
+    'dashboard',
+    'report',
+    'credential',
+    'role',
+    'declaration',
+]
+
+function menuCount(role: any): number {
+    const modules = new Set(
+        (role.permissions ?? []).map(
+            (permission: string) => permission.split('.')[0],
+        ),
+    )
+
+    return MENU_MODULES.filter(module => modules.has(module)).length
+}
 </script>
 
 <template>
@@ -116,16 +195,25 @@ function deleteRole(role: Role) {
             :description="t.roles.description"
         >
             <template #actions>
-                <button
-                    class="btn-primary-custom"
-                    @click="createRole"
-                >
-                    <i
-                        class="fa-solid fa-plus"
-                    />
+                <div class="flex flex-wrap items-center gap-2">
+                    <input
+                        v-model="filter.search"
+                        type="text"
+                        :placeholder="t.roles.searchPlaceholder"
+                        class="min-w-56 rounded-md border border-border px-3 py-2 text-sm"
+                    >
 
-                    {{ t.roles.createRole }}
-                </button>
+                    <button
+                        class="btn-primary-custom"
+                        @click="createRole"
+                    >
+                        <i
+                            class="fa-solid fa-plus"
+                        />
+
+                        {{ t.roles.createRole }}
+                    </button>
+                </div>
             </template>
         </PageHeader>
 
@@ -138,12 +226,28 @@ function deleteRole(role: Role) {
                 >
                     <thead>
                         <tr>
-                            <th>
-                                {{ t.roles.columnRole }}
+                            <th
+                                class="cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
+                                @click="toggleSort('name')"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ t.roles.columnRole }}
+                                    <i :class="sortIcon('name')" />
+                                </span>
                             </th>
 
                             <th>
                                 {{ t.roles.columnPermissions }}
+                            </th>
+
+                            <th
+                                class="cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
+                                @click="toggleSort('users_count')"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ t.roles.columnTotalUsers }}
+                                    <i :class="sortIcon('users_count')" />
+                                </span>
                             </th>
 
                             <th>
@@ -162,10 +266,12 @@ function deleteRole(role: Role) {
                             </td>
 
                             <td>
-                                {{
-                                    role.permissions.length
-                                }}
-                                {{ t.roles.permissionsSuffix }}
+                                {{ menuCount(role) }}
+                                {{ t.roles.menusSuffix }}
+                            </td>
+
+                            <td>
+                                {{ role.users_count ?? 0 }}
                             </td>
 
                             <td>
@@ -214,6 +320,11 @@ function deleteRole(role: Role) {
 
             <Pagination
                 :links="roles.meta.links"
+                :per-page="roles.meta.per_page"
+                :total="roles.meta.total"
+                :from="roles.meta.from"
+                :to="roles.meta.to"
+                @update:per-page="changePerPage"
             />
         </Card>
 

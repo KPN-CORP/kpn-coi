@@ -20,13 +20,32 @@ use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $filters = [
+            'search' => $request->string('search')->toString() ?: null,
+
+            'sort' => in_array($request->input('sort'), ['name', 'users_count'], true)
+                ? $request->input('sort')
+                : 'name',
+
+            'direction' => $request->input('direction') === 'desc'
+                ? 'desc'
+                : 'asc',
+
+            'per_page' => (int) $request->input('per_page', 10),
+        ];
+
         $roles = Role::query()
             ->with('permissions')
             ->withCount('users')
-            ->latest()
-            ->paginate(10);
+            ->when(
+                $filters['search'],
+                fn ($query, $search) => $query->where('name', 'like', "%{$search}%")
+            )
+            ->orderBy($filters['sort'], $filters['direction'])
+            ->paginate($filters['per_page'])
+            ->withQueryString();
 
         $userIdsByRole = DB::connection('mysql')
             ->table('model_has_roles')
@@ -58,6 +77,8 @@ class RoleController extends Controller
                 'roles' => RoleResource::collection(
                     $roles
                 ),
+
+                'filters' => $filters,
 
                 'users' => User::query()
                     ->select(

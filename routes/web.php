@@ -86,6 +86,18 @@ Route::middleware(['auth:web'])->prefix('admin')
 
     Route::get('/roles', [RoleController::class, 'index'])->middleware(['permission:role.view'])->name('roles');
 
+    Route::post('/roles', [RoleController::class, 'store'])
+        ->middleware(['permission:role.create'])
+        ->name('roles.store');
+
+    Route::put('/roles/{role}', [RoleController::class, 'update'])
+        ->middleware(['permission:role.update'])
+        ->name('roles.update');
+
+    Route::delete('/roles/{role}', [RoleController::class, 'destroy'])
+        ->middleware(['permission:role.delete'])
+        ->name('roles.destroy');
+
     Route::get(
             '/dashboard',
             [DashboardController::class, 'index']

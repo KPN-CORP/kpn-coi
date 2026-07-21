@@ -64,6 +64,9 @@ const form = useForm({
     permissions: [] as string[],
 })
 
+// The parent mounts this modal with `v-if="showModal"`, so `show` is already
+// true at mount. `immediate: true` makes the prefill run on that first mount —
+// without it the watcher never fires and edits open with an empty form.
 watch(
     () => props.show,
     (show) => {
@@ -90,53 +93,93 @@ watch(
         form.permissions =
             props.role?.permissions ?? []
     },
+    { immediate: true },
 )
 
-const permissionGroups = computed(() => {
-    return props.permissions.reduce(
+// Permissions are simplified to one toggle per menu/module. Enabling a module
+// grants every underlying permission for it (e.g. all `credential.*`), i.e.
+// full access to that menu. Modules are shown in this order; any permission
+// prefix not listed here (e.g. `reminder`) is intentionally not surfaced.
+const MODULE_ORDER = [
+    'dashboard',
+    'report',
+    'credential',
+    'role',
+    'declaration',
+] as const
+
+function moduleLabel(module: string): string {
+    switch (module) {
+        case 'dashboard':
+            return t.value.roleForm.moduleDashboard
+
+        case 'report':
+            return t.value.roleForm.moduleReport
+
+        case 'credential':
+            return t.value.roleForm.moduleCredentials
+
+        case 'role':
+            return t.value.roleForm.moduleRole
+
+        case 'declaration':
+            return t.value.roleForm.moduleDeclarations
+
+        default:
+            return module
+    }
+}
+
+const moduleGroups = computed(() => {
+    const byModule = props.permissions.reduce(
         (groups, permission) => {
-            const [module] =
-                permission.name.split('.')
+            const [module] = permission.name.split('.')
 
-            if (!groups[module]) {
-                groups[module] = []
-            }
-
-            groups[module].push(
-                permission.name,
-            )
+            ;(groups[module] ??= []).push(permission.name)
 
             return groups
         },
         {} as Record<string, string[]>,
     )
+
+    return MODULE_ORDER
+        .filter(module => byModule[module]?.length)
+        .map(module => ({
+            key: module,
+            label: moduleLabel(module),
+            permissions: byModule[module],
+        }))
 })
 
-function formatPermission(
-    permission: string,
-) {
-    const parts =
-        permission.split('.')
+type ModuleGroup = {
+    key: string
+    label: string
+    permissions: string[]
+}
 
-    return (
-        parts[1] ??
-        permission
+function isModuleEnabled(module: ModuleGroup): boolean {
+    return module.permissions.every(
+        permission => form.permissions.includes(permission),
     )
-        .replaceAll('_', ' ')
-        .replace(/\b\w/g, l =>
-            l.toUpperCase(),
-        )
 }
 
-function formatGroup(
-    group: string,
-) {
-    return group
-        .replaceAll('_', ' ')
-        .replace(/\b\w/g, l =>
-            l.toUpperCase(),
-        )
+function toggleModule(module: ModuleGroup, enabled: boolean) {
+    if (enabled) {
+        form.permissions = [
+            ...new Set([...form.permissions, ...module.permissions]),
+        ]
+
+        return
+    }
+
+    form.permissions = form.permissions.filter(
+        permission => !module.permissions.includes(permission),
+    )
 }
+
+const enabledModulesCount = computed(
+    () => moduleGroups.value.filter(isModuleEnabled).length,
+)
 
 function submit() {
     if (props.role?.id) {
@@ -217,9 +260,17 @@ function submit() {
                     <input
                         v-model="form.name"
                         type="text"
-                        class="w-full rounded-md border border-border px-3 py-2"
+                        class="w-full rounded-md border px-3 py-2"
+                        :class="form.errors.name ? 'border-red-500' : 'border-border'"
                         :placeholder="t.roleForm.enterRoleName"
                     >
+
+                    <p
+                        v-if="form.errors.name"
+                        class="mt-1 text-xs text-red-500"
+                    >
+                        {{ form.errors.name }}
+                    </p>
                 </div>
 
                 <!-- Scope -->
@@ -292,51 +343,43 @@ function submit() {
                     </div>
                 </Card>
 
-                <!-- Permissions -->
+                <!-- Menu Access -->
 
                 <div>
                     <div class="mb-3 flex items-center justify-between">
                         <label class="form-label mb-0">
-                            {{ t.roleForm.permissions }}
+                            {{ t.roleForm.menuAccess }}
                         </label>
 
                         <span class="badge badge-info">
-                            {{ form.permissions.length }}
+                            {{ enabledModulesCount }}
                             {{ t.roleForm.selected }}
                         </span>
                     </div>
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <Card
-                            v-for="(permissions, group) in permissionGroups"
-                            :key="group"
-                            class="card-custom"
+                    <div class="grid gap-3 md:grid-cols-2">
+                        <label
+                            v-for="module in moduleGroups"
+                            :key="module.key"
+                            class="flex cursor-pointer items-center gap-3 rounded-md border border-border p-3 transition hover:bg-slate-50"
                         >
-                            <div
-                                class="mb-3 border-b border-border pb-2 font-semibold text-slate-800"
+                            <input
+                                type="checkbox"
+                                class="h-4 w-4"
+                                :checked="isModuleEnabled(module)"
+                                @change="toggleModule(module, ($event.target as HTMLInputElement).checked)"
                             >
-                                {{ formatGroup(group) }}
-                            </div>
 
-                            <div class="space-y-3">
-                                <label
-                                    v-for="permission in permissions"
-                                    :key="permission"
-                                    class="flex cursor-pointer items-center gap-3 rounded-md p-2 transition hover:bg-slate-50"
-                                >
-                                    <input
-                                        v-model="form.permissions"
-                                        :value="permission"
-                                        type="checkbox"
-                                        class="h-4 w-4"
-                                    >
+                            <div>
+                                <div class="text-sm font-semibold text-slate-800">
+                                    {{ module.label }}
+                                </div>
 
-                                    <span class="text-sm">
-                                        {{ formatPermission(permission) }}
-                                    </span>
-                                </label>
+                                <div class="text-xs text-slate-500">
+                                    {{ t.roleForm.menuAccessHint }}
+                                </div>
                             </div>
-                        </Card>
+                        </label>
                     </div>
                 </div>
             </div>
