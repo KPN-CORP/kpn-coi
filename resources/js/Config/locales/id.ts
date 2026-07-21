@@ -19,7 +19,7 @@ export default {
         warning: 'Silakan perbarui profil data pribadi Anda di Darwinbox jika terdapat informasi yang tidak sesuai atau sudah tidak terbaru pada data di bawah ini.',
         fullname: 'Nama Lengkap',
         ktp: 'Nomor KTP',
-        address: 'Alamat Domisili',
+        address: 'Alamat Sesuai Identitas',
         title: 'Buat Deklarasi',
         description: 'Silakan lengkapi deklarasi Konflik Kepentingan (Conflict of Interest) dengan jujur, akurat, dan objektif.',
         consent: `Saya menyatakan bahwa informasi di atas adalah benar dan menyadari tanggung jawab saya sebagai Karyawan untuk mengambil langkah-langkah yang wajar untuk menghindari benturan kepentingan atas kepemilikan tersebut.

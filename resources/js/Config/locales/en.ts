@@ -19,7 +19,7 @@ export default {
         warning: 'Please update your personal profile in Darwinbox if you notice any incorrect or outdated information below.',
         fullname: 'Full Name',
         ktp: 'National ID (KTP)',
-        address: 'Current Address',
+        address: 'Permanent Address',
         title: 'Create Declaration',
         description: 'Please complete the Conflict of Interest declaration accurately and objectively.',
         consent: `I declare that the information above is true and acknowledge my responsibility as an Employee to take reasonable actions to avoid conflicts of interest over such ownership.
