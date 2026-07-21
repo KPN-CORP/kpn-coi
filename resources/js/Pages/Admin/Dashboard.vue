@@ -88,6 +88,21 @@ function renderStatusChart() {
 const barChartRef =
     ref<HTMLCanvasElement | null>(null)
 
+// The bar chart's title and dataset labels arrive from the server in English;
+// translate them here so they follow the live language toggle.
+function localizeDatasetLabel(label: string): string {
+    switch (label) {
+        case 'Submitted':
+            return t.value.common.submitted
+
+        case 'Not Submitted':
+            return t.value.common.notSubmitted
+
+        default:
+            return label
+    }
+}
+
 function renderBarChart() {
 
     if (!barChartRef.value) {
@@ -105,7 +120,10 @@ function renderBarChart() {
 
                 labels: props.barChart.labels,
 
-                datasets: props.barChart.datasets,
+                datasets: props.barChart.datasets.map(dataset => ({
+                    ...dataset,
+                    label: localizeDatasetLabel(dataset.label),
+                })),
 
             },
 
@@ -121,7 +139,7 @@ function renderBarChart() {
 
                         display: true,
 
-                        text: props.barChart.title,
+                        text: t.value.dashboard.submissionsByBusinessUnit,
 
                     },
 
@@ -426,9 +444,13 @@ watch(
     },
 )
 
-// Chart labels are baked in at render time, so redraw on language change.
+// Chart labels/titles are baked in at render time, so redraw on language change.
 watch(locale, () => {
     renderStatusChart()
+
+    if (props.barChart.labels.length) {
+        renderBarChart()
+    }
 })
 </script>
 
