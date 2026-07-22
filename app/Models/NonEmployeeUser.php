@@ -22,6 +22,11 @@ class NonEmployeeUser extends Authenticatable
         'name',
         'email',
         'password',
+        'password_set_at',
+    ];
+
+    protected $casts = [
+        'password_set_at' => 'datetime',
     ];
 
     public function declarations(): HasMany

@@ -52,8 +52,8 @@ export default {
         credentials: 'Kredensial',
         roleManagement: 'Manajemen Peran',
         logout: 'Keluar',
-        appName: 'KPN Compliance',
-        systemName: 'KPN Compliance System',
+        appName: 'Commitment Corner',
+        systemName: 'Commitment Corner System',
         version: 'Versi 1.0.0',
     },
 
@@ -203,6 +203,7 @@ export default {
         resetPasswordText: 'Kata sandi baru akan dibuat dan dikirim ke email pengguna.',
         nameRequired: 'Nama Lengkap wajib diisi.',
         emailRequired: 'Email wajib diisi.',
+        phoneRequired: 'Nomor Telepon wajib diisi.',
         emailInvalid: 'Masukkan alamat email yang valid.',
         nationalityTypeRequired: 'Jenis Kewarganegaraan wajib diisi.',
         nationalityRequired: 'Kewarganegaraan wajib diisi.',

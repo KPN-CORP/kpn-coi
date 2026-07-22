@@ -52,8 +52,8 @@ export default {
         credentials: 'Credentials',
         roleManagement: 'Role Management',
         logout: 'Logout',
-        appName: 'KPN Compliance',
-        systemName: 'KPN Compliance System',
+        appName: 'Commitment Corner',
+        systemName: 'Commitment Corner System',
         version: 'Version 1.0.0',
     },
 
@@ -203,6 +203,7 @@ export default {
         resetPasswordText: 'A new password will be generated and sent to the user email.',
         nameRequired: 'Full Name is required.',
         emailRequired: 'Email is required.',
+        phoneRequired: 'Phone Number is required.',
         emailInvalid: 'Please enter a valid email address.',
         nationalityTypeRequired: 'Nationality Type is required.',
         nationalityRequired: 'Nationality is required.',

@@ -25,7 +25,7 @@ class ResetPasswordMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your KPN Compliance Password Has Been Reset',
+            subject: 'Your Commitment Corner Password Has Been Reset',
         );
     }
 

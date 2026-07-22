@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CredentialController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Auth\MagicLinkPasswordController;
 use App\Http\Controllers\Employee\DeclarationController;
 use App\Http\Controllers\Employee\DeclarationAttachmentController;
 use App\Http\Controllers\Employee\HistoryController;
@@ -17,6 +18,15 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('dbauth', [SsoController::class, 'dbauth']);
+
+// Self-service password setup via a signed magic link (issued by the bot API).
+Route::middleware('signed')->group(function () {
+    Route::get('/reset-password/magic/{user}', [MagicLinkPasswordController::class, 'show'])
+        ->name('password.magic');
+
+    Route::post('/reset-password/magic/{user}', [MagicLinkPasswordController::class, 'update'])
+        ->name('password.magic.update');
+});
 
 Route::middleware(['auth:web,non_employee'])->prefix('employee')
     ->name('employee.')

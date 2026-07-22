@@ -43,14 +43,17 @@ const groupedMenus = computed(() => {
         <div
             class="flex items-center gap-3 border-b border-border px-6 py-5"
         >
-            <i
-                class="fa-solid fa-shield-halved text-primary text-xl"
-            />
+            <!-- Commitment Corner logo -->
+            <img
+                src="/images/commitment-corner-logo-trimmed.png"
+                alt="Commitment Corner"
+                class="h-10 w-10 shrink-0 object-contain"
+            >
 
             <span
                 class="font-bold text-primary"
             >
-                KPN Compliance
+                Commitment Corner
             </span>
 
             <!-- Mobile close button -->

@@ -33,12 +33,12 @@ class StoreUserRequest extends FormRequest
                 'max:50',
             ],
 
-            // Phone -> non_employees.personal_mobile_number. Digits only,
-            // accepts a leading zero (e.g. 081199922290).
+            // Phone -> non_employees.personal_mobile_number. Required, digits
+            // only, accepts a leading zero (e.g. 081199922290).
             'phone' => [
-                'nullable',
+                'required',
                 'string',
-                'regex:/^[0-9]*$/',
+                'regex:/^[0-9]+$/',
                 'max:30',
             ],
 

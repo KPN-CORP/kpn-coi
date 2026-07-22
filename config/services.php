@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Optional shared secret for the /api/reset-password bot webhook. When set,
+    // callers must send it as the X-Api-Key header.
+    'reset_bot' => [
+        'key' => env('RESET_BOT_API_KEY'),
+    ],
+
 ];

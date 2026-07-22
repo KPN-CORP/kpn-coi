@@ -123,6 +123,7 @@ const resettingPassword = ref(false)
 const errors = reactive({
     name: '',
     email: '',
+    phone: '',
     citizen_number: '',
     address: '',
     business_unit: '',
@@ -210,6 +211,7 @@ function validate() {
 
     errors.name = ''
     errors.email = ''
+    errors.phone = ''
     errors.citizen_number = ''
     errors.address = ''
     errors.business_unit = ''
@@ -222,6 +224,14 @@ function validate() {
     if (!form.name.trim()) {
 
         errors.name = t.value.userForm.nameRequired
+
+        valid = false
+
+    }
+
+    if (!form.phone.trim()) {
+
+        errors.phone = t.value.userForm.phoneRequired
 
         valid = false
 
@@ -429,6 +439,11 @@ watch(() => form.name, () => {
 watch(() => form.email, () => {
     errors.email = ''
     form.clearErrors('email')
+})
+
+watch(() => form.phone, () => {
+    errors.phone = ''
+    form.clearErrors('phone')
 })
 
 watch(() => form.citizen_number, () => {
@@ -642,6 +657,7 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                     <div>
                         <label class="mb-1 block text-sm font-medium">
                             {{ t.userForm.phoneNumber }}
+                            <span class="text-red-500">*</span>
                         </label>
 
                         <input
