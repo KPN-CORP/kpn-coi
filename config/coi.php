@@ -2,9 +2,12 @@
 
 return [
 
+    // Display name for the app: browser title and anywhere else the product is
+    // named. Kept separate from APP_NAME on purpose -- that one feeds the
+    // session cookie and cache prefixes, so renaming it logs everyone out.
     'name' => env(
         'COI_APP_NAME',
-        'Conflict of Interest Declaration System',
+        'Commitment Corner',
     ),
 
     'url' => env(

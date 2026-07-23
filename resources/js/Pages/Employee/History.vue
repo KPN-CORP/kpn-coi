@@ -351,7 +351,7 @@ function downloadAttachment(declaration: Declaration) {
                     <tbody>
                         <tr
                             v-for="declaration in props.declarations.data"
-                            :key="declaration.period"
+                            :key="declaration.id"
                             class="border-b border-slate-100 text-center"
                             :class="isPendingUpload(declaration) ? 'bg-red-50' : ''"
                         >
