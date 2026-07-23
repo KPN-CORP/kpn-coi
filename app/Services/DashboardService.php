@@ -27,6 +27,8 @@ class DashboardService
             ? (string) now()->year
             : $request->period;
 
+        $viewer = Auth::user();
+
         // Only people who had already joined by the end of the selected
         // period count toward that period's totals. Rows without a join
         // date are kept so they are never silently dropped.
@@ -36,9 +38,13 @@ class DashboardService
                 ->orWhereYear('date_of_joining', '<=', (int) $period)
         );
 
+        // The role's data restrictions gate every count and list below, so they
+        // are applied to the people queries the stats and charts are derived
+        // from -- not only to the declaration list.
         $employeeQuery = Employee::query()
         ->whereNull('deleted_at')
         ->tap($joinedInPeriod)
+        ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer))
         ->when(
             $request->filled('business_unit')
             && $request->type === 'employee',
@@ -49,7 +55,8 @@ class DashboardService
         );
 
         $nonEmployeeQuery = NonEmployee::query()
-            ->tap($joinedInPeriod);
+            ->tap($joinedInPeriod)
+            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer));
 
         $nonEmployeeQuery->when(
             $request->filled('business_unit')
@@ -62,9 +69,9 @@ class DashboardService
 
         $declarationQuery = CoiDeclaration::query();
 
-        $this->dataScopeService->apply(
+        $this->dataScopeService->applyToDeclarations(
             $declarationQuery,
-            Auth::user()
+            $viewer
         );
 
         $declarationQuery
@@ -87,8 +94,11 @@ class DashboardService
 
         if ($request->type === 'non_employee') {
 
+            // A non_employee declaration keys on the login id, not on the
+            // profile row id -- non_employees.id and user_id differ.
             $userIds = (clone $nonEmployeeQuery)
-                ->pluck('id');
+                ->whereNotNull('user_id')
+                ->pluck('user_id');
 
             $declarationQuery->whereIn(
                 'user_id',
@@ -176,7 +186,10 @@ class DashboardService
             })
             ->values();
 
-            $businessUnitOptions = Employee::query()
+            // Restricted admins must not even be offered a unit they cannot
+            // open, so the filter list is scoped like the data behind it.
+            $businessUnitOptions = $this->dataScopeService
+            ->applyToPeople(Employee::query(), $viewer)
             ->whereNotNull('group_company')
             ->distinct()
             ->orderBy('group_company')

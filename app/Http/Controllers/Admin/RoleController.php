@@ -12,9 +12,11 @@ use App\Models\BusinessUnit;
 use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\NonEmployee;
 use App\Models\User;
-use Faker\Provider\Company;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 
@@ -96,29 +98,22 @@ class RoleController extends Controller
                         'name',
                     ]),
 
-                'workAreas' => Employee::query()
-                    ->select('office_area')
-                    ->whereNotNull('office_area')
-                    ->where('office_area', '!=', '')
-                    ->distinct()
-                    ->orderBy('office_area')
-                    ->get()
-                    ->map(fn ($item) => [
-                        'code' => $item->office_area,
-                        'name' => $item->office_area,
-                    ])
-                    ->values(),
+                // Restrictions are matched against the people tables, so every
+                // option below must carry the value those tables actually
+                // store -- a code that appears nowhere in them can only ever
+                // select zero rows.
+                'workAreas' => $this->officeAreaOptions(),
 
+                // employees.group_company / non_employees.group_company hold
+                // the unit *name* ("Cement"), never its kode_bisnis ("BU03"),
+                // so the name is what a restriction has to be saved as.
                 'groupCompanies' => BusinessUnit::query()
-                    ->select(
-                        'kode_bisnis',
-                        'nama_bisnis'
-                    )
-                    ->whereNotNull('kode_bisnis')
+                    ->select('nama_bisnis')
+                    ->whereNotNull('nama_bisnis')
                     ->orderBy('nama_bisnis')
                     ->get()
                     ->map(fn ($item) => [
-                        'code' => $item->kode_bisnis,
+                        'code' => $item->nama_bisnis,
                         'name' => $item->nama_bisnis,
                     ])
                     ->values(),
@@ -139,6 +134,31 @@ class RoleController extends Controller
                     ->values(),
             ]
         );
+    }
+
+    /**
+     * Office areas across both people tables -- a restriction covers employees
+     * and non-employees alike, so an area used only by non-employees still has
+     * to be selectable.
+     */
+    private function officeAreaOptions(): Collection
+    {
+        $areas = fn (Builder $query) => $query
+            ->select('office_area')
+            ->whereNotNull('office_area')
+            ->where('office_area', '!=', '')
+            ->distinct()
+            ->pluck('office_area');
+
+        return $areas(Employee::query())
+            ->concat($areas(NonEmployee::query()))
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(fn ($area) => [
+                'code' => $area,
+                'name' => $area,
+            ]);
     }
 
     public function store(

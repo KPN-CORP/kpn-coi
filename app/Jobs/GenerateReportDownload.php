@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Exports\ReportExport;
 use App\Models\ReportDownload;
+use App\Models\User;
 use App\Services\ReportService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -54,12 +55,16 @@ class GenerateReportDownload implements ShouldQueue
 
             $period = (int) ($filters['period'] ?? now()->year);
 
+            // No authenticated session on the queue, so the requester is
+            // resolved from the download row -- without it the export would
+            // ignore their role's data restrictions and dump every row.
             $records = $reportService->getAllDeclarations(
                 period: $period,
                 status: $filters['status'] ?? null,
                 search: $filters['search'] ?? null,
                 type: $filters['type'] ?? null,
                 businessUnit: $filters['business_unit'] ?? null,
+                user: User::find($download->user_id),
                 latestSubmission: (bool) ($filters['latest_submission'] ?? true),
                 declarationStatus: $filters['declaration_status'] ?? null,
             );

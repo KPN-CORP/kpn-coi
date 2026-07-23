@@ -9,6 +9,7 @@ use App\Jobs\GenerateReportDownload;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\ReportDownload;
+use App\Services\DataScopeService;
 use App\Services\ReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -98,7 +99,10 @@ class ReportController extends Controller
                     'sort' => $sort,
                     'direction' => $direction,
                 ],
-                'businessUnitOptions' => Employee::query()
+                // Scoped like the rows behind it: a restricted admin must not
+                // be offered a business unit they cannot open.
+                'businessUnitOptions' => app(DataScopeService::class)
+                    ->applyToPeople(Employee::query(), Auth::user())
                     ->whereNotNull('group_company')
                     ->distinct()
                     ->orderBy('group_company')

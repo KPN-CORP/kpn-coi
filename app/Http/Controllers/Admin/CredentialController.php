@@ -19,9 +19,11 @@ use App\Imports\NonEmployeeUserImport;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Services\CredentialImportService;
+use App\Services\DataScopeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -46,9 +48,11 @@ class CredentialController extends Controller
             : 'Indonesia';
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request, DataScopeService $dataScope): Response
     {
         $search = $request->string('search');
+
+        $viewer = Auth::user();
 
         $perPage = (int) ($request->per_page ?? 10);
 
@@ -112,6 +116,16 @@ class CredentialController extends Controller
                     )
                 )
             )
+            // The role's data restrictions live on the same related row. A
+            // login with no profile carries none of them, so under a
+            // restriction it is not visible either.
+            ->when(
+                $dataScope->isRestricted($viewer),
+                fn ($query) => $query->whereHas(
+                    'employee',
+                    fn ($query) => $dataScope->applyToPeople($query, $viewer)
+                )
+            )
             ->get()
             ->map(fn ($user) => [
                 'id' => $user->id,
@@ -158,7 +172,8 @@ class CredentialController extends Controller
             ]
         );
 
-        $businessUnitOptions = Employee::query()
+        $businessUnitOptions = $dataScope
+            ->applyToPeople(Employee::query(), $viewer)
             ->whereNotNull('group_company')
             ->distinct()
             ->orderBy('group_company')

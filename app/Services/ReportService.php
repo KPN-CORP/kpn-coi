@@ -13,6 +13,11 @@ use Illuminate\Support\Collection;
 
 class ReportService
 {
+    public function __construct(
+        protected DataScopeService $dataScopeService
+    ) {
+    }
+
     public function getDeclarations(
         int $period,
         ?string $status,
@@ -34,6 +39,7 @@ class ReportService
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
             declarationStatus: $declarationStatus,
+            user: $user,
         );
 
         if ($sort) {
@@ -84,6 +90,7 @@ class ReportService
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
             declarationStatus: $declarationStatus,
+            user: $user,
         );
     }
 
@@ -94,7 +101,8 @@ class ReportService
         ?string $type,
         ?string $businessUnit,
         bool $latestSubmission,
-        ?string $declarationStatus = null
+        ?string $declarationStatus = null,
+        ?User $user = null
     ): Collection {
         $employees = $type === 'non_employee'
             ? collect()
@@ -103,13 +111,15 @@ class ReportService
                 $businessUnit,
                 $search,
                 $status,
-                $declarationStatus
+                $declarationStatus,
+                $user
             );
 
         $nonEmployees = $type === 'employee'
             ? collect()
             : $this->nonEmployeeRecords(
-                $period
+                $period,
+                $user
             );
 
         $records = $employees
@@ -221,7 +231,8 @@ class ReportService
         ?string $businessUnit,
         ?string $search = null,
         ?string $status = null,
-        ?string $declarationStatus = null
+        ?string $declarationStatus = null,
+        ?User $user = null
     ): Collection {
 
         // Preload declarations for the period once (small dataset) so that
@@ -248,6 +259,7 @@ class ReportService
             ->values();
 
         return Employee::query()
+            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
             ->with([
                 'coiDeclaration' => fn ($query) => $query
                     ->where('period', $period)
@@ -378,10 +390,12 @@ class ReportService
     }
     
     private function nonEmployeeRecords(
-        int $period
+        int $period,
+        ?User $user = null
     ): Collection {
-    
+
         return NonEmployee::query()
+            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
             // Mirror the dashboard: only people who had already joined by the
             // end of the period count toward it. Unknown join dates are kept.
             ->where(

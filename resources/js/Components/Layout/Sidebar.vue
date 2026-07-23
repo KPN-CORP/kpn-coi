@@ -45,7 +45,7 @@ const groupedMenus = computed(() => {
         >
             <!-- Commitment Corner logo -->
             <img
-                src="/images/commitment-corner-logo-trimmed.png"
+                src="https://compliance.hcis.live/storage/img/commitment-corner-logo-1.png"
                 alt="Commitment Corner"
                 class="h-10 w-10 shrink-0 object-contain"
             >
