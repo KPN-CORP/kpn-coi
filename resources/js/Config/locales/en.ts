@@ -138,6 +138,17 @@ export default {
     },
 
     credentials: {
+        convert: 'Convert To Employee',
+        convertTitle: 'Convert to Employee',
+        convertSubtitle: 'Link this account to an HRIS employee record.',
+        convertNonEmployee: 'Converting',
+        convertSearchLabel: 'Search employee',
+        convertSearchPlaceholder: 'Name, employee ID or email...',
+        convertSearchHint: 'Type at least 2 characters to search.',
+        convertNoResults: 'No matching employee found.',
+        convertConfirm: 'Convert',
+        convertNotice: 'Their existing declarations are kept as they are and stay visible once they sign in with SSO. Nothing is deleted or moved.',
+
         title: 'Credentials Database',
         description: 'Manage non-HRIS users and imported accounts.',
         uploadUsers: 'Upload Users',

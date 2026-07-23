@@ -138,6 +138,17 @@ export default {
     },
 
     credentials: {
+        convert: 'Jadi Karyawan',
+        convertTitle: 'Ubah Menjadi Karyawan',
+        convertSubtitle: 'Hubungkan akun ini dengan data karyawan di HRIS.',
+        convertNonEmployee: 'Mengubah',
+        convertSearchLabel: 'Cari karyawan',
+        convertSearchPlaceholder: 'Nama, ID karyawan, atau email...',
+        convertSearchHint: 'Ketik minimal 2 karakter untuk mencari.',
+        convertNoResults: 'Karyawan tidak ditemukan.',
+        convertConfirm: 'Ubah',
+        convertNotice: 'Deklarasi yang sudah ada tetap tersimpan dan masih dapat dilihat setelah mereka masuk melalui SSO. Tidak ada data yang dihapus atau dipindahkan.',
+
         title: 'Database Kredensial',
         description: 'Kelola pengguna non-HRIS dan akun yang diimpor.',
         uploadUsers: 'Unggah Pengguna',

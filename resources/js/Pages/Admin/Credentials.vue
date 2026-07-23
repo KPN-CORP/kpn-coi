@@ -6,6 +6,7 @@ import { ref, computed } from 'vue'
 import UserFormModal from '@/Components/Admin/UserFormModal.vue'
 import UploadUserModal from '@/Components/Admin/UploadUserModal.vue'
 import DeleteUserModal from '@/Components/Admin/DeleteUserModal.vue'
+import ConvertToEmployeeModal from '@/Components/Admin/ConvertToEmployeeModal.vue'
 import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import { formatDate } from '@/Utils/date'
@@ -30,6 +31,8 @@ const selectedUser = ref<User | null>(null)
 const showUploadModal = ref(false)
 
 const showDeleteModal = ref(false)
+
+const showConvertModal = ref(false)
 
 const serverErrors = ref<Record<string, string>>({})
 
@@ -110,6 +113,12 @@ function openDeleteModal(user: any) {
     selectedUser.value = user
 
     showDeleteModal.value = true
+}
+
+function openConvertModal(user: any) {
+    selectedUser.value = user
+
+    showConvertModal.value = true
 }
 
 interface User {
@@ -327,6 +336,15 @@ const props = defineProps<{
         office_area: string
     }[]
 
+    // Optional prop: only sent when the convert dialog asks for it by name.
+    employeeOptions?: {
+        employee_id: string
+        name: string
+        email: string | null
+        business_unit: string | null
+        designation: string | null
+    }[]
+
     filters: {
         search?: string
         business_unit?: string
@@ -520,11 +538,19 @@ function applyFilter() {
                                         <i class="fa-solid fa-pencil" /> {{ t.common.edit }}
                                     </button>
 
-                                    <button                     
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @click="openConvertModal(user)"
+                                    >
+                                        <i class="fa-solid fa-user-check" /> {{ t.credentials.convert }}
+                                    </button>
+
+                                    <button
                                         type="button"
                                         class="btn btn-outline-primary-custom btn-sm"
                                         @click="openDeleteModal(user)"
-                                    >                                        
+                                    >
                                         <i class="fa-solid fa-trash" /> {{ t.common.delete }}
                                     </button>
                                 </div>
@@ -580,6 +606,14 @@ function applyFilter() {
             :user-name="selectedUser?.name"
             @close="showDeleteModal = false"
             @delete="deleteUser"
+        />
+
+        <ConvertToEmployeeModal
+            v-if="showConvertModal"
+            :show="showConvertModal"
+            :user="selectedUser"
+            :employee-options="props.employeeOptions"
+            @close="showConvertModal = false"
         />
     </AdminLayout>
 </template>

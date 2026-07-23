@@ -203,6 +203,15 @@ class CredentialController extends Controller
                 'businessUnitOptions' => $businessUnitOptions,
                 'officeAreaOptions' => $officeAreaOptions,
 
+                // Only resolved when the convert dialog asks for it by name --
+                // there are thousands of employees, far too many to ship with
+                // every page load, so the search runs server side.
+                'employeeOptions' => Inertia::optional(
+                    fn () => $this->employeeOptions(
+                        $request->string('employee_search')->toString()
+                    )
+                ),
+
                 'filters' => [
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
@@ -211,6 +220,129 @@ class CredentialController extends Controller
                     'per_page' => $perPage,
                 ],
             ]
+        );
+    }
+
+    /**
+     * HRIS employees offered by the convert dialog. Capped and search-driven:
+     * the table holds thousands of rows, and an unfiltered list would be
+     * unusable as well as slow.
+     *
+     * Employees already claimed by another local account are excluded, so the
+     * dialog cannot offer a link that would then be rejected on submit.
+     */
+    private function employeeOptions(string $search): array
+    {
+        if (trim($search) === '') {
+            return [];
+        }
+
+        $taken = NonEmployeeUser::query()
+            ->whereNotNull('employee_id')
+            ->pluck('employee_id')
+            ->all();
+
+        return Employee::query()
+            ->select('employee_id', 'fullname', 'email', 'group_company', 'designation_name')
+            ->whereNull('deleted_at')
+            ->whereNotNull('employee_id')
+            ->where('employee_id', '!=', '')
+            ->when(
+                $taken !== [],
+                fn ($query) => $query->whereNotIn('employee_id', $taken)
+            )
+            ->where(
+                fn ($query) => $query
+                    ->where('employee_id', 'like', "%{$search}%")
+                    ->orWhere('fullname', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+            )
+            ->orderBy('fullname')
+            ->limit(25)
+            ->get()
+            ->map(fn (Employee $employee) => [
+                'employee_id' => $employee->employee_id,
+                'name' => $employee->fullname,
+                'email' => $employee->email,
+                'business_unit' => $employee->group_company,
+                'designation' => $employee->designation_name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Convert a non-employee into an employee.
+     *
+     * This only writes the link (users.employee_id) -- no declaration, profile
+     * or response row is moved, rewritten or deleted. Their existing
+     * declarations keep their own user_id and type, and become readable from
+     * the SSO account through DeclarationScopeService, which treats the local
+     * account as a prior identity of the employee. Reverting is a matter of
+     * clearing the column again.
+     */
+    public function convertToEmployee(
+        Request $request,
+        NonEmployeeUser $user
+    ): RedirectResponse {
+
+        $validated = $request->validate([
+            'employee_id' => ['required', 'string', 'max:25'],
+        ]);
+
+        $employeeId = trim($validated['employee_id']);
+
+        if (filled($user->employee_id)) {
+            return back()->withErrors([
+                'employee_id' => 'This user has already been converted to an employee.',
+            ]);
+        }
+
+        $employee = Employee::query()
+            ->whereNull('deleted_at')
+            ->where('employee_id', $employeeId)
+            ->first();
+
+        if (! $employee) {
+            return back()->withErrors([
+                'employee_id' => 'That employee could not be found in the HRIS.',
+            ]);
+        }
+
+        // One HRIS record must not back two local accounts, or a single SSO
+        // login would inherit both of their declaration histories.
+        $claimedBy = NonEmployeeUser::query()
+            ->where('employee_id', $employeeId)
+            ->whereKeyNot($user->id)
+            ->first();
+
+        if ($claimedBy) {
+            return back()->withErrors([
+                'employee_id' => "That employee is already linked to {$claimedBy->name}.",
+            ]);
+        }
+
+        // The SSO login matches on email against kpncorp.users. Without a row
+        // there the person cannot sign in as an employee at all, so the link
+        // would silently strand them.
+        $hasSsoAccount = User::query()
+            ->where('id', $employee->id)
+            ->orWhere('employee_id', $employeeId)
+            ->exists();
+
+        if (! $hasSsoAccount) {
+            return back()->withErrors([
+                'employee_id' => 'That employee has no SSO account yet, so they could not sign in after converting.',
+            ]);
+        }
+
+        $user->update([
+            'employee_id' => $employeeId,
+        ]);
+
+        return back()->with(
+            'success',
+            "{$user->name} is now linked to employee {$employeeId}. Their previous declarations stay available after they sign in with SSO."
         );
     }
 

@@ -17,6 +17,7 @@ use App\Models\Employee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Services\CoiDeclarationService;
+use App\Services\DeclarationScopeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -161,8 +162,13 @@ class DeclarationController extends Controller
 
         $locale = $request->string('locale', 'en');
 
+        // Matches on (user_id, type) and includes any earlier non-employee
+        // account this person was converted from. The previous check compared
+        // user_id alone, which both let an employee open an unrelated
+        // non-employee's declaration -- the id spaces overlap -- and refused a
+        // converted employee their own earlier rows.
         abort_unless(
-            $authUser && $declaration->user_id === $authUser->id,
+            app(DeclarationScopeService::class)->owns($authUser, $declaration),
             403
         );
 

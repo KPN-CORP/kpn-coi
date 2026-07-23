@@ -137,6 +137,13 @@ Route::middleware(['auth:web'])->prefix('admin')
         [CredentialController::class, 'update']
     )->name('credentials.update');
 
+    // Link a non-employee to their HRIS record. Writes only the link; their
+    // declarations stay where they are and follow them via the prior identity.
+    Route::post(
+        '/credentials/{user}/convert',
+        [CredentialController::class, 'convertToEmployee']
+    )->name('credentials.convert');
+
     Route::delete(
         '/credentials/{user}',
         [CredentialController::class, 'destroy']

@@ -7,7 +7,7 @@ namespace App\Http\Controllers\Employee;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeamDeclarationResource;
 use App\Models\CoiDeclaration;
-use App\Models\User;
+use App\Services\DeclarationScopeService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
@@ -15,6 +15,11 @@ use Inertia\Response;
 
 class HistoryController extends Controller
 {
+    public function __construct(
+        private readonly DeclarationScopeService $scope
+    ) {
+    }
+
     public function __invoke(Request $request): Response
     {
         $perPage = (int) ($request->per_page ?? 10);
@@ -25,21 +30,19 @@ class HistoryController extends Controller
 
         $user = $request->user();
 
-        // user_id alone is ambiguous: the employee (kpncorp User) and
-        // non-employee (local) id spaces overlap. Scope by type to the kind of
-        // account that is signed in so one never sees the other's rows.
-        $type = $user instanceof User ? 'employee' : 'non_employee';
-
         // The per-user set is tiny (one row per period), so the 2025 pin rule
         // is applied in memory rather than in awkward JSON SQL.
         //
         // Every 2025 row is shown, conflict or not -- all of them require a
         // supporting document, and any still missing one is pinned to the top.
-        $visible = CoiDeclaration::query()
-            ->with('responses')
-            ->where('user_id', $user->id)
-            ->where('type', $type)
-            ->get();
+        //
+        // Ownership is matched on (user_id, type), never user_id alone: the two
+        // id spaces overlap. It also carries any earlier non-employee account
+        // this person was converted from, so a conversion never hides history.
+        $visible = $this->scope->applyOwnership(
+            CoiDeclaration::query()->with('responses'),
+            $user
+        )->get();
 
         $periods = $visible
             ->pluck('period')
