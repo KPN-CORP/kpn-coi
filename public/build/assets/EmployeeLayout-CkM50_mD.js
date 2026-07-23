@@ -1,1 +1,0 @@
-import{F as e,G as t,N as n,R as r,T as i,y as a}from"./app-CaALlQ_S.js";import{i as o,n as s}from"./navigation-C-4KTRb2.js";var c=i({__name:`EmployeeLayout`,setup(i){let c={name:`Metta Saputra`,employee_id:`KPN-01124040`,initials:`M`};return(i,l)=>(n(),a(o,{navigation:t(s),user:c},{default:r(()=>[e(i.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

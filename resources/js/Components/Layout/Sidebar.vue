@@ -41,7 +41,7 @@ const groupedMenus = computed(() => {
         <!-- Logo -->
 
         <div
-            class="flex items-center gap-3 border-b border-border px-6 py-5"
+            class="flex h-[var(--topbar-height)] shrink-0 items-center gap-3 border-b border-border px-6"
         >
             <!-- Commitment Corner logo -->
             <img

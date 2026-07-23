@@ -77,6 +77,10 @@
     /* Layout */
 
     --sidebar-width: 260px;
+
+    /* The sidebar's logo block and the topbar sit side by side, so their
+       bottom borders read as one line across the page. Both take their height
+       from here -- sizing either by padding lets the two drift apart. */
     --topbar-height: 64px;
 
     /* Animation */
