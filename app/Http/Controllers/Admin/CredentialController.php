@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Mail\NonEmployeeCredentialMail;
 use App\Mail\ResetPasswordMail;
+use App\Models\CoiDeclaration;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
@@ -242,8 +243,11 @@ class CredentialController extends Controller
             ->pluck('employee_id')
             ->all();
 
-        return Employee::query()
-            ->select('employee_id', 'fullname', 'email', 'group_company', 'designation_name')
+        // Over-fetch, then drop the ones that already declared as an employee.
+        // The filtering cannot happen in SQL: coi_declarations lives in the app
+        // database and employees in kpncorp, so there is no join to make.
+        $matches = Employee::query()
+            ->select('id', 'employee_id', 'fullname', 'email', 'group_company', 'designation_name')
             ->whereNull('deleted_at')
             ->whereNotNull('employee_id')
             ->where('employee_id', '!=', '')
@@ -258,8 +262,16 @@ class CredentialController extends Controller
                     ->orWhere('email', 'like', "%{$search}%")
             )
             ->orderBy('fullname')
-            ->limit(25)
-            ->get()
+            ->limit(200)
+            ->get();
+
+        $alreadyDeclared = $this->employeeIdsWithDeclarations(
+            $matches->pluck('id')->all()
+        );
+
+        return $matches
+            ->reject(fn (Employee $employee) => in_array((int) $employee->id, $alreadyDeclared, true))
+            ->take(25)
             ->map(fn (Employee $employee) => [
                 'employee_id' => $employee->employee_id,
                 'name' => $employee->fullname,
@@ -268,6 +280,34 @@ class CredentialController extends Controller
                 'designation' => $employee->designation_name,
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * Of the given employees, those that already hold declarations of their
+     * own. Such an employee is not a conversion target: linking a non-employee
+     * to them would pull both declaration histories into one SSO login, so an
+     * employee would open their history and find a stranger's records beside
+     * their own. It usually means the wrong person was picked from the list.
+     *
+     * An `employee` declaration keys on employees.id (kpncorp mirrors users.id
+     * one-to-one), not on the employee_id string.
+     *
+     * @param  list<int>  $employeeIds
+     * @return list<int>
+     */
+    private function employeeIdsWithDeclarations(array $employeeIds): array
+    {
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        return CoiDeclaration::query()
+            ->where('type', 'employee')
+            ->whereIn('user_id', $employeeIds)
+            ->distinct()
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
             ->all();
     }
 
@@ -333,6 +373,16 @@ class CredentialController extends Controller
         if (! $hasSsoAccount) {
             return back()->withErrors([
                 'employee_id' => 'That employee has no SSO account yet, so they could not sign in after converting.',
+            ]);
+        }
+
+        // The dialog already hides these, so reaching here means the id was
+        // posted directly. Refuse it: merging two declaration histories into
+        // one login is not undone by clearing the link, because by then the
+        // admin has no way to tell which records belonged to whom.
+        if ($this->employeeIdsWithDeclarations([(int) $employee->id]) !== []) {
+            return back()->withErrors([
+                'employee_id' => 'That employee already has their own declaration records, so they cannot be used for a conversion.',
             ]);
         }
 
