@@ -14,7 +14,7 @@ Your account has been successfully created.
 | Password | **{{ $password }}** |
 
 <x-mail::button :url="$appUrl">
-Login to Compliance System
+Login to Commitment Corner
 </x-mail::button>
 
 ### Security Notice

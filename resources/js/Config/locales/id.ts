@@ -58,7 +58,7 @@ export default {
     },
 
     login: {
-        title: 'Compliance System',
+        title: 'Commitment Corner',
         email: 'Email',
         password: 'Kata Sandi',
         signIn: 'Masuk',
