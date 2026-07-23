@@ -51,7 +51,7 @@ class DashboardController extends Controller
             'isRemoteEnabled' => true,
             'isHtml5ParserEnabled' => true,
         ]);
-        return $pdf->download('Compliance Dashboard.pdf');
+        return $pdf->download('Commitment Corner Dashboard.pdf');
     }
 
     public function exportExcel(Request $request)
@@ -60,7 +60,7 @@ class DashboardController extends Controller
             new DashboardExport(
                 $this->dashboardService->getDashboardData($request)
             ),
-            'Compliance Dashboard.xlsx'
+            'Commitment Corner Dashboard.xlsx'
         );
     }
 }

@@ -9,7 +9,7 @@
             </h2>
 
             <h1>
-                Compliance Dashboard
+                Commitment Corner Dashboard
             </h1>
 
         </td>

@@ -423,7 +423,7 @@ class CredentialController extends Controller
     {
         return Excel::download(
             new CredentialTemplateExport(),
-            'Compliance-NonEmployee-User-Import-Template.xlsx'
+            'Commitment-Corner-NonEmployee-User-Import-Template.xlsx'
         );
     }
 }

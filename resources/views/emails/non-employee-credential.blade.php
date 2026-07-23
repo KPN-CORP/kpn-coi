@@ -19,11 +19,11 @@ Login to Commitment Corner
 
 ### Security Notice
 
-For security reasons, please change your password immediately after your first login.
+If you did not request this password reset or experience any issues accessing the system,
 
-If you experience any issues accessing the system, please contact your HCO Team
+Please contact your HCO Team
 
 Thanks,<br>
-HR Teams
+HC Teams
 
 </x-mail::message>

@@ -101,7 +101,7 @@ export default {
     },
 
     dashboard: {
-        title: 'Compliance Dashboard',
+        title: 'Commitment Corner Dashboard',
         description: 'Real-time overview of declaration submissions.',
         reportingPeriod: 'Reporting Period',
         declarationType: 'Declaration Type',
