@@ -78,6 +78,41 @@ class CoiDeclaration extends Model
         return $this->belongsTo(Employee::class, 'user_id', 'id');
     }
 
+    /**
+     * The declarant's profile row -- an Employee for employee declarations, a
+     * NonEmployee for the rest. Both carry fullname / ktp / permanent_address,
+     * and both relations happen to be called `employee`, so the accessors
+     * below read the same fields off either.
+     *
+     * Reaching for `$declaration->user->employee` instead is wrong for a
+     * non-employee row: `user` resolves against kpncorp, where that user_id
+     * belongs to somebody else entirely or to nobody at all.
+     */
+    public function declarantProfile(): Employee|NonEmployee|null
+    {
+        return $this->declarant()?->employee;
+    }
+
+    /**
+     * Declarant fields for the PDF templates. These return a placeholder
+     * rather than null so a declaration whose account was since deleted still
+     * renders instead of failing the whole document.
+     */
+    public function declarantName(): string
+    {
+        return (string) ($this->declarantProfile()?->fullname ?: '-');
+    }
+
+    public function declarantIdNumber(): string
+    {
+        return (string) ($this->declarantProfile()?->ktp ?: '-');
+    }
+
+    public function declarantAddress(): string
+    {
+        return (string) ($this->declarantProfile()?->permanent_address ?: '-');
+    }
+
     public function responses(): HasMany
     {
         return $this->hasMany(CoiResponse::class);

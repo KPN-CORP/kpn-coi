@@ -174,8 +174,11 @@ class DeclarationController extends Controller
 
         $declaration->load([
             'responses',
-            'user.employee',
         ]);
+
+        // The declarant is resolved by type via declarant(); eager-loading
+        // user.employee here would resolve a non-employee row against kpncorp,
+        // which is the wrong database and can match an unrelated person.
 
         $locale = request()->string('locale')->toString();
 

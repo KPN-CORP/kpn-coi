@@ -16,7 +16,7 @@
 
 <td>
 
-{{ $declaration->user->employee->fullname }}
+{{ $declaration->declarantName() }}
 
 </td>
 
@@ -39,7 +39,7 @@
 
 <td>
 
-{{ $declaration->user->employee->ktp }}
+{{ $declaration->declarantIdNumber() }}
 
 </td>
 
@@ -61,7 +61,7 @@
 
 <td>
 
-{{ $declaration->user->employee->permanent_address }}
+{{ $declaration->declarantAddress() }}
 
 </td>
 

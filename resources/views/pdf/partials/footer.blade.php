@@ -22,12 +22,12 @@
         class="ephesis"
         style="font-size:22pt;"
     >
-        {{ $declaration->user->employee->fullname }}
+        {{ $declaration->declarantName() }}
     </span>
 
     <br>
     {{ $locale === 'id' ? 'Di Deklarasikan oleh,' : 'Declared by,' }}
-    {{ $declaration->user->employee->fullname }}
+    {{ $declaration->declarantName() }}
     <br>
     {{ $locale === 'id' ? 'Tanggal' : 'Date' }} :
     {{ $footerDate->translatedFormat('d F Y') }}

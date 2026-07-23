@@ -130,13 +130,13 @@
 
     $footerText = $locale === 'id'
         ? 'Dideklarasikan oleh '
-            . $declaration->user->employee->fullname
+            . $declaration->declarantName()
             . ' pada '
             . $date->translatedFormat('d F Y')
             . ' pukul '
             . $date->format('H:i:s')
         : 'Declared by '
-            . $declaration->user->employee->fullname
+            . $declaration->declarantName()
             . ' on '
             . $date->translatedFormat('d F Y')
             . ' at '
