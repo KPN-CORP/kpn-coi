@@ -479,8 +479,16 @@ return [
                 [
                     'key' => 'amount_value',
                     'label' => [
-                        'id' => 'Masukkan Nilai atau Jumlah Barang/Jasa yang Diterima Beserta Mata Uang atau Satuan Ukur yang Digunakan.',
-                        'en' => 'Value or Amount Goods/Services Received, type the currency or unit of measurement used',
+                        'id' => 'Nilai atau Jumlah Barang/Jasa yang Diterima',
+                        'en' => 'Value or Amount Goods/Services Received',
+                    ],
+
+                    // Guidance shown under the input on the form only. The PDF
+                    // and Excel exports render `label` and never `hint`, so it
+                    // stays out of them -- keep it that way if either changes.
+                    'hint' => [
+                        'id' => 'Sebutkan mata uang atau satuan ukur yang digunakan',
+                        'en' => 'Type the currency or unit of measurement used',
                     ],
                 ],
 

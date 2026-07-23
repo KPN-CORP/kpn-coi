@@ -24,6 +24,10 @@ interface CoiField {
     key: string
     type: string
     label: Record<'en' | 'id', string>
+
+    // Optional guidance rendered under the input. Form-only: the exports read
+    // `label` and never this.
+    hint?: Record<'en' | 'id', string>
 }
 
 interface CoiQuestion {
@@ -747,6 +751,7 @@ function onAnswerChanged(questionKey: string) {
                     question.fields.map(field => ({
                         ...field,
                         label: field.label[currentLocale],
+                        hint: field.hint?.[currentLocale],
                         options: field.options
                             ? field.options.map(option => ({
                                 ...option,

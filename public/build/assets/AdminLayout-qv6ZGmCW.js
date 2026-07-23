@@ -1,0 +1,1 @@
+import{F as e,G as t,N as n,R as r,T as i,y as a}from"./app-sKd_78r4.js";import{i as o,t as s}from"./navigation-DobSACN3.js";var c=i({__name:`AdminLayout`,setup(i){let c={name:`Compliance Admin`,employee_id:`ADM-00001`,initials:`CA`};return(i,l)=>(n(),a(o,{navigation:t(s),user:c},{default:r(()=>[e(i.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

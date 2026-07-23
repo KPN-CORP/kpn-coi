@@ -13,6 +13,11 @@ interface FieldOption {
 interface Field {
     key: string
     label: string
+
+    // Guidance rendered under the input, already resolved to the active
+    // locale by the parent. Not part of the declaration's exported answer.
+    hint?: string
+
     type?: 'text' | 'select' | 'number' | 'date' | 'date_range' | 'year'
     min?: number
     max?: number
@@ -53,6 +58,31 @@ const props = defineProps<{
 
 const t = computed(() => locales[props.locale ?? 'en'])
 
+/**
+ * The holding company. No entry in `companies` is labelled with it -- every
+ * company_name carries one of the operating units instead -- so filtering on
+ * it the normal way leaves the list empty. Its people can declare an interest
+ * in any entity in the group, so they get the full list.
+ */
+const GROUP_WIDE_BUSINESS_UNIT = 'KPN Corporation'
+
+/**
+ * Companies selectable for a business unit. One company can belong to several,
+ * hence the comma-separated `business_unit`.
+ */
+function companiesFor(businessUnit: string) {
+    if (businessUnit === GROUP_WIDE_BUSINESS_UNIT) {
+        return props.companies
+    }
+
+    return props.companies.filter(company =>
+        company.business_unit
+            .split(',')
+            .map(value => value.trim())
+            .includes(businessUnit),
+    )
+}
+
 function getOptions(
     field: Field,
     row: Record<string, any>,
@@ -73,13 +103,7 @@ function getOptions(
                 return []
             }
 
-            const options = props.companies
-                .filter(company =>
-                    company.business_unit
-                        .split(',')
-                        .map(value => value.trim())
-                        .includes(row.business_unit)
-                )
+            const options = companiesFor(row.business_unit)
                 .map(company => ({
                     value: company.code,
                     label: company.name,
@@ -136,13 +160,7 @@ function getMultiOptions(
         return []
     }
 
-    return props.companies
-        .filter(company =>
-            company.business_unit
-                .split(',')
-                .map(value => value.trim())
-                .includes(row.business_unit),
-        )
+    return companiesFor(row.business_unit)
         .map(company => ({
             code: company.code,
             name: company.name,
@@ -547,6 +565,15 @@ const years = Array.from(
                         class="mt-1 text-xs text-red-500"
                     >
                         {{ getError(index, field.key) }}
+                    </p>
+
+                    <!-- Guidance under the input. Applies to every field type,
+                         so it sits outside the type-specific branches above. -->
+                    <p
+                        v-if="field.hint"
+                        class="mt-1 text-xs text-slate-500"
+                    >
+                        {{ field.hint }}
                     </p>
 
                     <!-- Dynamic Requires -->
