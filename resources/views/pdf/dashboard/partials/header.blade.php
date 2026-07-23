@@ -28,7 +28,7 @@
 
             <br>
 
-            {{ now()->format('d M Y H:i') }}
+            {{ now()->format('d-m-Y H:i') }}
 
         </td>
 

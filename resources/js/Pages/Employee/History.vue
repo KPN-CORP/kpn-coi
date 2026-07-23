@@ -7,6 +7,7 @@ import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
 import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import { formatDateTime } from '@/Utils/date'
 
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
@@ -174,22 +175,6 @@ function getActions(status: string) {
         default:
             return []
     }
-}
-
-function formatDate(date: string | null) {
-    if (!date) return '-'
-
-    const d = new Date(date)
-
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    const seconds = String(d.getSeconds()).padStart(2, '0')
-
-    return `${day}-${month}-${year}, ${hours}:${minutes}:${seconds}`
 }
 
 const downloadPdf = (id: number, declaration: any, locale: string) => {
@@ -383,7 +368,7 @@ function downloadAttachment(declaration: Declaration) {
                                 {{
                                     isPendingUpload(declaration)
                                         ? '-'
-                                        : formatDate(declaration.submitted_at)
+                                        : formatDateTime(declaration.submitted_at)
                                 }}
                             </td>
 
@@ -391,7 +376,7 @@ function downloadAttachment(declaration: Declaration) {
                                 {{
                                     isPendingUpload(declaration)
                                         ? '-'
-                                        : formatDate(declaration.created_at)
+                                        : formatDateTime(declaration.created_at)
                                 }}
                             </td>
 

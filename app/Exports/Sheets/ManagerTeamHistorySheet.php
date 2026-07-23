@@ -82,7 +82,12 @@ class ManagerTeamHistorySheet implements FromArray, WithTitle
 
                 ucfirst($row['status']),
 
-                $row['submitted_at'],
+                // Carbon stringifies to "Y-m-d H:i:s"; the app shows dates as
+                // d-m-Y with 24-hour time, so format it rather than let the
+                // cast decide.
+                $row['submitted_at']
+                    ? \Illuminate\Support\Carbon::parse($row['submitted_at'])->format('d-m-Y H:i:s')
+                    : '-',
 
             ];
 

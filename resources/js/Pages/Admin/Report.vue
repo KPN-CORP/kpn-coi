@@ -8,6 +8,7 @@ import { route } from 'ziggy-js'
 import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import { formatDateTime } from '@/Utils/date'
 import debounce from 'lodash/debounce'
 import { useLocale } from '@/Composables/useLocale'
 
@@ -222,22 +223,6 @@ function changePerPage(value: number) {
     filter.per_page = value
 
     applyFilter()
-}
-
-function formatDate(date: string | null) {
-    if (!date) return '-'
-
-    const d = new Date(date)
-
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-
-    const hours = String(d.getHours()).padStart(2, '0')
-    const minutes = String(d.getMinutes()).padStart(2, '0')
-    const seconds = String(d.getSeconds()).padStart(2, '0')
-
-    return `${day}-${month}-${year}, ${hours}:${minutes}:${seconds}`
 }
 
 function onTypeChanged() {
@@ -675,7 +660,7 @@ async function pollExport(id: number) {
                             </td>
 
                             <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ formatDate(declaration.submitted_at) }}
+                                {{ formatDateTime(declaration.submitted_at) }}
                             </td>
 
                             <template v-if="!isLegacyReport">

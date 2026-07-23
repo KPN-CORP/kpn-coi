@@ -8,6 +8,7 @@ import UploadUserModal from '@/Components/Admin/UploadUserModal.vue'
 import DeleteUserModal from '@/Components/Admin/DeleteUserModal.vue'
 import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
+import { formatDate } from '@/Utils/date'
 import Pagination from '@/Components/UI/Pagination.vue'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
@@ -350,20 +351,6 @@ const sortableColumns = computed(() => [
     { label: t.value.common.businessUnit, key: 'business_unit' },
     { label: t.value.credentials.columnDateOfJoin, key: 'date_of_joining' },
 ])
-
-function formatDate(date: string | null) {
-    if (!date) {
-        return '-'
-    }
-
-    const d = new Date(date)
-
-    const day = String(d.getDate()).padStart(2, '0')
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const year = d.getFullYear()
-
-    return `${day}-${month}-${year}`
-}
 
 function toggleSort(column: string) {
     if (filter.sort === column) {

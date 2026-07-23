@@ -95,13 +95,13 @@ $noLabel = $locale === 'id' ? 'Tidak' : 'No';
 
                                         if ($from) {
 
-                                            $display = \Carbon\Carbon::parse($from)->format('d/m/Y');
+                                            $display = \Carbon\Carbon::parse($from)->format('d-m-Y');
 
                                             $display .= $current
                                                 ? ' - Current'
                                                 : (
                                                     $to
-                                                        ? ' - '.\Carbon\Carbon::parse($to)->format('d/m/Y')
+                                                        ? ' - '.\Carbon\Carbon::parse($to)->format('d-m-Y')
                                                         : ''
                                                 );
 

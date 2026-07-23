@@ -2,6 +2,7 @@
 import { watch, reactive, ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/UI/Modal.vue'
+import DateInput from '@/Components/UI/DateInput.vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
 import countries from '@/Config/countries.json'
 import Swal from 'sweetalert2'
@@ -867,17 +868,11 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <span class="text-red-500">*</span>
                     </label>
 
-                    <input
+                    <DateInput
                         v-model="form.date_of_joining"
-                        type="date"
                         min="1900-01-01"
                         max="9999-12-31"
-                        :class="[
-                            'w-full rounded-md border px-3 py-2 text-sm',
-                            hasError('date_of_joining')
-                                ? 'border-red-500 bg-red-50'
-                                : 'border-border'
-                        ]"
+                        :invalid="hasError('date_of_joining')"
                     />
 
                     <p

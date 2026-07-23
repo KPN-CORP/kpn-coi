@@ -2,6 +2,7 @@
 import { computed, watch, watchEffect } from 'vue'
 import SearchSelect from '@/Components/SearchSelect.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
+import DateInput from '@/Components/UI/DateInput.vue'
 import { locales } from '@/Config/locales'
 
 interface FieldOption {
@@ -431,19 +432,13 @@ const years = Array.from(
 
                         <div>
 
-                            <input
+                            <DateInput
                                 v-model="row[`${field.key}_from`]"
-                                type="date"
                                 :min="MIN_DATE"
                                 :max="MAX_DATE"
-                                :class="[
-                                    'w-full rounded-md border px-3 py-2 text-sm',
-                                    fromDateError(index, row, field)
-                                        ? 'border-red-500 bg-red-50'
-                                        : 'border-border'
-                                ]"
-                                @input="onDateInput(row, `${field.key}_from`, index)"
-                            >
+                                :invalid="!!fromDateError(index, row, field)"
+                                @change="onDateInput(row, `${field.key}_from`, index)"
+                            />
 
                         </div>
 
@@ -453,21 +448,14 @@ const years = Array.from(
 
                         <div>
 
-                            <input
+                            <DateInput
                                 v-model="row[`${field.key}_to`]"
-                                type="date"
                                 :min="row[`${field.key}_from`] || MIN_DATE"
                                 :max="MAX_DATE"
                                 :disabled="row[`${field.key}_current`]"
-                                :class="[
-                                    'w-full rounded-md border px-3 py-2 text-sm',
-                                    row[`${field.key}_current`] && 'bg-slate-100',
-                                    toDateError(index, row, field)
-                                        ? 'border-red-500 bg-red-50'
-                                        : 'border-border'
-                                ]"
-                                @input="onDateInput(row, `${field.key}_to`, index)"
-                            >
+                                :invalid="!!toDateError(index, row, field)"
+                                @change="onDateInput(row, `${field.key}_to`, index)"
+                            />
 
                         </div>
                         <div class="mt-2 flex items-center gap-2">

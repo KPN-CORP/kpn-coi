@@ -4,6 +4,7 @@ import Modal from '@/Components/UI/Modal.vue'
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { useLocale } from '@/Composables/useLocale'
+import { formatDate } from '@/Utils/date'
 
 const page = usePage()
 
@@ -72,28 +73,6 @@ function getFieldValue(
     }
 
     return value
-}
-
-function formatDate(value?: string | null) {
-
-    if (!value) {
-        return '-'
-    }
-
-    const date = new Date(value)
-
-    if (Number.isNaN(date.getTime())) {
-        return value
-    }
-
-    return date.toLocaleDateString(
-        'en-GB',
-        {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        },
-    )
 }
 
 defineProps({
