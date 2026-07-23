@@ -95,6 +95,20 @@
     box-sizing: border-box;
 }
 
+/* Chrome paints autofilled fields a fixed yellow that background-color cannot
+   override. A large inset shadow is the only way to cover it, and the absurd
+   transition delay stops the yellow flashing back on focus. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 1000px var(--bg-card) inset;
+    -webkit-text-fill-color: var(--text);
+    caret-color: var(--text);
+    transition: background-color 9999s ease-in-out 0s;
+}
+
 html {
     font-size: var(--font-size-base);
 }

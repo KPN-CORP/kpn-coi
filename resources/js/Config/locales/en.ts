@@ -59,9 +59,17 @@ export default {
 
     login: {
         title: 'Commitment Corner',
+        subtitle: 'Sign in to submit and review your conflict of interest declaration.',
         email: 'Email',
+        emailPlaceholder: 'you@kpn-corp.com',
         password: 'Password',
+        passwordPlaceholder: 'Enter your password',
+        showPassword: 'Show password',
+        hidePassword: 'Hide password',
+        rememberMe: 'Keep me signed in',
         signIn: 'Sign In',
+        signingIn: 'Signing in...',
+        ssoHint: 'Employees sign in through the DarwinBox.',
     },
 
     languageSelection: {

@@ -3,10 +3,10 @@
 
 <template>
     <div
-        class="flex min-h-screen items-center justify-center bg-slate-100 px-4"
+        class="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-100 to-slate-200 px-4 py-10"
     >
         <div
-            class="w-full max-w-md rounded-xl bg-white p-8 shadow-sm"
+            class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg ring-1 ring-black/5 sm:p-10"
         >
             <slot />
         </div>
