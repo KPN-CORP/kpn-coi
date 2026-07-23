@@ -35,7 +35,7 @@ export default {
         submitted: 'Submitted',
         notSubmitted: 'Not Submitted',
         hasConflict: 'Has Conflict',
-        clear: 'Clear',
+        clear: 'No Potential Conflict',
         na: 'N/A',
         noSubmission: 'No Submission',
         current: 'Current',
