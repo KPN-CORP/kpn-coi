@@ -105,6 +105,7 @@ export default {
         columnDesignation: 'Jabatan',
         columnLevel: 'Level',
         columnDeclarationStatus: 'Status Deklarasi',
+        columnBusinessUnit: 'Unit Bisnis',
         columnConflictIndicator: 'Indikator Konflik',
     },
 
@@ -135,6 +136,7 @@ export default {
         columnType: 'Jenis',
         columnFormStatus: 'Status Formulir',
         columnDeclarationStatus: 'Status Deklarasi',
+        columnBusinessUnit: 'Unit Bisnis',
         columnSubmittedAt: 'Tanggal Kirim',
         coiTooltip: 'Deklarasi konflik kepentingan',
         noAttachment: 'Tidak Ada Lampiran',

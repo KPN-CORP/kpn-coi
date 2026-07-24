@@ -8,7 +8,6 @@ use App\Http\Resources\TeamDeclarationResource;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\NonEmployee;
-use App\Models\NonEmployeeUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,8 +16,7 @@ class DashboardService
 {
     public function __construct(
         protected DataScopeService $dataScopeService
-    ) {
-    }
+    ) {}
 
     public function getDashboardData(Request $request): array
     {
@@ -42,17 +40,17 @@ class DashboardService
         // are applied to the people queries the stats and charts are derived
         // from -- not only to the declaration list.
         $employeeQuery = Employee::query()
-        ->whereNull('deleted_at')
-        ->tap($joinedInPeriod)
-        ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer))
-        ->when(
-            $request->filled('business_unit')
-            && $request->type === 'employee',
-            fn ($query) => $query->where(
-                'group_company',
-                $request->business_unit
-            )
-        );
+            ->whereNull('deleted_at')
+            ->tap($joinedInPeriod)
+            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer))
+            ->when(
+                $request->filled('business_unit')
+                && $request->type === 'employee',
+                fn ($query) => $query->where(
+                    'group_company',
+                    $request->business_unit
+                )
+            );
 
         $nonEmployeeQuery = NonEmployee::query()
             ->tap($joinedInPeriod)
@@ -90,7 +88,6 @@ class DashboardService
                 'type',
                 $type
             );
-        
 
         if ($request->type === 'non_employee') {
 
@@ -117,7 +114,6 @@ class DashboardService
 
         $totalDeclarations = (clone $declarationQuery)->distinct('user_id')
             ->count('user_id');
-
 
         $conflictDeclarations = (clone $declarationQuery)
             ->whereHas('responses', function ($query) {
@@ -155,8 +151,7 @@ class DashboardService
 
             'non_employee' => (clone $nonEmployeeQuery)->count(),
 
-            default =>
-                (clone $employeeQuery)->count()
+            default => (clone $employeeQuery)->count()
                 + (clone $nonEmployeeQuery)->count(),
 
         };
@@ -186,16 +181,10 @@ class DashboardService
             })
             ->values();
 
-            // Restricted admins must not even be offered a unit they cannot
-            // open, so the filter list is scoped like the data behind it.
-            $businessUnitOptions = $this->dataScopeService
-            ->applyToPeople(Employee::query(), $viewer)
-            ->whereNotNull('group_company')
-            ->distinct()
-            ->orderBy('group_company')
-            ->pluck('group_company');
+        $businessUnitOptions = $this->dataScopeService
+            ->businessUnitOptions($viewer);
 
-            return [
+        return [
 
             'stats' => [
                 'total' => $totalEmployees,
@@ -253,8 +242,7 @@ class DashboardService
         int $totalEmployees,
         int $totalDeclarations,
         int $period,
-    ): array
-    {
+    ): array {
         $type = $request->type ?? 'employee';
 
         if ($type === 'employee') {
@@ -292,10 +280,9 @@ class DashboardService
                             ->map(
                                 fn ($employees) => $employees
                                     ->filter(
-                                        fn ($employee) =>
-                                            $employee
-                                                ->coiDeclaration
-                                                ->isNotEmpty()
+                                        fn ($employee) => $employee
+                                            ->coiDeclaration
+                                            ->isNotEmpty()
                                     )
                                     ->count()
                             )
@@ -311,14 +298,12 @@ class DashboardService
 
                         'data' => $rows
                             ->map(
-                                fn ($employees) =>
-                                    $employees->count()
+                                fn ($employees) => $employees->count()
                                     - $employees
                                         ->filter(
-                                            fn ($employee) =>
-                                                $employee
-                                                    ->coiDeclaration
-                                                    ->isNotEmpty()
+                                            fn ($employee) => $employee
+                                                ->coiDeclaration
+                                                ->isNotEmpty()
                                         )
                                         ->count()
                             )

@@ -225,14 +225,6 @@ function changePerPage(value: number) {
     applyFilter()
 }
 
-function onTypeChanged() {
-
-    filter.business_unit = ''
-
-    applyFilter()
-
-}
-
 watch(
 
     () => filter.search,
@@ -383,7 +375,7 @@ async function pollExport(id: number) {
                         <select
                             v-model="filter.type"
                             class="w-full rounded-md border border-border px-3 py-2 text-sm"
-                            @change="onTypeChanged"
+                            @change="applyFilter"
                         >
                             <option value="">
                                 {{ t.report.allTypes }}
@@ -399,12 +391,9 @@ async function pollExport(id: number) {
                     </div>
 
                     <!-- Business Unit -->
-                    <div
-                        v-if="filter.type === 'employee'"
-                        class="flex flex-col gap-2"
-                    >
+                    <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
-                            {{ t.common.businessUnit }}
+                            {{ t.report.columnBusinessUnit }}
                         </label>
 
                         <select
@@ -451,8 +440,7 @@ async function pollExport(id: number) {
                         </select>
                     </div>
 
-                    
-                    <!-- Status -->
+                    <!-- Declaration Status -->
                     <div class="flex flex-col gap-2">
                         <label class="text-sm font-medium text-slate-700">
                             {{ t.report.columnDeclarationStatus }}

@@ -7,7 +7,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateReportDownload;
 use App\Models\CoiDeclaration;
-use App\Models\Employee;
+use App\Models\Companies;
 use App\Models\ReportDownload;
 use App\Services\DataScopeService;
 use App\Services\ReportService;
@@ -99,14 +99,8 @@ class ReportController extends Controller
                     'sort' => $sort,
                     'direction' => $direction,
                 ],
-                // Scoped like the rows behind it: a restricted admin must not
-                // be offered a business unit they cannot open.
                 'businessUnitOptions' => app(DataScopeService::class)
-                    ->applyToPeople(Employee::query(), Auth::user())
-                    ->whereNotNull('group_company')
-                    ->distinct()
-                    ->orderBy('group_company')
-                    ->pluck('group_company'),
+                    ->businessUnitOptions(Auth::user()),
 
                 'periods' => CoiDeclaration::query()
                     ->distinct()
@@ -114,7 +108,7 @@ class ReportController extends Controller
                     ->pluck('period')
                     ->values(),
 
-                'companyNames' => \App\Models\Companies::query()
+                'companyNames' => Companies::query()
                     ->pluck('contribution_level', 'contribution_level_code'),
             ]
         );
@@ -218,7 +212,7 @@ class ReportController extends Controller
             [
                 'declaration' => $declaration,
                 'locale' => $locale,
-                'companyNames' => \App\Models\Companies::query()
+                'companyNames' => Companies::query()
                     ->pluck('contribution_level', 'contribution_level_code')
                     ->toArray(),
             ]

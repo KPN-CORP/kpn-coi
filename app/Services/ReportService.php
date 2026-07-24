@@ -6,7 +6,6 @@ use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -15,8 +14,7 @@ class ReportService
 {
     public function __construct(
         protected DataScopeService $dataScopeService
-    ) {
-    }
+    ) {}
 
     public function getDeclarations(
         int $period,
@@ -119,6 +117,7 @@ class ReportService
             ? collect()
             : $this->nonEmployeeRecords(
                 $period,
+                $businessUnit,
                 $user
             );
 
@@ -131,12 +130,10 @@ class ReportService
 
             $records = $records->filter(
 
-                fn ($item) =>
-
-                    str_contains(
-                        strtolower($item['name']),
-                        $keyword
-                    )
+                fn ($item) => str_contains(
+                    strtolower($item['name']),
+                    $keyword
+                )
 
                     ||
 
@@ -155,19 +152,15 @@ class ReportService
 
             $records = match ($status) {
 
-                'submitted' =>
+                'submitted' => $records->where(
+                    'status',
+                    'submitted'
+                ),
 
-                    $records->where(
-                        'status',
-                        'submitted'
-                    ),
-
-                'pending' =>
-
-                    $records->where(
-                        'status',
-                        'pending'
-                    ),
+                'pending' => $records->where(
+                    'status',
+                    'pending'
+                ),
 
                 default => $records,
 
@@ -179,22 +172,18 @@ class ReportService
 
             $records = match ($declarationStatus) {
 
-                'conflict' =>
-
-                    $records->where(
-                        'has_conflict',
-                        true
-                    ),
+                'conflict' => $records->where(
+                    'has_conflict',
+                    true
+                ),
 
                 // Mirrors what the table renders: a row with no submission
                 // shows N/A, not Clear, so it must not land in this bucket --
                 // has_conflict is false for those too.
-                'clear' =>
-
-                    $records->filter(
-                        fn ($row) => $row['declaration'] !== null
-                            && $row['has_conflict'] === false
-                    ),
+                'clear' => $records->filter(
+                    fn ($row) => $row['declaration'] !== null
+                        && $row['has_conflict'] === false
+                ),
 
                 default => $records,
 
@@ -225,7 +214,6 @@ class ReportService
         return $records->values();
     }
 
-    
     private function employeeRecords(
         int $period,
         ?string $businessUnit,
@@ -388,14 +376,25 @@ class ReportService
                 });
             });
     }
-    
+
     private function nonEmployeeRecords(
         int $period,
+        ?string $businessUnit = null,
         ?User $user = null
     ): Collection {
 
         return NonEmployee::query()
             ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
+            // non_employees carries group_company too, so the business unit
+            // filter has to run here as well -- narrowing only the employee
+            // side would leave every non-employee row in the result.
+            ->when(
+                filled($businessUnit),
+                fn ($query) => $query->where(
+                    'group_company',
+                    $businessUnit
+                )
+            )
             // Mirror the dashboard: only people who had already joined by the
             // end of the period count toward it. Unknown join dates are kept.
             ->where(
@@ -415,11 +414,11 @@ class ReportService
                     $employee
                         ->coiDeclaration
                         ?->first();
-    
+
                 $hasConflict = $declaration?->responses?->contains(
                     fn ($response) => data_get($response->response_value, 'answer') === true
                 ) ?? false;
-    
+
                 return [
                     'id' => $employee->id,
 
@@ -438,11 +437,11 @@ class ReportService
                         : 'pending',
 
                     'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
-                        'designation' => $employee->designation_name ?? '-',
-                        'group_company' => $employee->group_company ?? '-',
-                        'date_of_joining' => $employee->date_of_joining
-                            ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
-                            : '-',
+                    'designation' => $employee->designation_name ?? '-',
+                    'group_company' => $employee->group_company ?? '-',
+                    'date_of_joining' => $employee->date_of_joining
+                        ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
+                        : '-',
 
                     'has_conflict' => $hasConflict,
 

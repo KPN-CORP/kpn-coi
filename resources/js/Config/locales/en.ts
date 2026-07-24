@@ -106,6 +106,7 @@ export default {
         columnLevel: 'Level',
         columnDeclarationStatus: 'Declaration Status',
         columnConflictIndicator: 'Conflict Indicator',
+        columnBusinessUnit: 'Business Unit',    
     },
 
     dashboard: {
@@ -135,6 +136,7 @@ export default {
         columnType: 'Type',
         columnFormStatus: 'Form Status',
         columnDeclarationStatus: 'Declaration Status',
+        columnBusinessUnit: 'Business Unit',
         columnSubmittedAt: 'Submitted At',
         coiTooltip: 'Conflict of Interest declared',
         noAttachment: 'No Attachment',

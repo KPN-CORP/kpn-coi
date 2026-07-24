@@ -20,7 +20,6 @@ Login to Commitment Corner
 ### Security Notice
 
 If you did not request this password reset or experience any issues accessing the system,
-
 Please contact your HCO Team
 
 Thanks,<br>

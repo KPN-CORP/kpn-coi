@@ -9,16 +9,15 @@ use App\Exports\CredentialTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
-use App\Http\Resources\UserResource;
+use App\Imports\NonEmployeeUserImport;
 use App\Mail\NonEmployeeCredentialMail;
 use App\Mail\ResetPasswordMail;
 use App\Models\CoiDeclaration;
+use App\Models\Employee;
+use App\Models\Location;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
-use App\Imports\NonEmployeeUserImport;
-use App\Models\Employee;
-use App\Models\Location;
 use App\Services\CredentialImportService;
 use App\Services\DataScopeService;
 use Illuminate\Http\RedirectResponse;
@@ -97,11 +96,11 @@ class CredentialController extends Controller
                             'like',
                             "%{$search}%"
                         )
-                        ->orWhere(
-                            'email',
-                            'like',
-                            "%{$search}%"
-                        );
+                            ->orWhere(
+                                'email',
+                                'like',
+                                "%{$search}%"
+                            );
                     });
                 }
             )
@@ -147,7 +146,6 @@ class CredentialController extends Controller
                 'address' => $user?->employee?->permanent_address,
                 'nationality' => $user?->employee?->nationality,
             ]);
-            
 
         // Rows are already in memory (the profile columns come from a relation),
         // so sorting happens on the collection rather than in SQL.
@@ -173,12 +171,10 @@ class CredentialController extends Controller
             ]
         );
 
-        $businessUnitOptions = $dataScope
-            ->applyToPeople(Employee::query(), $viewer)
-            ->whereNotNull('group_company')
-            ->distinct()
-            ->orderBy('group_company')
-            ->pluck('group_company');
+        // Feeds both the filter and the create/edit form, so it has to be the
+        // list of units a non-employee may be assigned to -- the master list --
+        // not the units the existing rows happen to use.
+        $businessUnitOptions = $dataScope->businessUnitOptions($viewer);
 
         // Office areas (locations.area) offered per business unit. company_name
         // is translated to the app's business unit naming so the frontend can
@@ -398,54 +394,54 @@ class CredentialController extends Controller
 
     public function store(
         StoreUserRequest $request
-        ): RedirectResponse {
-            DB::transaction(function () use ($request) {
+    ): RedirectResponse {
+        DB::transaction(function () use ($request) {
 
-                $password = Str::password(12);
+            $password = Str::password(12);
 
-                $user = NonEmployeeUser::query()->create([
-                    'name' => $request->name,
-                    'email' => $request->email,
-                    // KTP is the only identity stable across promotion: email
-                    // moves to the office domain and ids differ per database.
-                    // 'citizen_number' => $request->citizen_number,
-                    'password' => Hash::make($password),
-                ]);
+            $user = NonEmployeeUser::query()->create([
+                'name' => $request->name,
+                'email' => $request->email,
+                // KTP is the only identity stable across promotion: email
+                // moves to the office domain and ids differ per database.
+                // 'citizen_number' => $request->citizen_number,
+                'password' => Hash::make($password),
+            ]);
 
-                NonEmployee::query()->create([
-                    'user_id' => $user->id,
-                    'employee_id' => $request->nik,
-                    'fullname' => $request->name,
-                    'email' => $request->email,
-                    'personal_mobile_number' => $request->phone,
-                    'ktp' => $request->citizen_number,
-                    'permanent_address' => $request->address,
-                    'group_company' => $request->business_unit,
-                    'office_area' => $request->office_area,
-                    'work_area_code' => Location::workAreaFor(
-                        $request->business_unit,
-                        $request->office_area,
-                    ),
-                    'date_of_joining' => $request->date_of_joining,
-                    'nationality' => $this->resolveNationality($request),
-                ]);
+            NonEmployee::query()->create([
+                'user_id' => $user->id,
+                'employee_id' => $request->nik,
+                'fullname' => $request->name,
+                'email' => $request->email,
+                'personal_mobile_number' => $request->phone,
+                'ktp' => $request->citizen_number,
+                'permanent_address' => $request->address,
+                'group_company' => $request->business_unit,
+                'office_area' => $request->office_area,
+                'work_area_code' => Location::workAreaFor(
+                    $request->business_unit,
+                    $request->office_area,
+                ),
+                'date_of_joining' => $request->date_of_joining,
+                'nationality' => $this->resolveNationality($request),
+            ]);
 
-                DB::afterCommit(function () use ($user, $password, $request) {
-                    Mail::to($request->email)
-                        ->queue(
-                            new NonEmployeeCredentialMail(
-                                $user,
-                                $password,
-                            )
-                        );
-                });
+            DB::afterCommit(function () use ($user, $password, $request) {
+                Mail::to($request->email)
+                    ->queue(
+                        new NonEmployeeCredentialMail(
+                            $user,
+                            $password,
+                        )
+                    );
             });
+        });
 
-            return back()->with(
-                'success',
-                'User created successfully.'
-            );
-        }
+        return back()->with(
+            'success',
+            'User created successfully.'
+        );
+    }
 
     public function update(
         UpdateUserRequest $request,
@@ -492,8 +488,8 @@ class CredentialController extends Controller
 
                 'nationality' => $this->resolveNationality($request),
             ]);
-        
-            });
+
+        });
 
         return back()->with(
             'success',
@@ -515,7 +511,7 @@ class CredentialController extends Controller
         ]);
 
         Log::info(
-            'Password reset for user: ' . $user->email
+            'Password reset for user: '.$user->email
         );
 
         Mail::to($user->email)->send(
@@ -553,8 +549,7 @@ class CredentialController extends Controller
 
     public function import(
         Request $request
-    ): RedirectResponse
-    {
+    ): RedirectResponse {
         $request->validate([
             'file' => [
                 'required',
@@ -604,7 +599,7 @@ class CredentialController extends Controller
     public function downloadTemplate()
     {
         return Excel::download(
-            new CredentialTemplateExport(),
+            new CredentialTemplateExport,
             'Commitment-Corner-NonEmployee-User-Import-Template.xlsx'
         );
     }

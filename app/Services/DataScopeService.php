@@ -110,6 +110,52 @@ class DataScopeService
     }
 
     /**
+     * The business units to offer this user in a filter.
+     *
+     * Sourced from master_bisnisunits rather than from whatever the people
+     * tables happen to carry, so a unit stays selectable in a period where
+     * none of its rows exist yet, and a value left behind by a terminated
+     * employee is not offered as if it were a live unit. "Others" is the HRIS
+     * catch-all bucket and is never a filter.
+     *
+     * Scoped like the rows behind it: a restricted admin must not be offered a
+     * unit they cannot open. Selecting one anyway returns nothing -- the
+     * restriction is enforced on the queries, not here -- but an option that
+     * can only ever come back empty has no business being in the list.
+     */
+    public function businessUnitOptions(?User $user): Collection
+    {
+        $allowed = $this->allowedGroupCompanies($user);
+
+        return BusinessUnit::query()
+            ->whereNotNull('nama_bisnis')
+            ->whereNot('nama_bisnis', 'others')
+            ->when(
+                $allowed !== null,
+                fn ($query) => $query->whereIn('nama_bisnis', $allowed)
+            )
+            ->orderBy('nama_bisnis')
+            ->pluck('nama_bisnis')
+            ->values();
+    }
+
+    /**
+     * The business units this user is allowed to see, or null when their roles
+     * leave that dimension open. Both names and legacy kode_bisnis values are
+     * returned, same as applyToPeople() matches on.
+     *
+     * @return list<string>|null
+     */
+    private function allowedGroupCompanies(?User $user): ?array
+    {
+        $values = $this->restrictionsFor($user)['group_company'] ?? null;
+
+        return $values === null
+            ? null
+            : $this->groupCompanyValues($values);
+    }
+
+    /**
      * Constrain a query over a people table (Employee or NonEmployee).
      */
     public function applyToPeople(Builder $query, ?User $user): Builder
