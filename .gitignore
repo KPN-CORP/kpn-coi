@@ -29,3 +29,5 @@ Homestead.yaml
 Thumbs.db
 package-lock.json
 tests/
+
+CLAUDE.md
