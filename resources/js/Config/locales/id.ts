@@ -61,7 +61,7 @@ export default {
         title: 'Commitment Corner',
         subtitle: 'Masuk untuk mengirim dan meninjau deklarasi konflik kepentingan Anda.',
         email: 'Email',
-        emailPlaceholder: 'anda@kpn-corp.com',
+        emailPlaceholder: 'Alamat email',
         password: 'Kata Sandi',
         passwordPlaceholder: 'Masukkan kata sandi Anda',
         showPassword: 'Tampilkan kata sandi',

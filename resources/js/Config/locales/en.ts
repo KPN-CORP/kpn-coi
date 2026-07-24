@@ -61,7 +61,7 @@ export default {
         title: 'Commitment Corner',
         subtitle: 'Sign in to submit and review your conflict of interest declaration.',
         email: 'Email',
-        emailPlaceholder: 'you@kpn-corp.com',
+        emailPlaceholder: 'Email address',
         password: 'Password',
         passwordPlaceholder: 'Enter your password',
         showPassword: 'Show password',
