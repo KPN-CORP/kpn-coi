@@ -37,7 +37,7 @@ interface Declaration {
     has_attachment: boolean
 
     declaration?: any | null
-    business_unit?: string | null
+    group_company?: string | null
 }
 
 const props = defineProps<{
@@ -591,6 +591,14 @@ async function pollExport(id: number, attempt = 0) {
                             class="group border-b border-slate-100"
                         >
                             <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
+                                <!-- Employee / non-employee business unit -->
+                                <div
+                                    v-if="declaration.group_company && declaration.group_company !== '-'"
+                                    class="mt-0.5 truncate text-xs text-slate-400"
+                                    :title="declaration.group_company"
+                                >
+                                    {{ declaration.group_company }}
+                                </div>
                                 <div
                                     class="truncate font-medium text-slate-800"
                                     :title="declaration.name"
