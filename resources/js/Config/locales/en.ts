@@ -61,7 +61,7 @@ export default {
         title: 'Commitment Corner',
         subtitle: 'Sign in to submit and review your conflict of interest declaration.',
         email: 'Email',
-        emailPlaceholder: 'Email address',
+        emailPlaceholder: 'Enter your email',
         password: 'Password',
         passwordPlaceholder: 'Enter your password',
         showPassword: 'Show password',
