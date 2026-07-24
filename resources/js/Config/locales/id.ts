@@ -107,6 +107,7 @@ export default {
         columnDeclarationStatus: 'Status Deklarasi',
         columnBusinessUnit: 'Unit Bisnis',
         columnConflictIndicator: 'Indikator Konflik',
+        noRecords: 'Tidak ada deklarasi tim yang ditemukan.',
     },
 
     dashboard: {

@@ -106,7 +106,8 @@ export default {
         columnLevel: 'Level',
         columnDeclarationStatus: 'Declaration Status',
         columnConflictIndicator: 'Conflict Indicator',
-        columnBusinessUnit: 'Business Unit',    
+        columnBusinessUnit: 'Business Unit',
+        noRecords: 'No team declarations found.',
     },
 
     dashboard: {

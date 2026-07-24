@@ -3,7 +3,9 @@ import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import { router, usePage, useForm } from '@inertiajs/vue3'
-import { ref, computed } from 'vue'
+import { route } from 'ziggy-js'
+import { ref, computed, watch } from 'vue'
+import debounce from 'lodash/debounce'
 import DeclarationReviewModal from '@/Components/Declaration/DeclarationReviewModal.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
@@ -42,6 +44,7 @@ function openReview(declaration: Declaration) {
 
 interface Declaration {
     id: number
+    row_id: string
     period: number
     status: string
     submitted_at: string | null
@@ -66,12 +69,27 @@ interface Declaration {
 }
 
 const props = defineProps<{
-    declarations: Declaration[]
+    declarations: {
+        data: Declaration[]
+        links: any[]
+        current_page: number
+        last_page: number
+        total: number
+        per_page: number
+        from: number | null
+        to: number | null
+    }
     periods: number[]
     filters: {
         period?: string
-        status: string[]
+        status?: string
+        declaration_status?: string
         business_unit?: string
+        search?: string
+        latest_submission?: boolean
+        per_page?: number
+        sort?: string
+        direction?: string
     }
     businessUnitOptions: string[]
 }>()
@@ -82,9 +100,61 @@ const filter = useForm({
 
     status: props.filters.status ?? '',
 
+    declaration_status: props.filters.declaration_status ?? '',
+
     business_unit: props.filters.business_unit ?? '',
 
+    search: props.filters.search ?? '',
+
+    latest_submission: props.filters.latest_submission ?? true,
+
+    per_page: props.filters.per_page ?? 10,
+
+    sort: props.filters.sort ?? '',
+
+    direction: props.filters.direction ?? 'asc',
+
 })
+
+const sortableColumns = computed(() => [
+    { label: t.value.common.period, key: 'period' },
+    { label: t.value.common.name, key: 'name' },
+    { label: t.value.teamHistory.columnDesignation, key: 'designation' },
+    { label: t.value.teamHistory.columnLevel, key: 'level' },
+    { label: t.value.common.businessUnit, key: 'business_unit' },
+    // Named as on the report: "form status" is whether anything was submitted,
+    // "declaration status" is whether that submission declares a conflict.
+    // Both are filters above the table, so the columns have to agree with them.
+    { label: t.value.teamHistory.formStatus, key: 'status' },
+    { label: t.value.teamHistory.columnDeclarationStatus, key: 'has_conflict' },
+])
+
+function toggleSort(column: string) {
+    if (filter.sort === column) {
+        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
+    } else {
+        filter.sort = column
+        filter.direction = 'asc'
+    }
+
+    applyFilter()
+}
+
+function sortIcon(column: string) {
+    if (filter.sort !== column) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return filter.direction === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
+}
+
+function changePerPage(value: number) {
+    filter.per_page = value
+
+    applyFilter()
+}
 
 function getQuestionTitle(key: string) {
     const question = coiQuestions.find(
@@ -96,20 +166,14 @@ function getQuestionTitle(key: string) {
 
 function applyFilter() {
 
+    // filter.data() carries the sort and page size too. `page` is deliberately
+    // not in it: changing a filter or the sort has to land back on page one,
+    // otherwise a shorter result set leaves the manager on an empty page.
     router.get(
 
         route('manager.team-history'),
-        
 
-        {
-
-            period: filter.period,
-
-            status: filter.status,
-
-            business_unit: filter.business_unit,
-
-        },
+        filter.data(),
 
         {
 
@@ -124,8 +188,16 @@ function applyFilter() {
     )
 
 }
+// Typing filters the table on a pause rather than on every keystroke.
+watch(
+    () => filter.search,
+    debounce(() => applyFilter(), 500),
+)
+
 function exportExcel() {
 
+    // Every filter, so the workbook matches what is on screen. Sorting and
+    // paging are deliberately left out -- the export is the whole result set.
     window.open(
 
         route(
@@ -133,7 +205,10 @@ function exportExcel() {
             {
                 period: filter.period,
                 status: filter.status,
+                declaration_status: filter.declaration_status,
                 business_unit: filter.business_unit,
+                search: filter.search,
+                latest_submission: filter.latest_submission,
             },
         ),
 
@@ -216,18 +291,72 @@ function exportExcel() {
                             {{ t.common.allStatus }}
                         </option>
 
+                        <option value="submitted">
+                            {{ t.common.submitted }}
+                        </option>
+
                         <option value="pending">
                             {{ t.common.notSubmitted }}
                         </option>
+                    </select>
+                </div>
 
-                        <option value="submitted">
-                            {{ t.common.submitted }}
+                <!-- Declaration Status -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        {{ t.teamHistory.columnDeclarationStatus }}
+                    </label>
+
+                    <select
+                        v-model="filter.declaration_status"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        @change="applyFilter"
+                    >
+                        <option value="">
+                            {{ t.common.allStatus }}
+                        </option>
+
+                        <option value="clear">
+                            {{ t.common.clear }}
                         </option>
 
                         <option value="conflict">
                             {{ t.common.hasConflict }}
                         </option>
                     </select>
+                </div>
+
+                <!-- Search -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        {{ t.common.search }}
+                    </label>
+
+                    <input
+                        v-model="filter.search"
+                        type="text"
+                        :placeholder="t.report.searchPlaceholder"
+                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                    >
+                </div>
+
+                <!-- Latest Submission -->
+                <div class="flex flex-col gap-2">
+                    <label class="hidden text-sm font-medium text-slate-700 sm:block">
+                        &nbsp;
+                    </label>
+
+                    <label
+                        class="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm cursor-pointer select-none"
+                    >
+                        <input
+                            v-model="filter.latest_submission"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-border"
+                            @change="applyFilter"
+                        >
+                        {{ t.report.latestSubmission }}
+                    </label>
                 </div>
 
             </div>
@@ -251,21 +380,25 @@ function exportExcel() {
                         <tr
                             class="border-b border-border text-left text-xs uppercase text-slate-500"
                         >
-                            <th class="py-3">{{ t.common.period }}</th>
-                            <th class="py-3">{{ t.common.name }}</th>
-                            <th class="py-3">{{ t.teamHistory.columnDesignation }}</th>
-                            <th class="py-3">{{ t.teamHistory.columnLevel }}</th>
-                            <th class="py-3">{{ t.common.businessUnit }}</th>
-                            <th class="py-3">{{ t.teamHistory.columnDeclarationStatus }}</th>
-                            <th class="py-3">{{ t.teamHistory.columnConflictIndicator }}</th>
+                            <th
+                                v-for="col in sortableColumns"
+                                :key="col.key"
+                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
+                                @click="toggleSort(col.key)"
+                            >
+                                <span class="inline-flex items-center gap-1.5">
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </span>
+                            </th>
                             <!-- <th class="py-3">Action</th> -->
                         </tr>
                     </thead>
 
                     <tbody>
                         <tr
-                           v-for="declaration in props.declarations"
-                            :key="declaration.id"
+                            v-for="declaration in props.declarations.data"
+                            :key="declaration.row_id"
                             class="border-b border-slate-100"
                         >
                             <td class="py-4">
@@ -335,9 +468,27 @@ function exportExcel() {
                                 </span>
                             </td> -->
                         </tr>
+
+                        <tr v-if="!props.declarations.data.length">
+                            <td
+                                :colspan="sortableColumns.length"
+                                class="py-10 text-center text-sm text-slate-500"
+                            >
+                                {{ t.teamHistory.noRecords }}
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
+
+            <Pagination
+                :links="props.declarations.links"
+                :per-page="props.declarations.per_page"
+                :total="props.declarations.total"
+                :from="props.declarations.from"
+                :to="props.declarations.to"
+                @update:per-page="changePerPage"
+            />
         </Card>
         <DeclarationReviewModal
             v-if="selectedDeclaration"
