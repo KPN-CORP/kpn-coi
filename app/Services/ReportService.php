@@ -315,6 +315,7 @@ class ReportService
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
                         'group_company' => $employee->group_company ?? '-',
+                        'office_area' => $employee->office_area ?: '-',
                         'date_of_joining' => $employee->date_of_joining
                             ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
                             : '-',
@@ -352,6 +353,7 @@ class ReportService
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
                         'group_company' => $employee->group_company ?? '-',
+                        'office_area' => $employee->office_area ?: '-',
                         'date_of_joining' => $employee->date_of_joining
                             ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
                             : '-',
@@ -403,6 +405,7 @@ class ReportService
                     ->orWhereYear('date_of_joining', '<=', $period)
             )
             ->with([
+                'location',
                 'coiDeclaration' => fn ($query) => $query
                     ->where('period', $period)
                     ->with('responses'),
@@ -439,6 +442,12 @@ class ReportService
                     'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                     'designation' => $employee->designation_name ?? '-',
                     'group_company' => $employee->group_company ?? '-',
+                    // Records still carrying the legacy location_id have no
+                    // office_area of their own; fall back to the location's
+                    // area so they read the same here as on the credentials
+                    // screen instead of showing a dash.
+                    'office_area' => $employee->office_area
+                        ?: ($employee->location?->area ?: '-'),
                     'date_of_joining' => $employee->date_of_joining
                         ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
                         : '-',

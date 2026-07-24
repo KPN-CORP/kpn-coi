@@ -282,7 +282,7 @@ async function exportExcel() {
     }
 }
 
-async function pollExport(id: number) {
+async function pollExport(id: number, attempt = 0) {
     try {
         const res = await fetch(
             route('admin.report.export.status', id),
@@ -306,7 +306,13 @@ async function pollExport(id: number) {
             return
         }
 
-        setTimeout(() => pollExport(id), 3000)
+        // A typical export is built in a few seconds, so a flat 3s poll spends
+        // most of the wait on a file that is already sitting there. Check every
+        // second for the first stretch, then back off for the long ones.
+        setTimeout(
+            () => pollExport(id, attempt + 1),
+            attempt < 15 ? 1000 : 3000,
+        )
     } catch (e) {
         exportState.value = 'idle'
         alert(t.value.report.exportConnectionLost)

@@ -120,8 +120,6 @@ class ReportController extends Controller
      */
     public function export(Request $request): JsonResponse
     {
-        $this->pruneExpiredExports();
-
         $download = ReportDownload::create([
             'user_id' => Auth::id(),
             'status' => ReportDownload::STATUS_PENDING,
@@ -137,6 +135,12 @@ class ReportController extends Controller
         ]);
 
         GenerateReportDownload::dispatch($download->id);
+
+        // After the dispatch, not before: housekeeping deletes files one row at
+        // a time, and nothing about it needs to happen before the job is
+        // queued. Ahead of the dispatch it just delays the queueing, and the
+        // browser only starts polling once this response comes back.
+        $this->pruneExpiredExports();
 
         return response()->json([
             'id' => $download->id,

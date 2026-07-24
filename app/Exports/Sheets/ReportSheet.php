@@ -3,6 +3,7 @@
 namespace App\Exports\Sheets;
 
 use App\Models\CoiDeclaration;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithTitle;
@@ -44,6 +45,7 @@ class ReportSheet implements FromArray, WithTitle
 
             'Employee Name',
             'Business Unit',
+            'Work Location',
             'Employee Status',
             'Designation',
             'Join Date',
@@ -111,6 +113,7 @@ class ReportSheet implements FromArray, WithTitle
 
                 $row['name'],
                 $row['group_company'],
+                $row['office_area'],
                 $row['employee_status'],
                 $row['designation'],
                 $row['date_of_joining'],
@@ -118,9 +121,10 @@ class ReportSheet implements FromArray, WithTitle
                 $row['period'],
 
                 // No submission means there is nothing to judge, so the
-                // declaration status stays empty rather than claiming Clear.
+                // declaration status stays empty rather than claiming there is
+                // no conflict.
                 $row['status'] === 'submitted'
-                    ? ($row['has_conflict'] ? 'Has Conflict' : 'Clear')
+                    ? ($row['has_conflict'] ? 'Has Conflict' : 'No Potential Conflict')
                     : '-',
 
                 $formStatus,
@@ -129,7 +133,7 @@ class ReportSheet implements FromArray, WithTitle
                 // d-m-Y with 24-hour time, so format it rather than let the
                 // cast decide.
                 $row['submitted_at']
-                    ? \Illuminate\Support\Carbon::parse($row['submitted_at'])->format('d-m-Y H:i:s')
+                    ? Carbon::parse($row['submitted_at'])->format('d-m-Y H:i:s')
                     : '-',
 
             ];
