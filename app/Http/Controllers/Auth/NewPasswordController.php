@@ -40,14 +40,15 @@ class NewPasswordController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Here we will attempt to reset the user's password. If it is successful we
-        // will update the password on an actual user model and persist it to the
-        // database. Otherwise we will parse the error and return the response.
-        $status = Password::reset(
+        // Reset targets non-employee accounts only (employees use SSO). On
+        // success we persist the new password and mark self-service setup as
+        // done, matching how the admin credential flow tracks password_set_at.
+        $status = Password::broker('non_employee_users')->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
                 $user->forceFill([
                     'password' => Hash::make($request->password),
+                    'password_set_at' => now(),
                     'remember_token' => Str::random(60),
                 ])->save();
 

@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
-import { Head, useForm } from '@inertiajs/vue3'
+import { Head, Link, useForm } from '@inertiajs/vue3'
 import { useLocale } from '@/Composables/useLocale'
 import LanguageSwitcher from '@/Components/UI/LanguageSwitcher.vue'
+
+defineProps<{
+    canResetPassword?: boolean
+    status?: string
+}>()
 
 const { t } = useLocale()
 
@@ -52,6 +57,15 @@ function submit() {
             <p class="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
                 {{ t.login.subtitle }}
             </p>
+        </div>
+
+        <!-- Flash status (e.g. after a password reset) -->
+
+        <div
+            v-if="status"
+            class="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-700"
+        >
+            {{ status }}
         </div>
 
         <form
@@ -140,17 +154,27 @@ function submit() {
             <!-- Remember me: the form already carried this flag, but nothing
                  on the page ever set it. -->
 
-            <label class="flex cursor-pointer items-center gap-2 pt-1">
-                <input
-                    v-model="form.remember"
-                    type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                >
+            <div class="flex items-center justify-between pt-1">
+                <label class="flex cursor-pointer items-center gap-2">
+                    <input
+                        v-model="form.remember"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                    >
 
-                <span class="text-sm text-slate-600">
-                    {{ t.login.rememberMe }}
-                </span>
-            </label>
+                    <span class="text-sm text-slate-600">
+                        {{ t.login.rememberMe }}
+                    </span>
+                </label>
+
+                <Link
+                    v-if="canResetPassword"
+                    :href="route('password.request')"
+                    class="text-sm font-medium text-primary hover:underline"
+                >
+                    {{ t.login.forgotPassword }}
+                </Link>
+            </div>
 
             <button
                 type="submit"

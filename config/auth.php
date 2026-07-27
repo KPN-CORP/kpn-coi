@@ -110,6 +110,15 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
+
+        // Self-service password reset targets non-employee accounts only:
+        // employees authenticate through SSO and have no resettable password.
+        'non_employee_users' => [
+            'provider' => 'non_employee_users',
+            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'expire' => 60,
+            'throttle' => 60,
+        ],
     ],
 
     /*

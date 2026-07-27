@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordLink;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -12,8 +12,17 @@ use Illuminate\Notifications\Notifiable;
 
 class NonEmployeeUser extends Authenticatable
 {
-    use Notifiable;
     use HasFactory;
+    use Notifiable;
+
+    /**
+     * Send the self-service password reset link via our branded notification
+     * rather than the framework default.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordLink($token));
+    }
 
     protected $table = 'users';
 

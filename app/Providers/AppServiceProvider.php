@@ -2,9 +2,10 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\URL;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,5 +26,13 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
         Vite::prefetch(concurrency: 3);
+
+        // Standard password policy, enforced anywhere Password::defaults() is
+        // used (self-service reset). Keep this in sync with the requirement
+        // checklist shown on Pages/Auth/ResetPassword.vue.
+        Password::defaults(fn () => Password::min(8)
+            ->mixedCase()
+            ->numbers()
+            ->symbols());
     }
 }

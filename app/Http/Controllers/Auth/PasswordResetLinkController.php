@@ -33,10 +33,9 @@ class PasswordResetLinkController extends Controller
             'email' => 'required|email',
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
+        // Self-service reset applies to non-employee accounts only -- employees
+        // sign in through SSO and have no resettable password.
+        $status = Password::broker('non_employee_users')->sendResetLink(
             $request->only('email')
         );
 
