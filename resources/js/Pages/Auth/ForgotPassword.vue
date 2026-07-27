@@ -33,7 +33,7 @@ function submit() {
 
         <div class="mb-7 text-center">
             <img
-                src="https://compliance.hcis.live/storage/img/commitment-corner-logo-1.png"
+                src="https://commitment-corner.hcis.live/storage/img/commitment-corner-logo-1.png"
                 alt=""
                 class="mx-auto mb-4 h-14 w-14 object-contain"
             >
