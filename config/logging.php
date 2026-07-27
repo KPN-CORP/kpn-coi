@@ -1,5 +1,6 @@
 <?php
 
+use App\Logging\RestrictToChannelLevel;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -54,10 +55,16 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            // laravel.log (via "single") keeps the full firehose; error.log gets
-            // an errors-only view. Email activity is intentionally left out --
-            // it goes to its own "email" channel via the LogSentEmail listener.
-            'channels' => explode(',', (string) env('LOG_STACK', 'single,error')),
+            // LOG_STACK controls the base "firehose" channel (default "single" =>
+            // laravel.log). The per-level split files are always added on top so
+            // they work regardless of the deployed .env: "error" gets an
+            // errors-only view, "warning"/"info" get just their own level (see
+            // RestrictToChannelLevel). Email activity is intentionally left out --
+            // it goes to its own "email" channel via LogSentEmail.
+            'channels' => array_values(array_unique(array_merge(
+                explode(',', (string) env('LOG_STACK', 'single')),
+                ['error', 'warning', 'info'],
+            ))),
             'ignore_exceptions' => false,
         ],
 
@@ -76,6 +83,26 @@ return [
             'level' => 'error',
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+        ],
+
+        // Warnings only (the RestrictToChannelLevel tap keeps errors out).
+        'warning' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/warning.log'),
+            'level' => 'warning',
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+            'tap' => [RestrictToChannelLevel::class],
+        ],
+
+        // Info only (the tap keeps notices/warnings/errors out).
+        'info' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/info.log'),
+            'level' => 'info',
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+            'tap' => [RestrictToChannelLevel::class],
         ],
 
         // Outgoing email activity (recipient + subject), written by the
