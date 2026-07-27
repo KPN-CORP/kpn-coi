@@ -504,9 +504,9 @@ class CredentialController extends Controller
         $user->update([
             'password' => Hash::make($password),
 
-            // Re-open self-service: clearing this makes the user eligible for a
-            // fresh magic link from the chatbot API, so a reset still works even
-            // when the email never arrives.
+            // Clear the self-service completion marker: this admin reset hands
+            // out a fresh password, so the account is no longer "set up" by the
+            // user's own choosing until they reset it themselves again.
             'password_set_at' => null,
         ]);
 

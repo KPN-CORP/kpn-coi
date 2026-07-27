@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Listeners\LogSentEmail;
+use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -34,5 +37,8 @@ class AppServiceProvider extends ServiceProvider
             ->mixedCase()
             ->numbers()
             ->symbols());
+
+        // Log every successfully sent email to the dedicated "email" channel.
+        Event::listen(MessageSent::class, LogSentEmail::class);
     }
 }

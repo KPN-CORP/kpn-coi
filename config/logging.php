@@ -54,7 +54,10 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            // laravel.log (via "single") keeps the full firehose; error.log gets
+            // an errors-only view. Email activity is intentionally left out --
+            // it goes to its own "email" channel via the LogSentEmail listener.
+            'channels' => explode(',', (string) env('LOG_STACK', 'single,error')),
             'ignore_exceptions' => false,
         ],
 
@@ -62,6 +65,27 @@ return [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
+        // Errors only. Fed by the stack above, so anything at error/critical/
+        // emergency lands here in a clean file separate from the noise.
+        'error' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/error.log'),
+            'level' => 'error',
+            'days' => env('LOG_DAILY_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        // Outgoing email activity (recipient + subject), written by the
+        // LogSentEmail listener on Laravel's MessageSent event. Never contains
+        // passwords or reset tokens. Send failures surface in "error" instead.
+        'email' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/email.log'),
+            'level' => 'info',
+            'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
         ],
 
