@@ -56,7 +56,7 @@ class RoleController extends Controller
             ->groupBy('role_id');
 
         $users = User::query()
-            ->select('id', 'name', 'email')
+            ->select('id', 'name', 'email', 'employee_id')
             ->get()
             ->keyBy('id');
 
@@ -86,7 +86,8 @@ class RoleController extends Controller
                     ->select(
                         'id',
                         'name',
-                        'email'
+                        'email',
+                        'employee_id'
                     )
                     ->orderBy('name')
                     ->get(),

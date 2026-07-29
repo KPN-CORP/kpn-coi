@@ -19,7 +19,7 @@ class SummarySheet implements FromArray, WithTitle
 
         return [
 
-            ['Compliance Dashboard'],
+            ['Commitment Corner Dashboard'],
 
             [],
 

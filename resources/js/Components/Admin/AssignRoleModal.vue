@@ -12,6 +12,7 @@ interface User {
     id: number
     name: string
     email: string
+    employee_id: string | null
 }
 
 const props = defineProps<{
@@ -69,6 +70,9 @@ const filteredUsers = computed(() => {
             .includes(search.value.toLowerCase()) ||
         user.email
             .toLowerCase()
+            .includes(search.value.toLowerCase()) ||
+        (user.employee_id ?? '')
+            .toLowerCase()
             .includes(search.value.toLowerCase()),
     )
 })
@@ -121,7 +125,7 @@ function submit() {
 const userOptions = computed(() =>
     props.users.map(user => ({
         code: user.id,
-        name: `${user.name} (${user.email})`,
+        name: `${user.name} (${user.employee_id ?? '-'} - ${user.email})`,
     })),
 )
 </script>

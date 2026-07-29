@@ -54,6 +54,7 @@ const props = defineProps<{
         id: number
         name: string
         email: string
+        employee_id: string | null
     }[]
     roles: any[]
     availablePermissions: any[]

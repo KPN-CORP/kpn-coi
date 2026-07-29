@@ -23,6 +23,9 @@ deployment:
     # Clear Laravel application cache
     - php artisan optimize:clear
 
+    # Tell running queue workers to restart so they pick up the new code
+    - php artisan queue:restart
+
 # deployment:
 #   tasks:
 #     - export DEPLOYPATH=/home/hcis8257/kpn-pm
