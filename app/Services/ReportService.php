@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\DeclarationStatus;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Models\NonEmployee;
@@ -241,8 +242,11 @@ class ReportService
             ->unique()
             ->values();
 
+        // status is a DeclarationStatus enum on the model, so compare against the
+        // enum case -- $declarations->where('status', 'draft') would never match
+        // (an enum instance is not loosely equal to its string value).
         $draftUserIds = $declarations
-            ->where('status', 'draft')
+            ->where('status', DeclarationStatus::Draft)
             ->pluck('user_id')
             ->unique()
             ->values();
@@ -375,7 +379,9 @@ class ReportService
                         // A draft still lives in coi_declarations (submit swaps it
                         // for a submitted row), so the form status must mirror the
                         // declaration's own status rather than assume "submitted".
-                        'status' => $declaration->status,
+                        // ->value: keep it a plain string so the filters here and
+                        // the Excel export compare correctly (enum != 'draft').
+                        'status' => $declaration->status->value,
                         'has_conflict' => $hasConflict,
                         'has_attachment' => $hasAttachment,
                         'submitted_at' => $declaration->submitted_at,
@@ -455,8 +461,9 @@ class ReportService
 
                     // Mirror the declaration's own status (draft/submitted); a
                     // missing declaration means the form was never started.
+                    // ->value keeps it a plain string (enum != 'draft' in filters).
                     'status' => $declaration
-                        ? $declaration->status
+                        ? $declaration->status->value
                         : 'pending',
 
                     'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
