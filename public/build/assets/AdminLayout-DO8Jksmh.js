@@ -1,0 +1,1 @@
+import{E as e,I as t,K as n,P as r,b as i,z as a}from"./app-CB3tRtGp.js";import{i as o,t as s}from"./navigation-GtUxIa59.js";var c=e({__name:`AdminLayout`,setup(e){let c={name:`Commitment Corner Admin`,employee_id:`ADM-00001`,initials:`CA`};return(e,l)=>(r(),i(o,{navigation:n(s),user:c},{default:a(()=>[t(e.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

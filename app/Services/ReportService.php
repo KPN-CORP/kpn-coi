@@ -162,6 +162,11 @@ class ReportService
                     'pending'
                 ),
 
+                'draft' => $records->where(
+                    'status',
+                    'draft'
+                ),
+
                 default => $records,
 
             };
@@ -236,6 +241,12 @@ class ReportService
             ->unique()
             ->values();
 
+        $draftUserIds = $declarations
+            ->where('status', 'draft')
+            ->pluck('user_id')
+            ->unique()
+            ->values();
+
         $conflictUserIds = $declarations
             ->filter(
                 fn ($declaration) => $declaration->responses->contains(
@@ -276,6 +287,10 @@ class ReportService
             ->when(
                 $status === 'pending',
                 fn ($query) => $query->whereNotIn('id', $submittedUserIds)
+            )
+            ->when(
+                $status === 'draft',
+                fn ($query) => $query->whereIn('id', $draftUserIds)
             )
             ->when(
                 $declarationStatus === 'conflict',
@@ -357,7 +372,10 @@ class ReportService
                         'date_of_joining' => $employee->date_of_joining
                             ? Carbon::parse($employee->date_of_joining)->format('d-m-Y')
                             : '-',
-                        'status' => 'submitted',
+                        // A draft still lives in coi_declarations (submit swaps it
+                        // for a submitted row), so the form status must mirror the
+                        // declaration's own status rather than assume "submitted".
+                        'status' => $declaration->status,
                         'has_conflict' => $hasConflict,
                         'has_attachment' => $hasAttachment,
                         'submitted_at' => $declaration->submitted_at,
@@ -435,8 +453,10 @@ class ReportService
 
                     'employee_id' => $employee->ktp,
 
+                    // Mirror the declaration's own status (draft/submitted); a
+                    // missing declaration means the form was never started.
                     'status' => $declaration
-                        ? 'submitted'
+                        ? $declaration->status
                         : 'pending',
 
                     'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',

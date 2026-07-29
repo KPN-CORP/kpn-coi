@@ -440,6 +440,10 @@ async function pollExport(id: number, attempt = 0) {
                                 {{ t.common.submitted }}
                             </option>
 
+                            <option value="draft">
+                                {{ t.status.draft }}
+                            </option>
+
                             <option value="pending">
                                 {{ t.common.notSubmitted }}
                             </option>

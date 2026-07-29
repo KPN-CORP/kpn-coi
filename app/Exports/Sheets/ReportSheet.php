@@ -101,9 +101,11 @@ class ReportSheet implements FromArray, WithTitle
 
             } else {
 
-                $formStatus = $row['status'] === 'submitted'
-                    ? 'Submitted'
-                    : 'Not Submitted';
+                $formStatus = match ($row['status']) {
+                    'submitted' => 'Submitted',
+                    'draft' => 'Draft',
+                    default => 'Not Submitted',
+                };
 
             }
 
