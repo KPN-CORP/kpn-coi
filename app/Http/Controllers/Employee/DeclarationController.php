@@ -8,11 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SaveDraftRequest;
 use App\Http\Requests\SubmitDeclarationRequest;
 use App\Http\Resources\DeclarationResource;
-use App\Http\Resources\UserResource;
 use App\Models\BusinessUnit;
 use App\Models\CoiDeclaration;
 use App\Models\Companies;
-use App\Models\Department;
 use App\Models\Employee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
@@ -29,17 +27,18 @@ class DeclarationController extends Controller
 {
     protected $authUser;
 
-    public function __construct(private readonly CoiDeclarationService $service) {
+    public function __construct(private readonly CoiDeclarationService $service)
+    {
 
-    $this->authUser = Auth::guard('web')->user()
-            ?? Auth::guard('non_employee')->user();
+        $this->authUser = Auth::guard('web')->user()
+                ?? Auth::guard('non_employee')->user();
 
     }
 
     public function saveDraft(
         SaveDraftRequest $request
     ): RedirectResponse {
-        
+
         $this->service->saveDraft(
             user: $this->authUser,
             responses: $request->validated('responses'),
@@ -54,8 +53,20 @@ class DeclarationController extends Controller
     }
 
     public function submit(
-    SubmitDeclarationRequest $request
+        SubmitDeclarationRequest $request
     ): RedirectResponse {
+        // A declaration cannot be submitted until the declarant has a permanent
+        // address on file. Employees maintain this in Darwinbox (HRIS), while
+        // non-employees rely on an admin to fill it in — buildDeclarationData()
+        // resolves the right source per type, so this guards both. Enforced
+        // server-side too, not just in the UI, so a stale page can't bypass it.
+        if ($this->missingPermanentAddress($request->user())) {
+            return back()->with(
+                'error',
+                'Please update your permanent address before submitting your declaration.'
+            );
+        }
+
         $this->service->submit(
             user: $request->user(),
             responses: $request->input('responses'),
@@ -78,23 +89,25 @@ class DeclarationController extends Controller
 
         $locale = $request->string('locale', 'en');
 
+        $declaration = $this->buildDeclarationData($authUser);
+
         $draft = CoiDeclaration::query()
-        ->with('responses')
-        ->where('user_id', $authUser->id)
-        ->where(
-            'type',
-            $this->resolveDeclarationType($authUser)
-        )
-        ->where('status', 'draft')
-        ->where('period', now()->year)
-        ->first();
+            ->with('responses')
+            ->where('user_id', $authUser->id)
+            ->where(
+                'type',
+                $this->resolveDeclarationType($authUser)
+            )
+            ->where('status', 'draft')
+            ->where('period', now()->year)
+            ->first();
 
         $previousDeclaration = CoiDeclaration::query()
-        ->with('responses')
-        ->where('user_id', $authUser->id)
-        ->where('status', 'submitted')
-        ->latest('created_at')
-        ->first();
+            ->with('responses')
+            ->where('user_id', $authUser->id)
+            ->where('status', 'submitted')
+            ->latest('created_at')
+            ->first();
 
         return Inertia::render(
             'Employee/DeclarationForm',
@@ -105,7 +118,13 @@ class DeclarationController extends Controller
                     ? new DeclarationResource($draft)
                     : null,
 
-                'declaration' => $this->buildDeclarationData($authUser),
+                'declaration' => $declaration,
+
+                // Drives the "update your data first" popup and disables submit
+                // on the form when the declarant has no permanent address yet.
+                'missingPermanentAddress' => $this->addressIsMissing(
+                    $declaration['address'] ?? null
+                ),
 
                 'previousDeclaration' => $previousDeclaration,
 
@@ -115,9 +134,9 @@ class DeclarationController extends Controller
                     ->get()
                     ->map(fn ($item) => [
                         'code' => $item->nama_bisnis,
-                        'name' => $item->nama_bisnis
+                        'name' => $item->nama_bisnis,
                     ])->values(),
-                
+
                 'companies' => Companies::query()
                     ->select('company_name', 'contribution_level', 'contribution_level_code')
                     ->get()
@@ -236,6 +255,19 @@ class DeclarationController extends Controller
         };
     }
 
+    private function missingPermanentAddress(
+        User|NonEmployeeUser $user
+    ): bool {
+        return $this->addressIsMissing(
+            $this->buildDeclarationData($user)['address'] ?? null
+        );
+    }
+
+    private function addressIsMissing(?string $address): bool
+    {
+        return trim((string) $address) === '';
+    }
+
     private function resolveDeclarationType(
         User|NonEmployeeUser $user
     ): string {
@@ -243,5 +275,4 @@ class DeclarationController extends Controller
             ? 'employee'
             : 'non_employee';
     }
-
 }

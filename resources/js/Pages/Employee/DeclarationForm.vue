@@ -9,12 +9,13 @@ import RepeaterSection from '@/Components/Declaration/RepeaterSection.vue'
 import ConsentSection from '@/Components/Declaration/ConsentSection.vue'
 
 import { Link, useForm, usePage, router } from '@inertiajs/vue3'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { route } from 'ziggy-js'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
 
 interface DeclarationData {
+    type: string
     name: string
     citizen_number: string
     address: string
@@ -40,6 +41,7 @@ const props = defineProps<{
     locale: 'en' | 'id'
     draft?: any | null
     declaration: DeclarationData
+    missingPermanentAddress: boolean
     errors: Record<string, string>
     previousDeclaration: any | null
     businessUnits: { code: string; name: string }[]
@@ -88,6 +90,33 @@ const form = useForm({
 const flash = computed(() => page.props.flash as {
     success?: string
     error?: string
+})
+
+// Guidance differs by declarant: employees fix this in Darwinbox (HRIS),
+// non-employees have to ask an admin to update their record.
+const addressRequiredMessage = computed(() =>
+    props.declaration.type === 'non_employee'
+        ? locale.value.declaration.addressRequiredNonEmployee
+        : locale.value.declaration.addressRequiredEmployee,
+)
+
+function showAddressRequiredPopup() {
+    Swal.fire({
+        icon: 'warning',
+        title: locale.value.declaration.addressRequiredTitle,
+        text: addressRequiredMessage.value,
+        confirmButtonText: locale.value.common.ok,
+        confirmButtonColor: '#ab2f2b',
+        allowOutsideClick: false,
+    })
+}
+
+// A declaration cannot be submitted without a permanent address on file. Nudge
+// the user to update their data the moment the page opens.
+onMounted(() => {
+    if (props.missingPermanentAddress) {
+        showAddressRequiredPopup()
+    }
 })
 
 const usePreviousData = async () => {
@@ -480,6 +509,14 @@ function saveDraft() {
 }
 
 async function submit() {
+    // Hard stop: no permanent address on file means the declaration cannot be
+    // submitted. Re-show the guidance instead of proceeding. The server rejects
+    // it too, so this is just a friendlier front line.
+    if (props.missingPermanentAddress) {
+        showAddressRequiredPopup()
+        return
+    }
+
     submitted.value = true
 
     processingAction.value = 'submit'
@@ -807,7 +844,7 @@ function onAnswerChanged(questionKey: string) {
                 <button
                     type="button"
                     class="btn-primary-custom disabled:cursor-not-allowed disabled:opacity-50"
-                    :disabled="!form.consent || processingAction !== null"
+                    :disabled="!form.consent || processingAction !== null || props.missingPermanentAddress"
                     @click="submit"
                 >
                     <span
