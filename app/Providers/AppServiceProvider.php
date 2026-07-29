@@ -27,6 +27,17 @@ class AppServiceProvider extends ServiceProvider
     {
         if (env('APP_ENV') === 'production') {
             URL::forceScheme('https');
+
+            // cPanel terminates TLS and forwards plain HTTP without a trusted
+            // X-Forwarded-Proto header, so trustProxies can't recover the
+            // scheme. forceScheme() only fixes the UrlGenerator (route()/url()/
+            // redirects) — the paginator builds its links from the raw request
+            // ($request->url()), which stays http and gets blocked as mixed
+            // content. Mark the request secure directly; production is always
+            // served over https. This makes $request->url() report https too.
+            if ($request = request()) {
+                $request->server->set('HTTPS', 'on');
+            }
         }
         Vite::prefetch(concurrency: 3);
 
