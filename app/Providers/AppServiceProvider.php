@@ -25,16 +25,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (env('APP_ENV') === 'production') {
+        // Force https everywhere except explicit local dev. Gating on
+        // env('APP_ENV') === 'production' is fragile: if the live .env isn't
+        // spelled exactly "production" (or env() returns null), nothing runs
+        // and links come out http. environment('local') reads config('app.env')
+        // (cache-safe) and defaults to production when unset, so live is always
+        // covered.
+        //
+        // cPanel terminates TLS and forwards plain HTTP without a trusted
+        // X-Forwarded-Proto header, so trustProxies can't recover the scheme.
+        // forceScheme() only fixes the UrlGenerator (route()/url()/redirects) —
+        // the paginator builds its links from the raw request ($request->url()),
+        // which stays http and gets blocked as mixed content. Marking the
+        // request secure makes $request->url() report https too.
+        if (! $this->app->environment('local')) {
             URL::forceScheme('https');
 
-            // cPanel terminates TLS and forwards plain HTTP without a trusted
-            // X-Forwarded-Proto header, so trustProxies can't recover the
-            // scheme. forceScheme() only fixes the UrlGenerator (route()/url()/
-            // redirects) — the paginator builds its links from the raw request
-            // ($request->url()), which stays http and gets blocked as mixed
-            // content. Mark the request secure directly; production is always
-            // served over https. This makes $request->url() report https too.
             if ($request = request()) {
                 $request->server->set('HTTPS', 'on');
             }

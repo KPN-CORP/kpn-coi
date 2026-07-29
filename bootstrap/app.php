@@ -14,14 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // TLS is terminated by the cPanel/LiteSpeed reverse proxy, which then
-        // forwards plain HTTP to PHP with X-Forwarded-Proto: https. Trust the
-        // proxy so the request scheme is detected as https — without this the
-        // paginator builds http:// links from $request->url() and the browser
-        // blocks them as mixed content. forceScheme() alone does NOT fix this;
-        // it only rewrites the UrlGenerator, not the paginator's request URL.
-        $middleware->trustProxies(at: '*');
-
+        // NOTE: do NOT trust proxies here. cPanel forwards X-Forwarded-Proto
+        // as the internal http hop, so trusting it makes Request::isSecure()
+        // read that header and report http — overriding the HTTPS=on we set in
+        // AppServiceProvider. The scheme is forced there instead.
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
