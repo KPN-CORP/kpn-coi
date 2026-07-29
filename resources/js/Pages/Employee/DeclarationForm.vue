@@ -538,7 +538,13 @@ async function submit() {
         return
     }
 
-    const fullName = props.declaration.name
+    // Some names in the database contain accidental double spaces, which made
+    // the exact match fail even when the declarant typed their name correctly.
+    // Collapse any run of whitespace to a single space (and trim) on both sides
+    // so the comparison ignores those stray spaces. The stored data is left as-is.
+    const normalizeName = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+    const fullName = normalizeName(props.declaration.name)
 
     const { isConfirmed } = await Swal.fire({
         icon: 'warning',
@@ -600,7 +606,7 @@ async function submit() {
 
         preConfirm: (value) => {
 
-            if (value?.trim() !== fullName) {
+            if (normalizeName(value ?? '') !== fullName) {
 
                 Swal.showValidationMessage(
                     locale.value.declaration.nameMismatch
