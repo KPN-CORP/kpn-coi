@@ -218,7 +218,7 @@ class ReportService
                     fn ($item) => $item['submitted_at']
                 )
                 ->groupBy(
-                    fn ($item) => $item['type'].'-'.$item['employee_id']
+                    fn ($item) => $item['person_key']
                 )
                 ->map(
                     fn ($group) => $group->first()
@@ -357,6 +357,10 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        // Stable per-person key for the latest-submission grouping,
+                        // kept separate from the displayed id so a blank id never
+                        // collapses distinct people into one group.
+                        'person_key' => 'employee-'.$employee->employee_id,
                         'contribution_level' => $contributionLevel,
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
@@ -396,6 +400,10 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        // Stable per-person key for the latest-submission grouping,
+                        // kept separate from the displayed id so a blank id never
+                        // collapses distinct people into one group.
+                        'person_key' => 'employee-'.$employee->employee_id,
                         'contribution_level' => $contributionLevel,
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
@@ -497,7 +505,14 @@ class ReportService
 
                     'name' => $employee->fullname,
 
-                    'employee_id' => $employee->ktp,
+                    // The non-employee's own employee_id (captured at credential
+                    // creation). Left blank when unset -- ktp is NOT used as a
+                    // fallback, so the report/export show it empty as requested.
+                    'employee_id' => $employee->employee_id ?: '',
+
+                    // Grouping keys on this, not employee_id, so the blank ids
+                    // above don't collapse distinct non-employees into one row.
+                    'person_key' => 'non_employee-'.$employee->id,
 
                     // Non-employees have no contribution level; the column stays
                     // empty for them in the report table.
@@ -538,7 +553,7 @@ class ReportService
                         'employee' => [
                             'id' => $employee->id,
                             'name' => $employee->fullname,
-                            'employee_id' => $employee->ktp,
+                            'employee_id' => $employee->employee_id ?: '',
                         ],
 
                         'status' => $declaration->status,

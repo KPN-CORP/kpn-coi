@@ -53,6 +53,8 @@ class ReportSheet implements FromArray, WithTitle
 
             'Declaration Period',
 
+            'Declaration Type',
+
             'Declaration Status',
 
             $isLegacyPeriod
@@ -124,6 +126,10 @@ class ReportSheet implements FromArray, WithTitle
                 $row['date_of_joining'],
 
                 $row['period'],
+
+                $row['type'] === 'non_employee'
+                    ? 'Non-Employee'
+                    : 'Employee',
 
                 // No submission means there is nothing to judge, so the
                 // declaration status stays empty rather than claiming there is
