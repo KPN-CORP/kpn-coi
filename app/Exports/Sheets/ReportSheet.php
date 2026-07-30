@@ -45,6 +45,7 @@ class ReportSheet implements FromArray, WithTitle
 
             'Employee Name',
             'Business Unit',
+            'Contribution Level',
             'Work Location',
             'Employee Status',
             'Designation',
@@ -115,6 +116,8 @@ class ReportSheet implements FromArray, WithTitle
 
                 $row['name'],
                 $row['group_company'],
+                // Non-employees have no contribution level; leave it blank.
+                $row['contribution_level'] ?? '',
                 $row['office_area'],
                 $row['employee_status'],
                 $row['designation'],
