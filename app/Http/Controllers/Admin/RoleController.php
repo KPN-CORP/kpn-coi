@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers\Admin;
 
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Inertia\Response;
-use App\Models\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RoleResource;
 use App\Models\BusinessUnit;
 use App\Models\Companies;
 use App\Models\Employee;
-use App\Models\Location;
 use App\Models\NonEmployee;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
 use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
@@ -103,7 +102,7 @@ class RoleController extends Controller
                 // option below must carry the value those tables actually
                 // store -- a code that appears nowhere in them can only ever
                 // select zero rows.
-                'workAreas' => $this->officeAreaOptions(),
+                'workAreas' => $this->workAreaOptions(),
 
                 // employees.group_company / non_employees.group_company hold
                 // the unit *name* ("Cement"), never its kode_bisnis ("BU03"),
@@ -138,33 +137,42 @@ class RoleController extends Controller
     }
 
     /**
-     * Office areas across both people tables -- a restriction covers employees
-     * and non-employees alike, so an area used only by non-employees still has
-     * to be selectable.
+     * Work areas across both people tables -- a restriction covers employees
+     * and non-employees alike, so a code used only by non-employees still has
+     * to be selectable. The value is work_area_code (the unique key the scope
+     * matches on); the label is the readable area from the locations master,
+     * falling back to the bare code when a code has no locations row.
      */
-    private function officeAreaOptions(): Collection
+    private function workAreaOptions(): Collection
     {
-        $areas = fn (Builder $query) => $query
-            ->select('office_area')
-            ->whereNotNull('office_area')
-            ->where('office_area', '!=', '')
+        $codes = fn (Builder $query) => $query
+            ->select('work_area_code')
+            ->whereNotNull('work_area_code')
+            ->where('work_area_code', '!=', '')
             ->distinct()
-            ->pluck('office_area');
+            ->pluck('work_area_code');
 
-        return $areas(Employee::query())
-            ->concat($areas(NonEmployee::query()))
+        $areaByCode = DB::connection('kpncorp')
+            ->table('locations')
+            ->whereNotNull('work_area')
+            ->pluck('area', 'work_area');
+
+        return $codes(Employee::query())
+            ->concat($codes(NonEmployee::query()))
             ->unique()
             ->sort()
             ->values()
-            ->map(fn ($area) => [
-                'code' => $area,
-                'name' => $area,
+            ->map(fn ($code) => [
+                'code' => $code,
+                'name' => filled($areaByCode[$code] ?? null)
+                    ? $areaByCode[$code].' ('.$code.')'
+                    : $code,
             ]);
     }
 
     public function store(
         Request $request
-        ) {
+    ) {
         $validated =
             $request->validate([
                 'name' => [
@@ -200,14 +208,11 @@ class RoleController extends Controller
         $role = Role::create([
             'name' => $validated['name'],
             'restrictions' => [
-                'work_area_code'
-                    => $request->restrictions['work_area_code'] ?? [],
+                'work_area_code' => $request->restrictions['work_area_code'] ?? [],
 
-                'group_company'
-                    => $request->restrictions['group_company'] ?? [],
+                'group_company' => $request->restrictions['group_company'] ?? [],
 
-                'contribution_level_code'
-                    => $request->restrictions['contribution_level_code'] ?? [],
+                'contribution_level_code' => $request->restrictions['contribution_level_code'] ?? [],
             ],
         ]);
 
@@ -229,7 +234,7 @@ class RoleController extends Controller
             $request->validate([
                 'name' => [
                     'required',
-                    'unique:roles,name,' .
+                    'unique:roles,name,'.
                     $role->id,
                 ],
 
@@ -261,14 +266,11 @@ class RoleController extends Controller
             'name' => $request->name,
 
             'restrictions' => [
-                'work_area_code'
-                    => $request->restrictions['work_area_code'] ?? [],
+                'work_area_code' => $request->restrictions['work_area_code'] ?? [],
 
-                'group_company'
-                    => $request->restrictions['group_company'] ?? [],
+                'group_company' => $request->restrictions['group_company'] ?? [],
 
-                'contribution_level_code'
-                    => $request->restrictions['contribution_level_code'] ?? [],
+                'contribution_level_code' => $request->restrictions['contribution_level_code'] ?? [],
             ],
         ]);
 

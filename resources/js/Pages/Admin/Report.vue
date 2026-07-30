@@ -8,6 +8,7 @@ import { route } from 'ziggy-js'
 import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import SearchSelect from '@/Components/SearchSelect.vue'
 import { formatDateTime } from '@/Utils/date'
 import debounce from 'lodash/debounce'
 import { useLocale } from '@/Composables/useLocale'
@@ -28,6 +29,7 @@ interface Declaration {
 
     name: string
     employee_id: string
+    contribution_level?: string | null
 
     status: string
     declaration_status: string
@@ -53,6 +55,7 @@ const props = defineProps<{
     }
 
     businessUnitOptions: string[]
+    contributionLevelOptions: { code: string; name: string; business_unit: string }[]
     periods: number[]
 
     filters: {
@@ -62,6 +65,7 @@ const props = defineProps<{
         type?: string
         search?: string
         business_unit?: string
+        contribution_level?: string
         latest_submission?: boolean
         per_page?: number
         sort?: string
@@ -77,6 +81,7 @@ const filter = useForm({
     type: props.filters.type ?? '',
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
+    contribution_level: props.filters.contribution_level ?? '',
     latest_submission: props.filters.latest_submission ?? true,
     per_page: props.filters.per_page ?? 20,
     sort: props.filters.sort ?? '',
@@ -207,6 +212,61 @@ function questionAnswered(
     )
 
     return response?.response_value?.answer === true
+}
+
+// "KPN Corporation" is the group head: as a business-unit filter it means the
+// whole group, so it offers every contribution level, same as picking none.
+const GROUP_HEAD = 'KPN Corporation'
+
+// Contribution levels belong to a business unit (companies.company_name). When a
+// business unit is chosen, only its levels are offered; with none chosen (or the
+// group head chosen), all are.
+const filteredContributionLevels = computed(() => {
+    if (!filter.business_unit || filter.business_unit === GROUP_HEAD) {
+        return props.contributionLevelOptions
+    }
+
+    return props.contributionLevelOptions.filter(
+        option => option.business_unit === filter.business_unit,
+    )
+})
+
+// Searchable-select option lists ({ value, label }), each with an "All" reset.
+const businessUnitSelectOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allBusinessUnits },
+    ...props.businessUnitOptions.map(item => ({ value: item, label: item })),
+])
+
+const contributionLevelSelectOptions = computed(() => [
+    { value: '', label: t.value.report.allContributionLevels },
+    ...filteredContributionLevels.value.map(option => ({
+        value: option.code,
+        label: option.name,
+    })),
+])
+
+function onBusinessUnitSelected(value: string | number | null) {
+    filter.business_unit = value == null ? '' : String(value)
+    onBusinessUnitChange()
+}
+
+function onContributionLevelSelected(value: string | number | null) {
+    filter.contribution_level = value == null ? '' : String(value)
+    applyFilter()
+}
+
+function onBusinessUnitChange() {
+    // Drop a contribution level that no longer belongs to the chosen unit,
+    // otherwise the query would keep filtering on a now-hidden option.
+    const stillValid = filteredContributionLevels.value.some(
+        option => option.code === filter.contribution_level,
+    )
+
+    if (!stillValid) {
+        filter.contribution_level = ''
+    }
+
+    applyFilter()
 }
 
 function applyFilter() {
@@ -349,7 +409,7 @@ async function pollExport(id: number, attempt = 0) {
 
         <Card class="mb-6">
 
-            <div class="grid items-end gap-4 [grid-template-columns:repeat(auto-fit,minmax(180px,1fr))]">
+            <div class="grid items-end gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 
                     <!-- Reporting Period -->
                     <div class="flex flex-col gap-2">
@@ -402,23 +462,26 @@ async function pollExport(id: number, attempt = 0) {
                             {{ t.report.columnBusinessUnit }}
                         </label>
 
-                        <select
-                            v-model="filter.business_unit"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
-                            @change="applyFilter"
-                        >
-                            <option value="">
-                                {{ t.teamHistory.allBusinessUnits }}
-                            </option>
+                        <SearchSelect
+                            :model-value="filter.business_unit"
+                            :options="businessUnitSelectOptions"
+                            :placeholder="t.teamHistory.allBusinessUnits"
+                            @update:model-value="onBusinessUnitSelected"
+                        />
+                    </div>
 
-                            <option
-                                v-for="item in businessUnitOptions"
-                                :key="item"
-                                :value="item"
-                            >
-                                {{ item }}
-                            </option>
-                        </select>
+                    <!-- Contribution Level -->
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-slate-700">
+                            {{ t.report.columnContributionLevel }}
+                        </label>
+
+                        <SearchSelect
+                            :model-value="filter.contribution_level"
+                            :options="contributionLevelSelectOptions"
+                            :placeholder="t.report.allContributionLevels"
+                            @update:model-value="onContributionLevelSelected"
+                        />
                     </div>
 
                     <!-- Status -->
@@ -611,6 +674,13 @@ async function pollExport(id: number, attempt = 0) {
                                 </div>
                                 <div class="mt-0.5 truncate text-xs text-slate-400">
                                     {{ declaration.employee_id }}
+                                </div>
+                                <div
+                                    v-if="declaration.contribution_level"
+                                    class="mt-0.5 truncate text-xs text-slate-400"
+                                    :title="declaration.contribution_level"
+                                >
+                                    {{ declaration.contribution_level }}
                                 </div>
                             </td>
 

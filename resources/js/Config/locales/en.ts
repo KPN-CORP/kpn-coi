@@ -170,6 +170,8 @@ export default {
         columnFormStatus: 'Form Status',
         columnDeclarationStatus: 'Declaration Status',
         columnBusinessUnit: 'Business Unit',
+        columnContributionLevel: 'Contribution Level',
+        allContributionLevels: 'All Contribution Level',
         columnSubmittedAt: 'Submitted At',
         coiTooltip: 'Conflict of Interest declared',
         noAttachment: 'No Attachment',

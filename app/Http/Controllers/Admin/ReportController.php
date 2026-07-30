@@ -80,6 +80,7 @@ class ReportController extends Controller
             sort: $sort,
             direction: $direction,
             declarationStatus: $declarationStatus,
+            contributionLevel: $request->contribution_level,
         );
 
         return Inertia::render(
@@ -94,6 +95,7 @@ class ReportController extends Controller
                     'type' => $request->type,
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
+                    'contribution_level' => $request->contribution_level,
                     'latest_submission' => $latestSubmission,
                     'per_page' => $perPage,
                     'sort' => $sort,
@@ -101,6 +103,9 @@ class ReportController extends Controller
                 ],
                 'businessUnitOptions' => app(DataScopeService::class)
                     ->businessUnitOptions(Auth::user()),
+
+                'contributionLevelOptions' => app(DataScopeService::class)
+                    ->contributionLevelOptions(Auth::user()),
 
                 'periods' => CoiDeclaration::query()
                     ->distinct()
@@ -129,6 +134,7 @@ class ReportController extends Controller
                 'declaration_status' => $request->declaration_status,
                 'type' => $request->type,
                 'business_unit' => $request->business_unit,
+                'contribution_level' => $request->contribution_level,
                 'search' => $request->search,
                 'latest_submission' => $request->boolean('latest_submission', true),
             ],

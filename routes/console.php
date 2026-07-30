@@ -16,3 +16,7 @@ Schedule::call(function () {
         ->each
         ->purge();
 })->hourly();
+
+// Keep the failed_jobs table from growing without bound. Database queue is the
+// only transport, so failures accumulate here until pruned.
+Schedule::command('queue:prune-failed --hours=168')->daily();

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DeclarationStatus;
 use App\Models\CoiDeclaration;
+use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
@@ -28,7 +29,8 @@ class ReportService
         int $perPage = 20,
         ?string $sort = null,
         string $direction = 'asc',
-        ?string $declarationStatus = null
+        ?string $declarationStatus = null,
+        ?string $contributionLevel = null
     ): LengthAwarePaginator {
         $records = $this->buildRecords(
             period: $period,
@@ -38,6 +40,7 @@ class ReportService
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
             declarationStatus: $declarationStatus,
+            contributionLevel: $contributionLevel,
             user: $user,
         );
 
@@ -79,7 +82,8 @@ class ReportService
         ?string $businessUnit,
         ?User $user = null,
         bool $latestSubmission = false,
-        ?string $declarationStatus = null
+        ?string $declarationStatus = null,
+        ?string $contributionLevel = null
     ): Collection {
         return $this->buildRecords(
             period: $period,
@@ -89,6 +93,7 @@ class ReportService
             businessUnit: $businessUnit,
             latestSubmission: $latestSubmission,
             declarationStatus: $declarationStatus,
+            contributionLevel: $contributionLevel,
             user: $user,
         );
     }
@@ -101,6 +106,7 @@ class ReportService
         ?string $businessUnit,
         bool $latestSubmission,
         ?string $declarationStatus = null,
+        ?string $contributionLevel = null,
         ?User $user = null
     ): Collection {
         $employees = $type === 'non_employee'
@@ -111,6 +117,7 @@ class ReportService
                 $search,
                 $status,
                 $declarationStatus,
+                $contributionLevel,
                 $user
             );
 
@@ -119,6 +126,7 @@ class ReportService
             : $this->nonEmployeeRecords(
                 $period,
                 $businessUnit,
+                $contributionLevel,
                 $user
             );
 
@@ -226,6 +234,7 @@ class ReportService
         ?string $search = null,
         ?string $status = null,
         ?string $declarationStatus = null,
+        ?string $contributionLevel = null,
         ?User $user = null
     ): Collection {
 
@@ -251,6 +260,12 @@ class ReportService
             ->unique()
             ->values();
 
+        // employees carry only contribution_level_code; the readable company
+        // name lives in companies. Resolve it once for the rows below.
+        $contributionNames = Companies::query()
+            ->whereNotNull('contribution_level_code')
+            ->pluck('contribution_level', 'contribution_level_code');
+
         $conflictUserIds = $declarations
             ->filter(
                 fn ($declaration) => $declaration->responses->contains(
@@ -269,11 +284,20 @@ class ReportService
                     ->with('responses')
                     ->latest(),
             ])
+            // The group head ("KPN Corporation") means the whole group, so it
+            // widens rather than narrows -- no group_company filter is applied.
             ->when(
-                filled($businessUnit),
+                filled($businessUnit) && $businessUnit !== DataScopeService::GROUP_HEAD,
                 fn ($query) => $query->where(
                     'group_company',
                     $businessUnit
+                )
+            )
+            ->when(
+                filled($contributionLevel),
+                fn ($query) => $query->where(
+                    'contribution_level_code',
+                    $contributionLevel
                 )
             )
             ->when(
@@ -320,7 +344,9 @@ class ReportService
             )
             ->whereNull('deleted_at')
             ->get()
-            ->flatMap(function ($employee) use ($period) {
+            ->flatMap(function ($employee) use ($period, $contributionNames) {
+
+                $contributionLevel = $contributionNames[$employee->contribution_level_code] ?? null;
 
                 if ($employee->coiDeclaration->isEmpty()) {
                     return [[
@@ -331,6 +357,7 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'contribution_level' => $contributionLevel,
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
                         'group_company' => $employee->group_company ?? '-',
@@ -346,7 +373,7 @@ class ReportService
                     ]];
                 }
 
-                return $employee->coiDeclaration->map(function ($declaration) use ($employee) {
+                return $employee->coiDeclaration->map(function ($declaration) use ($employee, $contributionLevel) {
 
                     $hasConflict = $declaration->responses->contains(
                         fn ($response) => data_get($response->response_value, 'answer') === true
@@ -369,6 +396,7 @@ class ReportService
                         'name' => $employee->fullname,
                         'ktp' => $employee->ktp,
                         'employee_id' => $employee->employee_id,
+                        'contribution_level' => $contributionLevel,
                         'employee_status' => $employee->deleted_at === null ? 'Active' : 'Inactive',
                         'designation' => $employee->designation_name ?? '-',
                         'group_company' => $employee->group_company ?? '-',
@@ -406,6 +434,7 @@ class ReportService
     private function nonEmployeeRecords(
         int $period,
         ?string $businessUnit = null,
+        ?string $contributionLevel = null,
         ?User $user = null
     ): Collection {
 
@@ -413,12 +442,23 @@ class ReportService
             ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
             // non_employees carries group_company too, so the business unit
             // filter has to run here as well -- narrowing only the employee
-            // side would leave every non-employee row in the result.
+            // side would leave every non-employee row in the result. The group
+            // head means the whole group, so it is not narrowed (see above).
             ->when(
-                filled($businessUnit),
+                filled($businessUnit) && $businessUnit !== DataScopeService::GROUP_HEAD,
                 fn ($query) => $query->where(
                     'group_company',
                     $businessUnit
+                )
+            )
+            // Same for contribution level. Note: non_employees.contribution_level_code
+            // is currently unpopulated, so selecting a level filters them all out --
+            // acceptable until non-employee contribution data is backfilled.
+            ->when(
+                filled($contributionLevel),
+                fn ($query) => $query->where(
+                    'contribution_level_code',
+                    $contributionLevel
                 )
             )
             // Mirror the dashboard: only people who had already joined by the
@@ -458,6 +498,10 @@ class ReportService
                     'name' => $employee->fullname,
 
                     'employee_id' => $employee->ktp,
+
+                    // Non-employees have no contribution level; the column stays
+                    // empty for them in the report table.
+                    'contribution_level' => null,
 
                     // Mirror the declaration's own status (draft/submitted); a
                     // missing declaration means the form was never started.

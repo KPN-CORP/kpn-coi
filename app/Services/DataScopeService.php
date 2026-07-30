@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\BusinessUnit;
+use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
@@ -19,7 +20,7 @@ use Illuminate\Support\Collection;
  * columns they filter are named differently, and both people tables --
  * kpncorp.employees and (local) non_employees -- carry all three:
  *
- *   work_area_code          -> office_area
+ *   work_area_code          -> work_area_code (falls back to office_area, see below)
  *   group_company           -> group_company
  *   contribution_level_code -> contribution_level_code
  *
@@ -37,8 +38,16 @@ use Illuminate\Support\Collection;
  */
 class DataScopeService
 {
+    /**
+     * The holding company at the top of the group. As a business-unit filter it
+     * means "the whole group", not the rows literally tagged with this name, so
+     * selecting it widens rather than narrows -- see ReportService and the
+     * report's contribution-level cascade.
+     */
+    public const GROUP_HEAD = 'KPN Corporation';
+
     private const COLUMNS = [
-        'work_area_code' => 'office_area',
+        'work_area_code' => 'work_area_code',
         'group_company' => 'group_company',
         'contribution_level_code' => 'contribution_level_code',
     ];
@@ -156,11 +165,80 @@ class DataScopeService
     }
 
     /**
+     * The contribution levels to offer this user in a filter -- code + name so
+     * the dropdown can show the readable name while filtering on the code the
+     * people tables store. Each option also carries its business_unit so the UI
+     * can cascade: pick a business unit first, then only its levels are offered.
+     * The tie lives in companies.company_name ("KPN Corporation,<Unit>"); a
+     * contribution_level_code belongs to exactly one unit.
+     *
+     * Scoped like businessUnitOptions(): a restricted admin is only offered the
+     * levels their role allows. No code/name translation is needed here (unlike
+     * group company) because the restriction, the option source, and
+     * employees.contribution_level_code all speak the same code.
+     */
+    public function contributionLevelOptions(?User $user): Collection
+    {
+        $allowed = $this->restrictionsFor($user)['contribution_level_code'] ?? null;
+
+        return Companies::query()
+            ->select('contribution_level_code', 'contribution_level', 'company_name')
+            ->whereNotNull('contribution_level_code')
+            ->when(
+                $allowed !== null,
+                fn ($query) => $query->whereIn('contribution_level_code', $allowed)
+            )
+            ->orderBy('contribution_level')
+            ->get()
+            ->unique('contribution_level_code')
+            ->map(fn ($item) => [
+                'code' => $item->contribution_level_code,
+                'name' => $item->contribution_level,
+                'business_unit' => $this->companyBusinessUnit($item->company_name),
+            ])
+            ->values();
+    }
+
+    /**
+     * The business unit a companies row belongs to. company_name is stored as
+     * "KPN Corporation,<Unit>", and the people tables / BU filter carry the unit
+     * as "Plantations", never "KPN Plantations", so normalise that one case.
+     */
+    private function companyBusinessUnit(?string $companyName): string
+    {
+        $unit = trim(explode(',', (string) $companyName)[1] ?? '');
+
+        return $unit === 'KPN Plantations'
+            ? 'Plantations'
+            : $unit;
+    }
+
+    /**
      * Constrain a query over a people table (Employee or NonEmployee).
      */
     public function applyToPeople(Builder $query, ?User $user): Builder
     {
         foreach ($this->restrictionsFor($user) as $dimension => $values) {
+
+            // Work area matches the canonical work_area_code, but also the
+            // office_area name so roles saved before the switch to work_area_code
+            // keep scoping instead of silently matching nothing. Both people
+            // tables carry both columns.
+            if ($dimension === 'work_area_code') {
+                $query->where(
+                    fn (Builder $inner) => $inner
+                        ->whereIn(
+                            $query->getModel()->qualifyColumn('work_area_code'),
+                            $values
+                        )
+                        ->orWhereIn(
+                            $query->getModel()->qualifyColumn('office_area'),
+                            $values
+                        )
+                );
+
+                continue;
+            }
 
             $query->whereIn(
                 $query->getModel()->qualifyColumn(

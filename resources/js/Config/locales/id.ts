@@ -170,6 +170,8 @@ export default {
         columnFormStatus: 'Status Formulir',
         columnDeclarationStatus: 'Status Deklarasi',
         columnBusinessUnit: 'Unit Bisnis',
+        columnContributionLevel: 'Level Kontribusi',
+        allContributionLevels: 'Semua Level Kontribusi',
         columnSubmittedAt: 'Tanggal Kirim',
         coiTooltip: 'Deklarasi konflik kepentingan',
         noAttachment: 'Tidak Ada Lampiran',

@@ -67,6 +67,7 @@ class GenerateReportDownload implements ShouldQueue
                 user: User::find($download->user_id),
                 latestSubmission: (bool) ($filters['latest_submission'] ?? true),
                 declarationStatus: $filters['declaration_status'] ?? null,
+                contributionLevel: $filters['contribution_level'] ?? null,
             );
 
             $fileName = 'COI Report '
