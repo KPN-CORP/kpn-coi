@@ -284,10 +284,13 @@ class ReportService
                     ->with('responses')
                     ->latest(),
             ])
-            // The group head ("KPN Corporation") means the whole group, so it
-            // widens rather than narrows -- no group_company filter is applied.
+            // Filter employees by their own group_company. "KPN Corporation" is
+            // a real group_company value (the holding company's own staff), so it
+            // narrows to those rather than widening -- the "show all companies"
+            // behaviour for the group head belongs to the contribution-level
+            // options, not the employee filter.
             ->when(
-                filled($businessUnit) && $businessUnit !== DataScopeService::GROUP_HEAD,
+                filled($businessUnit),
                 fn ($query) => $query->where(
                     'group_company',
                     $businessUnit
@@ -450,10 +453,11 @@ class ReportService
             ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
             // non_employees carries group_company too, so the business unit
             // filter has to run here as well -- narrowing only the employee
-            // side would leave every non-employee row in the result. The group
-            // head means the whole group, so it is not narrowed (see above).
+            // side would leave every non-employee row in the result. Match the
+            // employee side: filter by group_company exactly, KPN Corporation
+            // included (its own group_company rows, not the whole group).
             ->when(
-                filled($businessUnit) && $businessUnit !== DataScopeService::GROUP_HEAD,
+                filled($businessUnit),
                 fn ($query) => $query->where(
                     'group_company',
                     $businessUnit

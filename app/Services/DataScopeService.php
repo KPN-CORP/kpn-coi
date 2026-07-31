@@ -39,10 +39,11 @@ use Illuminate\Support\Collection;
 class DataScopeService
 {
     /**
-     * The holding company at the top of the group. As a business-unit filter it
-     * means "the whole group", not the rows literally tagged with this name, so
-     * selecting it widens rather than narrows -- see ReportService and the
-     * report's contribution-level cascade.
+     * The holding company at the top of the group. For the report's
+     * contribution-level cascade it means "the whole group", so selecting it
+     * offers every company/level rather than only its own. Note: the *employee*
+     * business-unit filter does NOT widen for it -- KPN Corporation is a real
+     * group_company value (its own staff) and narrows like any other unit.
      */
     public const GROUP_HEAD = 'KPN Corporation';
 
