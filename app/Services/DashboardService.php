@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\NonEmployee;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardService
@@ -20,112 +21,108 @@ class DashboardService
 
     public function getDashboardData(Request $request): array
     {
-        $type = $request->type ?? 'employee';
+        // null internally = "All Types". The UI sends the literal 'all' for it
+        // (NOT an empty string -- Laravel's ConvertEmptyStringsToNull middleware
+        // would turn '' into null, which is indistinguishable from the absent
+        // first-load case that must default to employee).
+        $type = match ($request->input('type')) {
+            'employee', 'non_employee' => $request->input('type'),
+            'all' => null,
+            default => 'employee',
+        };
+
         $period = $request->period == null
             ? (string) now()->year
             : $request->period;
 
         $viewer = Auth::user();
 
-        // Only people who had already joined by the end of the selected
-        // period count toward that period's totals. Rows without a join
-        // date are kept so they are never silently dropped.
+        $businessUnit = $request->business_unit;
+
+        // Only people who had already joined by the end of the selected period
+        // count toward that period's totals. Rows without a join date are kept
+        // so they are never silently dropped.
         $joinedInPeriod = fn ($query) => $query->where(
             fn ($query) => $query
                 ->whereNull('date_of_joining')
                 ->orWhereYear('date_of_joining', '<=', (int) $period)
         );
 
-        // The role's data restrictions gate every count and list below, so they
-        // are applied to the people queries the stats and charts are derived
-        // from -- not only to the declaration list.
+        // Role data restrictions gate every count and the chart, so they are
+        // applied to the people queries these derive from. The business unit
+        // filter now applies to both people tables regardless of the type.
         $employeeQuery = Employee::query()
             ->whereNull('deleted_at')
             ->tap($joinedInPeriod)
             ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer))
             ->when(
-                $request->filled('business_unit')
-                && $request->type === 'employee',
-                fn ($query) => $query->where(
-                    'group_company',
-                    $request->business_unit
-                )
+                filled($businessUnit),
+                fn ($query) => $query->where('group_company', $businessUnit)
             );
 
         $nonEmployeeQuery = NonEmployee::query()
             ->tap($joinedInPeriod)
-            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer));
-
-        $nonEmployeeQuery->when(
-            $request->filled('business_unit')
-            && $request->type === 'non_employee',
-            fn ($query) => $query->where(
-                'group_company',
-                $request->business_unit
-            )
-        );
-
-        $declarationQuery = CoiDeclaration::query();
-
-        $this->dataScopeService->applyToDeclarations(
-            $declarationQuery,
-            $viewer
-        );
-
-        $declarationQuery
-            ->where(
-                'period',
-                (int) $period
-            )
+            ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $viewer))
             ->when(
-                $request->filled('status'),
-                fn ($query) => $query->where(
-                    'status',
-                    $request->status
-                )
-            )
-            ->where(
-                'type',
-                $type
+                filled($businessUnit),
+                fn ($query) => $query->where('group_company', $businessUnit)
             );
 
-        if ($request->type === 'non_employee') {
+        // One row per person with their submission facts, for the selected
+        // type(s). "All Types" concatenates both, so every count and the
+        // per-business-unit chart below stay correct in all three modes.
+        $people = collect();
 
-            // A non_employee declaration keys on the login id, not on the
-            // profile row id -- non_employees.id and user_id differ.
-            $userIds = (clone $nonEmployeeQuery)
-                ->whereNotNull('user_id')
-                ->pluck('user_id');
-
-            $declarationQuery->whereIn(
-                'user_id',
-                $userIds
-            );
-        } else {
-
-            $userIds = (clone $employeeQuery)
-                ->pluck('id');
-
-            $declarationQuery->whereIn(
-                'user_id',
-                $userIds
+        if ($type !== 'non_employee') {
+            $people = $people->concat(
+                $this->peopleSubmission((clone $employeeQuery), (int) $period, 'employee')
             );
         }
 
-        $totalDeclarations = (clone $declarationQuery)->distinct('user_id')
-            ->count('user_id');
+        if ($type !== 'employee') {
+            $people = $people->concat(
+                $this->peopleSubmission((clone $nonEmployeeQuery), (int) $period, 'non_employee')
+            );
+        }
 
-        $conflictDeclarations = (clone $declarationQuery)
-            ->whereHas('responses', function ($query) {
-                $query->whereJsonContains(
-                    'response_value->answer',
-                    true
-                );
+        $total = $people->count();
+        $submitted = $people->where('submitted', true)->count();
+        $conflict = $people->where('conflict', true)->count();
+        $pending = $total - $submitted;
+
+        // Paginated declaration list for the selected type(s). Scoping is
+        // already enforced by constraining to the ids resolved from the scoped
+        // people queries above.
+        $employeeIds = (clone $employeeQuery)->pluck('id');
+
+        $nonEmployeeUserIds = (clone $nonEmployeeQuery)
+            ->whereNotNull('user_id')
+            ->pluck('user_id');
+
+        $declarations = CoiDeclaration::query()
+            ->where('period', (int) $period)
+            ->when(
+                $request->filled('status'),
+                fn ($query) => $query->where('status', $request->status)
+            )
+            ->where(function ($query) use ($type, $employeeIds, $nonEmployeeUserIds) {
+
+                // user_id points at a different database per type, so each type
+                // is matched against its own id list -- never a shared one.
+                $employee = fn ($inner) => $inner
+                    ->where('type', 'employee')
+                    ->whereIn('user_id', $employeeIds);
+
+                $nonEmployee = fn ($inner) => $inner
+                    ->where('type', 'non_employee')
+                    ->whereIn('user_id', $nonEmployeeUserIds);
+
+                match ($type) {
+                    'employee' => $query->where($employee),
+                    'non_employee' => $query->where($nonEmployee),
+                    default => $query->where($employee)->orWhere($nonEmployee),
+                };
             })
-            ->distinct('user_id')
-            ->count('user_id');
-
-        $declarations = (clone $declarationQuery)
             ->with([
                 'user.employee',
                 'nonEmployeeUser',
@@ -145,52 +142,13 @@ class DashboardService
             ->where('type', 'non_employee')
             ->values();
 
-        $totalEmployees = match ($type) {
-
-            'employee' => (clone $employeeQuery)->count(),
-
-            'non_employee' => (clone $nonEmployeeQuery)->count(),
-
-            default => (clone $employeeQuery)->count()
-                + (clone $nonEmployeeQuery)->count(),
-
-        };
-
-        $businessUnits = (clone $employeeQuery)
-            ->select('id', 'group_company')
-            ->whereNotNull('group_company')
-            ->with([
-                'coiDeclaration' => fn ($query) => $query->where(
-                    'period',
-                    (int) $period
-                ),
-            ])
-            ->get()
-            ->groupBy('group_company')
-            ->map(function ($employees, $businessUnit) {
-
-                $submitted = $employees
-                    ->filter(fn ($employee) => $employee->coiDeclaration->isNotEmpty())
-                    ->count();
-
-                return [
-                    'label' => $businessUnit,
-                    'submitted' => $submitted,
-                    'pending' => $employees->count() - $submitted,
-                ];
-            })
-            ->values();
-
-        $businessUnitOptions = $this->dataScopeService
-            ->businessUnitOptions($viewer);
-
         return [
 
             'stats' => [
-                'total' => $totalEmployees,
-                'pending' => $totalEmployees - $totalDeclarations,
-                'submitted' => $totalDeclarations,
-                'conflict' => $conflictDeclarations,
+                'total' => $total,
+                'pending' => $pending,
+                'submitted' => $submitted,
+                'conflict' => $conflict,
             ],
 
             'declarations' => TeamDeclarationResource::collection($declarations),
@@ -200,23 +158,21 @@ class DashboardService
             'filters' => [
                 'period' => $period,
                 'status' => $request->status,
-                'business_unit' => $request->business_unit,
-                'type' => $request->type,
+                'business_unit' => $businessUnit,
+                // Echo the raw request value so an empty string keeps the
+                // "All Types" option selected on the way back.
+                'type' => $request->input('type'),
             ],
 
-            'businessUnitOptions' => $businessUnitOptions,
+            'businessUnitOptions' => $this->dataScopeService
+                ->businessUnitOptions($viewer),
 
-            'barChart' => $this->getBarChart(
-                $request,
-                $employeeQuery,
-                $totalEmployees,
-                $totalDeclarations,
-                (int) $period,
-            ),
+            'barChart' => $this->getBarChart($people),
+
             'charts' => [
                 'status' => [
-                    'submitted' => $totalDeclarations,
-                    'pending' => $totalEmployees - $totalDeclarations,
+                    'submitted' => $submitted,
+                    'pending' => $pending,
                 ],
             ],
 
@@ -236,112 +192,74 @@ class DashboardService
         ];
     }
 
-    private function getBarChart(
-        Request $request,
-        Builder $employeeQuery,
-        int $totalEmployees,
-        int $totalDeclarations,
-        int $period,
-    ): array {
-        $type = $request->type ?? 'employee';
+    /**
+     * One row per person (employee or non-employee) carrying whether they
+     * submitted a declaration for the period and whether any of it declares a
+     * conflict. Keyed to the correct type so the id-space overlap between the
+     * two people tables never mixes a stranger's declaration in.
+     */
+    private function peopleSubmission(Builder $query, int $period, string $type): Collection
+    {
+        return $query
+            ->with([
+                'coiDeclaration' => fn ($relation) => $relation
+                    ->where('period', $period)
+                    ->where('type', $type)
+                    ->with('responses'),
+            ])
+            ->get()
+            ->map(function ($person) {
 
-        if ($type === 'employee') {
+                $declarations = $person->coiDeclaration;
 
-            $rows = (clone $employeeQuery)
-                ->select('id', 'group_company')
-                ->whereNotNull('group_company')
-                ->with([
-                    'coiDeclaration' => fn ($query) => $query->where(
-                        'period',
-                        $period
+                return [
+                    'group_company' => $person->group_company,
+                    'submitted' => $declarations->isNotEmpty(),
+                    'conflict' => $declarations->contains(
+                        fn ($declaration) => $declaration->responses->contains(
+                            fn ($response) => data_get($response->response_value, 'answer') === true
+                        )
                     ),
-                ])
-                ->get()
-                ->groupBy('group_company');
+                ];
+            });
+    }
 
-            return [
-
-                'title' => 'Submission by Business Unit',
-
-                'labels' => $rows
-                    ->keys()
-                    ->values(),
-
-                'datasets' => [
-
-                    [
-                        'label' => 'Submitted',
-
-                        'backgroundColor' => '#AB2F2B',
-
-                        'borderRadius' => 4,
-
-                        'data' => $rows
-                            ->map(
-                                fn ($employees) => $employees
-                                    ->filter(
-                                        fn ($employee) => $employee
-                                            ->coiDeclaration
-                                            ->isNotEmpty()
-                                    )
-                                    ->count()
-                            )
-                            ->values(),
-                    ],
-
-                    [
-                        'label' => 'Not Submitted',
-
-                        'backgroundColor' => '#E2E8F0',
-
-                        'borderRadius' => 4,
-
-                        'data' => $rows
-                            ->map(
-                                fn ($employees) => $employees->count()
-                                    - $employees
-                                        ->filter(
-                                            fn ($employee) => $employee
-                                                ->coiDeclaration
-                                                ->isNotEmpty()
-                                        )
-                                        ->count()
-                            )
-                            ->values(),
-                    ],
-
-                ],
-
-            ];
-        }
+    /**
+     * Submitted / not-submitted per business unit across whatever people were
+     * selected (employee, non-employee, or both). People with no group_company
+     * are left out -- they have no bar to fall under.
+     */
+    private function getBarChart(Collection $people): array
+    {
+        $byBusinessUnit = $people
+            ->filter(fn ($person) => filled($person['group_company']))
+            ->groupBy('group_company')
+            ->sortKeys();
 
         return [
 
-            'title' => 'Submission Status',
+            'title' => 'Submission by Business Unit',
 
-            'labels' => [
-                'Submitted',
-                'Not Submitted',
-            ],
+            'labels' => $byBusinessUnit->keys()->values(),
 
             'datasets' => [
 
                 [
+                    'label' => 'Submitted',
+                    'backgroundColor' => '#AB2F2B',
+                    'borderRadius' => 4,
+                    'data' => $byBusinessUnit
+                        ->map(fn ($group) => $group->where('submitted', true)->count())
+                        ->values(),
+                ],
 
-                    'label' => 'Declaration',
-
-                    'backgroundColor' => [
-                        '#AB2F2B',
-                        '#E2E8F0',
-                    ],
-
-                    'borderRadius' => 6,
-
-                    'data' => [
-                        $totalDeclarations,
-                        $totalEmployees - $totalDeclarations,
-                    ],
-
+                [
+                    'label' => 'Not Submitted',
+                    'backgroundColor' => '#E2E8F0',
+                    'borderRadius' => 4,
+                    'data' => $byBusinessUnit
+                        ->map(fn ($group) => $group->where('submitted', false)->count())
+                        ->values(),
                 ],
 
             ],

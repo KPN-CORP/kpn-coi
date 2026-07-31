@@ -6,7 +6,7 @@ import StatCard from '@/Components/UI/StatCard.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Declaration } from '@/Config/declaration'
-import { onMounted, ref, watch, reactive } from 'vue'
+import { onMounted, ref, watch, reactive, computed } from 'vue'
 import Chart from 'chart.js/auto'
 import { useForm, router } from '@inertiajs/vue3'
 import type { Chart as ChartInstance } from 'chart.js'
@@ -228,6 +228,19 @@ const filter = useForm({
     type: props.filters.type ?? 'employee',
 })
 
+// Readable label for the KPI cards: Employee / Non-Employee / All Types.
+const typeLabel = computed(() => {
+    if (filter.type === 'employee') {
+        return t.value.common.employee
+    }
+
+    if (filter.type === 'non_employee') {
+        return t.value.common.nonEmployee
+    }
+
+    return t.value.report.allTypes
+})
+
 function applyFilter() {
     router.get(
         route('admin.dashboard'),
@@ -406,7 +419,9 @@ function openReport(
             {
                 period: filter.period,
                 status: filter.status,
-                type: filter.type,
+                // The report uses an empty type for "all"; the dashboard uses
+                // the literal 'all', so translate before linking.
+                type: filter.type === 'all' ? '' : filter.type,
                 business_unit: filter.business_unit,
                 ...filters,
             },
@@ -495,6 +510,10 @@ watch(locale, () => {
                         class="rounded-md border border-border px-3 py-2 text-sm"
                         @change="onTypeChanged"
                     >
+                        <option value="all">
+                            {{ t.report.allTypes }}
+                        </option>
+
                         <option value="employee">
                             {{ t.common.employee }}
                         </option>
@@ -591,9 +610,7 @@ watch(locale, () => {
                     {{ stats.total }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
-                            ? t.common.employee
-                            : t.common.nonEmployee }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'submitted',})">
@@ -601,9 +618,7 @@ watch(locale, () => {
                     {{ stats.submitted }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
-                            ? t.common.employee
-                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiSubmitted }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiSubmitted }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'pending',})">
@@ -611,9 +626,7 @@ watch(locale, () => {
                     {{ stats.pending }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
-                            ? t.common.employee
-                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiNotSubmitted }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiNotSubmitted }}
                 </div>
             </Card>
             <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({declaration_status: 'conflict',})">
@@ -621,9 +634,7 @@ watch(locale, () => {
                     {{ stats.conflict }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ filter.type === 'employee'
-                            ? t.common.employee
-                            : t.common.nonEmployee }} <br> {{ t.dashboard.kpiConflict }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiConflict }}
                 </div>
             </Card>
         </div>
