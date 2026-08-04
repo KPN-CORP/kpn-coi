@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\DeclarationStatus;
 use App\Http\Resources\TeamDeclarationResource;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
@@ -202,9 +203,16 @@ class DashboardService
     {
         return $query
             ->with([
+                // A draft is not a submission: it must fall under "not
+                // submitted" alongside people with no declaration at all.
+                // Excluding drafts here keeps both the submitted/pending
+                // counts and the conflict count based only on real
+                // submissions (submit deletes the draft, so a submitted
+                // person keeps only the Submitted row anyway).
                 'coiDeclaration' => fn ($relation) => $relation
                     ->where('period', $period)
                     ->where('type', $type)
+                    ->where('status', '!=', DeclarationStatus::Draft)
                     ->with('responses'),
             ])
             ->get()
