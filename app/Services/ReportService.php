@@ -155,6 +155,33 @@ class ReportService
 
         }
 
+        if ($type) {
+            $records = $records->where(
+                'type',
+                $type
+            );
+        }
+
+        // Collapse to one row per person -- their most recent declaration --
+        // BEFORE the status / conflict filters run. Those filters each describe
+        // a single declaration, so they must see the row the report actually
+        // displays. A person who saved a draft and then submitted has both rows
+        // in the set; filtering before this grouping counts them under "draft"
+        // AND "submitted", inflating every bucket so the pieces no longer sum
+        // to the unfiltered total the pagination shows.
+        if ($latestSubmission) {
+            $records = $records
+                ->sortByDesc(
+                    fn ($item) => $item['submitted_at']
+                )
+                ->groupBy(
+                    fn ($item) => $item['person_key']
+                )
+                ->map(
+                    fn ($group) => $group->first()
+                );
+        }
+
         // Form status = whether the form was submitted at all. Whether the
         // submission declares a conflict is a separate axis, filtered below.
         if ($status) {
@@ -203,26 +230,6 @@ class ReportService
 
             };
 
-        }
-
-        if ($type) {
-            $records = $records->where(
-                'type',
-                $type
-            );
-        }
-
-        if ($latestSubmission) {
-            $records = $records
-                ->sortByDesc(
-                    fn ($item) => $item['submitted_at']
-                )
-                ->groupBy(
-                    fn ($item) => $item['person_key']
-                )
-                ->map(
-                    fn ($group) => $group->first()
-                );
         }
 
         return $records->values();
