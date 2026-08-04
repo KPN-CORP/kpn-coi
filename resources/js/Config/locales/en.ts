@@ -150,7 +150,7 @@ export default {
         downloadPdf: 'Download PDF',
         kpiTotal: 'TOTAL',
         kpiSubmitted: 'SUBMITTED',
-        kpiNotSubmitted: 'NOT YET SUBMITTED',
+        kpiNotSubmitted: 'NOT YET SUBMITTED + DRAFT',
         kpiConflict: 'WITH POTENTIAL CONFLICT OF INTEREST',
         overallStatus: 'Overall Status',
         submissionsByBusinessUnit: 'Submissions by Business Unit',

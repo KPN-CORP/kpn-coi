@@ -150,7 +150,7 @@ export default {
         downloadPdf: 'Unduh PDF',
         kpiTotal: 'TOTAL',
         kpiSubmitted: 'TERKIRIM',
-        kpiNotSubmitted: 'BELUM DIKIRIM',
+        kpiNotSubmitted: 'BELUM DIKIRIM + DRAF',
         kpiConflict: 'DENGAN POTENSI KONFLIK KEPENTINGAN',
         overallStatus: 'Status Keseluruhan',
         submissionsByBusinessUnit: 'Pengiriman per Unit Bisnis',
