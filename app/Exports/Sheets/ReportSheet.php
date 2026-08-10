@@ -140,11 +140,12 @@ class ReportSheet implements FromArray, WithTitle
 
                 $formStatus,
 
-                // Carbon stringifies to "Y-m-d H:i:s"; the app shows dates as
-                // d-m-Y with 24-hour time, so format it rather than let the
-                // cast decide.
+                // submitted_at is stored in UTC (app timezone is UTC). The UI
+                // renders it with new Date().getHours(), i.e. the viewer's local
+                // timezone (Asia/Jakarta for KPN), so convert here too or the
+                // export shows a time 7 hours behind the screen.
                 $row['submitted_at']
-                    ? Carbon::parse($row['submitted_at'])->format('d-m-Y H:i:s')
+                    ? Carbon::parse($row['submitted_at'], 'UTC')->setTimezone('Asia/Jakarta')->format('d-m-Y H:i:s')
                     : '-',
 
             ];
