@@ -362,12 +362,30 @@ function canvasToImage(
         return ''
     }
 
+    // White backdrop: the chart canvas is transparent, and dompdf can render
+    // transparent PNG regions as black, so paint the page colour underneath.
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+
+    // Preserve the source aspect ratio (contain, centred) rather than stretching
+    // it to fill. Chart.js sizes the on-screen canvas to its container, which is
+    // not square, so a plain stretch turns the doughnut into an oval in the PDF.
+    const scale = Math.min(
+        width / canvas.width,
+        height / canvas.height,
+    )
+
+    const drawWidth = canvas.width * scale
+    const drawHeight = canvas.height * scale
+    const offsetX = (width - drawWidth) / 2
+    const offsetY = (height - drawHeight) / 2
+
     ctx.drawImage(
         canvas,
-        0,
-        0,
-        width,
-        height,
+        offsetX,
+        offsetY,
+        drawWidth,
+        drawHeight,
     )
 
     return exportCanvas.toDataURL(

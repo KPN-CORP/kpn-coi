@@ -29,7 +29,7 @@ Submission by Business Unit
 <br><br>
 
 @if(!empty($businessUnitChart))
-    <img src="{{ $businessUnitChart }}" style="width:450px; height:300px;">
+    <img src="{{ $businessUnitChart }}" style="width:450px; height:210px;">
 @endif
 
 </td>

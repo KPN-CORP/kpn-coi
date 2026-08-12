@@ -8,7 +8,7 @@
         </td>
 
         <td align="right">
-            {{ now()->format('d-m-Y H:i') }}
+            {{ now()->timezone('Asia/Jakarta')->format('d-m-Y H:i') }}
         </td>
     </tr>
 </table>
