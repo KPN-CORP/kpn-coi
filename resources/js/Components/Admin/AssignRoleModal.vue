@@ -39,18 +39,8 @@ watch(
             return
         }
 
-        console.log('Role Users', [...role.users])
-
-        // or
-        console.log('Role Users', JSON.parse(JSON.stringify(role.users)))
-
-        // or
-        console.log('Role Users Length', role.users?.length)
-
         form.users =
             role.users?.map((user: User) => Number(user.id)) ?? []
-
-        console.log('Selected Users', form.users)
     },
     {
         immediate: true,

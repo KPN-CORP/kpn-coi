@@ -321,19 +321,37 @@ class RoleController extends Controller
             ],
         ]);
 
+        $selectedIds = collect($validated['users'] ?? [])
+            ->map(fn ($id) => (int) $id);
+
+        // Users who currently hold *this* role. The model_has_roles pivot lives
+        // on the app (mysql) connection while User lives on kpncorp, so we read
+        // membership from the pivot directly rather than through a cross-db
+        // relationship.
+        $currentIds = DB::connection('mysql')
+            ->table('model_has_roles')
+            ->where('role_id', $role->id)
+            ->where('model_type', User::class)
+            ->pluck('model_id')
+            ->map(fn ($id) => (int) $id);
+
+        // A user can hold many roles, so this modal only manages membership of
+        // the role it was opened for: add it to newly selected users and remove
+        // it from deselected ones, leaving each user's other roles untouched.
+        // (syncRoles would instead wipe every other role, forcing one role per
+        // user.)
+        $toAdd = $selectedIds->diff($currentIds);
+        $toRemove = $currentIds->diff($selectedIds);
+
         User::query()
-            ->whereIn(
-                'id',
-                $validated['users']
-            )
+            ->whereIn('id', $toAdd->all())
             ->get()
-            ->each(function ($user) use ($role) {
+            ->each(fn ($user) => $user->assignRole($role));
 
-                $user->syncRoles([
-                    $role->name,
-                ]);
-
-            });
+        User::query()
+            ->whereIn('id', $toRemove->all())
+            ->get()
+            ->each(fn ($user) => $user->removeRole($role));
 
         return back()->with(
             'success',
