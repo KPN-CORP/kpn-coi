@@ -20,6 +20,7 @@ use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Services\CredentialImportService;
 use App\Services\DataScopeService;
+use App\Services\IdentityLinkService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -385,6 +386,20 @@ class CredentialController extends Controller
         $user->update([
             'employee_id' => $employeeId,
         ]);
+
+        // Materialise the grouping now so the two histories are joined
+        // immediately, rather than only on the employee's next SSO login.
+        // Best-effort: the link column is written above regardless, and the
+        // backfill/login sync would rebuild the group anyway.
+        try {
+            app(IdentityLinkService::class)->syncFor($user->fresh());
+        } catch (\Throwable $e) {
+            Log::warning('Identity link sync failed after conversion', [
+                'user_id' => $user->id,
+                'employee_id' => $employeeId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return back()->with(
             'success',

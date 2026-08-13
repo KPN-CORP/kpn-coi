@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\CoiDeclaration;
+use App\Models\DeclarationIdentity;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,13 +19,18 @@ use Illuminate\Database\Eloquent\Builder;
  * different people. Matching on user_id alone hands one of them the other's
  * declaration.
  *
- * Someone converted from non-employee to employee has two identities: the
- * kpncorp account they now sign into via SSO, and the local non-employee
- * account they used before. The link is `users.employee_id` on the local
- * account, set by the conversion in the credentials screen. Nothing is moved
- * or rewritten when that happens -- the old rows keep their own user_id and
- * type and are simply read through the second identity. Undoing a conversion
- * is therefore just clearing that column.
+ * One human can hold several such identities over time -- a non-employee login,
+ * and one or more employee stints across rehires (each rehire mints a fresh
+ * employee_id). Those identities are grouped under a person in
+ * declaration_identities by IdentityLinkService, which owns the cross-database
+ * chain walk. This service only reads that grouping: it maps the signed-in
+ * account to its person and returns every identity in the group.
+ *
+ * Nothing here writes: the grouping is materialised on login and by the
+ * identities:backfill command. If an account has no group row yet (a standalone
+ * identity, or one not synced), it falls back to "self only" -- the account's
+ * own declarations -- so a missing or incomplete grouping can only narrow a
+ * person's own history, never lose a declaration or expose someone else's.
  */
 class DeclarationScopeService
 {
@@ -40,52 +46,47 @@ class DeclarationScopeService
             return [];
         }
 
-        if (! $user instanceof User) {
-            // A non-employee only ever has the one identity. Once converted
-            // they sign in through SSO as an employee instead, and this same
-            // row is then reached below as a prior identity.
-            return [[
-                'user_id' => (int) $user->id,
-                'type' => 'non_employee',
-            ]];
+        $type = $user instanceof User
+            ? DeclarationIdentity::TYPE_EMPLOYEE
+            : DeclarationIdentity::TYPE_NON_EMPLOYEE;
+
+        $userId = (int) $user->id;
+
+        $self = ['user_id' => $userId, 'type' => $type];
+
+        $group = DeclarationIdentity::query()
+            ->where('type', $type)
+            ->where('user_id', $userId)
+            ->value('person_id');
+
+        if ($group === null) {
+            // Not grouped yet: read only this account's own declarations.
+            return [$self];
         }
 
-        $identities = [[
-            'user_id' => (int) $user->id,
-            'type' => 'employee',
-        ]];
+        $identities = DeclarationIdentity::query()
+            ->where('person_id', $group)
+            // Current identity first, then a stable order for the rest.
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get(['user_id', 'type'])
+            ->map(fn (DeclarationIdentity $identity) => [
+                'user_id' => (int) $identity->user_id,
+                'type' => $identity->type,
+            ])
+            ->all();
 
-        foreach ($this->priorNonEmployeeIds($user) as $id) {
-            $identities[] = [
-                'user_id' => $id,
-                'type' => 'non_employee',
-            ];
+        // Defensive: if the group somehow omits the signed-in account, still
+        // let them read their own declarations.
+        $hasSelf = collect($identities)->contains(
+            fn ($identity) => $identity['user_id'] === $userId && $identity['type'] === $type
+        );
+
+        if (! $hasSelf) {
+            array_unshift($identities, $self);
         }
 
         return $identities;
-    }
-
-    /**
-     * Local non-employee accounts converted into this employee. Keyed on the
-     * HRIS employee_id, the one identifier stable across the move -- the two
-     * databases number their users independently, and the email changes to the
-     * office domain.
-     *
-     * @return list<int>
-     */
-    public function priorNonEmployeeIds(User $user): array
-    {
-        $employeeId = trim((string) $user->employee_id);
-
-        if ($employeeId === '') {
-            return [];
-        }
-
-        return NonEmployeeUser::query()
-            ->where('employee_id', $employeeId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
     }
 
     /**
