@@ -55,6 +55,8 @@ class GenerateReportDownload implements ShouldQueue
 
             $period = (int) ($filters['period'] ?? now()->year);
 
+            $locale = ($filters['locale'] ?? 'en') === 'id' ? 'id' : 'en';
+
             // No authenticated session on the queue, so the requester is
             // resolved from the download row -- without it the export would
             // ignore their role's data restrictions and dump every row.
@@ -70,7 +72,11 @@ class GenerateReportDownload implements ShouldQueue
                 contributionLevel: $filters['contribution_level'] ?? null,
             );
 
+            // Language marker mirrors the PDF export's filename so a downloaded
+            // EN and ID workbook never collide or get mistaken for each other.
             $fileName = 'COI Report '
+                .strtoupper($locale)
+                .' '
                 .now()->format('Ymd_His')
                 .'.xlsx';
 
@@ -81,7 +87,12 @@ class GenerateReportDownload implements ShouldQueue
                 .'.xlsx';
 
             Excel::store(
-                new ReportExport($records, $period),
+                new ReportExport(
+                    $records,
+                    $period,
+                    $filters['declaration_question'] ?? null,
+                    $locale
+                ),
                 $relativePath,
                 'local'
             );

@@ -10,7 +10,9 @@ class ReportExport implements WithMultipleSheets
 {
     public function __construct(
         protected Collection $data,
-        protected ?int $period = null
+        protected ?int $period = null,
+        protected ?string $detailQuestionKey = null,
+        protected string $locale = 'en'
     ) {}
 
     public function sheets(): array
@@ -19,7 +21,9 @@ class ReportExport implements WithMultipleSheets
 
             new ReportSheet(
                 $this->data,
-                $this->period
+                $this->period,
+                $this->detailQuestionKey,
+                $this->locale
             ),
 
         ];

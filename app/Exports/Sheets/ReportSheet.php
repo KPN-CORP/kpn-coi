@@ -13,12 +13,41 @@ class ReportSheet implements FromArray, WithTitle
 {
     public function __construct(
         protected Collection $data,
-        protected ?int $period = null
-    ) {}
+        protected ?int $period = null,
+        // When set to a question key (e.g. "family_relationship"), that
+        // question's repeater answers are expanded into one column per field,
+        // per entry, at the far right of the sheet. Null means the export keeps
+        // only the Yes/No summary column each question already gets.
+        protected ?string $detailQuestionKey = null,
+        // UI language the export was requested in; drives every header, status
+        // value, and question/field label. Anything but "id" falls back to en.
+        protected string $locale = 'en'
+    ) {
+        $this->locale = $this->locale === 'id' ? 'id' : 'en';
+    }
 
     public function title(): string
     {
-        return 'Team History';
+        return $this->label('Team History', 'Riwayat Tim');
+    }
+
+    /**
+     * Pick the English or Indonesian variant of a fixed string based on the
+     * requested export language. Question and field labels carry their own
+     * en/id arrays and are resolved with loc() instead.
+     */
+    private function label(string $en, string $id): string
+    {
+        return $this->locale === 'id' ? $id : $en;
+    }
+
+    /**
+     * Resolve an ["en" => ..., "id" => ...] label array (from config or a
+     * select option) to the export language, falling back to English.
+     */
+    private function loc(?array $label, string $fallback = ''): string
+    {
+        return (string) ($label[$this->locale] ?? $label['en'] ?? $fallback);
     }
 
     public function array(): array
@@ -32,20 +61,22 @@ class ReportSheet implements FromArray, WithTitle
             ? collect()
             : collect(config('coi.questions'));
 
-        // Question 5 (family relationship) is a repeater -- one declaration can
-        // list several family members. Instead of the single Yes/No column the
-        // other questions get, every family member is spread across its own
-        // group of columns (relationship / name / working area) at the far
-        // right, and the sheet grows as wide as the busiest declaration.
-        $familyQuestion = $questions->firstWhere('key', 'family_relationship');
+        // The one question (if any) whose details the admin asked to expand.
+        // Legacy 2025 has no questionnaire, so detail expansion never applies.
+        $detailQuestion = $isLegacyPeriod
+            ? null
+            : $questions->firstWhere('key', $this->detailQuestionKey);
 
-        $maxFamilyEntries = 0;
+        // A repeater question can hold several entries per declaration, so the
+        // detail block is only as wide as the busiest declaration in this
+        // export. Pre-scan to find that maximum before laying out the header.
+        $maxDetailEntries = 0;
 
-        if ($familyQuestion) {
+        if ($detailQuestion) {
             foreach ($this->data as $row) {
-                $maxFamilyEntries = max(
-                    $maxFamilyEntries,
-                    count($this->familyDetails($row))
+                $maxDetailEntries = max(
+                    $maxDetailEntries,
+                    count($this->detailEntries($row, $this->detailQuestionKey))
                 );
             }
         }
@@ -60,41 +91,47 @@ class ReportSheet implements FromArray, WithTitle
 
         $headers = [
 
-            'Employee ID',
+            $this->label('Employee ID', 'ID Karyawan'),
 
-            'Employee Name',
-            'Business Unit',
-            'Contribution Level',
-            'Work Location',
-            'Employee Status',
-            'Designation',
-            'Join Date',
+            $this->label('Employee Name', 'Nama Karyawan'),
+            $this->label('Business Unit', 'Unit Bisnis'),
+            $this->label('Contribution Level', 'Level Kontribusi'),
+            $this->label('Work Location', 'Lokasi Kerja'),
+            $this->label('Employee Status', 'Status Karyawan'),
+            $this->label('Designation', 'Jabatan'),
+            $this->label('Join Date', 'Tanggal Bergabung'),
 
-            'Declaration Period',
+            $this->label('Declaration Period', 'Periode Deklarasi'),
 
-            'Declaration Type',
+            $this->label('Declaration Type', 'Jenis Deklarasi'),
 
-            'Declaration Status',
+            $this->label('Declaration Status', 'Status Deklarasi'),
 
             $isLegacyPeriod
-                ? 'Attachment Status'
-                : 'Form Status',
+                ? $this->label('Attachment Status', 'Status Lampiran')
+                : $this->label('Form Status', 'Status Formulir'),
 
-            'Submitted At',
+            $this->label('Submitted At', 'Tanggal Kirim'),
 
         ];
 
         foreach ($questions as $question) {
 
-            $headers[] = $question['title']['en'];
+            $headers[] = $this->loc($question['title'] ?? null, $question['key']);
 
         }
 
-        for ($i = 1; $i <= $maxFamilyEntries; $i++) {
+        // Detail columns: "<Field label> <n>" for every field of the selected
+        // question, repeated for each entry group.
+        for ($i = 1; $i <= $maxDetailEntries; $i++) {
 
-            $headers[] = "Family Relationship {$i}";
-            $headers[] = "Name of Family Member {$i}";
-            $headers[] = "Working Area {$i}";
+            foreach ($detailQuestion['fields'] as $field) {
+
+                $label = $this->loc($field['label'] ?? null, $field['key']);
+
+                $headers[] = "{$label} {$i}";
+
+            }
 
         }
 
@@ -126,15 +163,15 @@ class ReportSheet implements FromArray, WithTitle
                 );
 
                 $formStatus = filled($attachment)
-                    ? 'Submitted'
-                    : 'Not Submitted';
+                    ? $this->label('Submitted', 'Terkirim')
+                    : $this->label('Not Submitted', 'Belum Dikirim');
 
             } else {
 
                 $formStatus = match ($row['status']) {
-                    'submitted' => 'Submitted',
-                    'draft' => 'Draft',
-                    default => 'Not Submitted',
+                    'submitted' => $this->label('Submitted', 'Terkirim'),
+                    'draft' => $this->label('Draft', 'Draf'),
+                    default => $this->label('Not Submitted', 'Belum Dikirim'),
                 };
 
             }
@@ -155,14 +192,16 @@ class ReportSheet implements FromArray, WithTitle
                 $row['period'],
 
                 $row['type'] === 'non_employee'
-                    ? 'Non-Employee'
-                    : 'Employee',
+                    ? $this->label('Non-Employee', 'Non Karyawan')
+                    : $this->label('Employee', 'Karyawan'),
 
                 // No submission means there is nothing to judge, so the
                 // declaration status stays empty rather than claiming there is
                 // no conflict.
                 $row['status'] === 'submitted'
-                    ? ($row['has_conflict'] ? 'Has Conflict' : 'No Potential Conflict')
+                    ? ($row['has_conflict']
+                        ? $this->label('Has Conflict', 'Ada Konflik')
+                        : $this->label('No Potential Conflict', 'Tidak Ada Potensi Konflik'))
                     : '-',
 
                 $formStatus,
@@ -192,30 +231,31 @@ class ReportSheet implements FromArray, WithTitle
                     : '-';
             }
 
-            // Family relationship detail columns (see header note). Every row is
-            // padded to $maxFamilyEntries groups with blanks so the columns stay
-            // aligned regardless of how many members each declaration listed.
-            $familyDetails = data_get(
-                $responseMap->get('family_relationship'),
-                'response_value.details',
-                []
-            ) ?: [];
+            // Detail columns for the selected question. Every row is padded to
+            // $maxDetailEntries groups with blanks so the columns stay aligned
+            // regardless of how many entries each declaration listed.
+            if ($detailQuestion) {
 
-            for ($i = 0; $i < $maxFamilyEntries; $i++) {
+                $details = data_get(
+                    $responseMap->get($detailQuestion['key']),
+                    'response_value.details',
+                    []
+                ) ?: [];
 
-                $detail = $familyDetails[$i] ?? null;
+                for ($i = 0; $i < $maxDetailEntries; $i++) {
 
-                $record[] = $detail
-                    ? $this->relationshipLabel($familyQuestion, $detail)
-                    : '';
+                    $detail = $details[$i] ?? null;
 
-                $record[] = $detail
-                    ? (string) data_get($detail, 'family_name', '')
-                    : '';
+                    foreach ($detailQuestion['fields'] as $field) {
 
-                $record[] = $detail
-                    ? $this->workingArea($detail)
-                    : '';
+                        $record[] = is_array($detail)
+                            ? $this->formatFieldValue($field, $detail)
+                            : '';
+
+                    }
+
+                }
+
             }
 
             $rows[] = $record;
@@ -225,69 +265,101 @@ class ReportSheet implements FromArray, WithTitle
     }
 
     /**
-     * The family-member entries a declaration listed for question 5, or an
+     * The repeater entries a declaration listed for the given question, or an
      * empty array when it did not answer / has no submission.
      */
-    private function familyDetails(mixed $row): array
+    private function detailEntries(mixed $row, string $questionKey): array
     {
         $response = collect(data_get($row, 'declaration.responses', []))
             ->keyBy('question_key')
-            ->get('family_relationship');
+            ->get($questionKey);
 
         return data_get($response, 'response_value.details', []) ?: [];
     }
 
     /**
-     * Turn a stored relationship code (e.g. "father") into its English label.
-     * "Others" carries a free-text value, which we prefer over the generic
-     * label so the actual relationship is not lost.
+     * Render one field of one detail entry as a single cell, mirroring how the
+     * report screen (DeclarationViewModal) and the PDF display each type:
+     *  - date_range: "<from> - <to>" (or "Current" for an open end);
+     *  - multi-select (e.g. company): contribution_level_code values resolved to
+     *    their company names, comma-joined;
+     *  - select: the English option label, with any "Others" free text appended;
+     *  - everything else: the raw stored value.
      */
-    private function relationshipLabel(array $question, array $detail): string
+    private function formatFieldValue(array $field, array $detail): string
     {
-        $value = data_get($detail, 'relationship');
+        $key = $field['key'];
+        $type = $field['type'] ?? 'text';
+
+        if ($type === 'date_range') {
+
+            $from = $this->formatDate(data_get($detail, "{$key}_from"));
+
+            $to = data_get($detail, "{$key}_current")
+                ? $this->label('Current', 'Saat Ini')
+                : $this->formatDate(data_get($detail, "{$key}_to"));
+
+            if ($from === '' && $to === '') {
+                return '';
+            }
+
+            return "{$from} - {$to}";
+        }
+
+        $value = data_get($detail, $key);
+
+        // Multi-select values arrive as an array of codes.
+        if (is_array($value)) {
+            return collect($value)
+                ->map(fn ($code) => $this->companyNames()[$code] ?? $code)
+                ->implode(', ');
+        }
 
         if (blank($value)) {
             return '';
         }
 
-        if ($value === 'others') {
-            return (string) (data_get($detail, 'others') ?: 'Others');
+        if ($type === 'select' && ! empty($field['options'])) {
+
+            $option = collect($field['options'])
+                ->firstWhere('value', $value);
+
+            $label = $this->loc($option['label'] ?? null, (string) $value);
+
+            // Options like "Others (please specify)" carry a free-text value in
+            // a sibling key; append it so the specifics are not lost.
+            foreach ($option['requires'] ?? [] as $required) {
+
+                $extra = data_get($detail, $required['key']);
+
+                if (filled($extra)) {
+                    $label .= " ({$extra})";
+                }
+
+            }
+
+            return $label;
         }
 
-        $field = collect($question['fields'])
-            ->firstWhere('key', 'relationship');
-
-        $option = collect($field['options'] ?? [])
-            ->firstWhere('value', $value);
-
-        return (string) ($option['label']['en'] ?? $value);
+        return (string) $value;
     }
 
     /**
-     * The family member's working area as a single cell:
-     * "Business Unit - Company - Division - Position". Company is a multi-select
-     * of contribution_level_code values resolved to their names; empty parts are
-     * dropped so the cell never reads " -  - x".
+     * A stored date (yyyy-mm-dd, or yyyy-mm for month-granular ranges) as
+     * d-m-Y; a value that will not parse is returned untouched rather than
+     * throwing, and a blank stays blank.
      */
-    private function workingArea(array $detail): string
+    private function formatDate(mixed $value): string
     {
-        $company = data_get($detail, 'company');
+        if (blank($value)) {
+            return '';
+        }
 
-        $company = is_array($company)
-            ? collect($company)
-                ->map(fn ($code) => $this->companyNames()[$code] ?? $code)
-                ->implode(', ')
-            : (string) $company;
-
-        return collect([
-            data_get($detail, 'business_unit'),
-            $company,
-            data_get($detail, 'department'),
-            data_get($detail, 'position'),
-        ])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter()
-            ->implode(' - ');
+        try {
+            return Carbon::parse($value)->format('d-m-Y');
+        } catch (\Throwable) {
+            return (string) $value;
+        }
     }
 
     /**

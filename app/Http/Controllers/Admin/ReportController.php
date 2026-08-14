@@ -66,6 +66,10 @@ class ReportController extends Controller
             $declarationStatus = null;
         }
 
+        // Export-only: which question's repeater details to expand into columns.
+        // It never filters rows, so it plays no part in getDeclarations().
+        $detailQuestion = $this->normalizeQuestionKey($request->declaration_question);
+
         $records = app(
             ReportService::class
         )->getDeclarations(
@@ -96,6 +100,7 @@ class ReportController extends Controller
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
                     'contribution_level' => $request->contribution_level,
+                    'declaration_question' => $detailQuestion,
                     'latest_submission' => $latestSubmission,
                     'per_page' => $perPage,
                     'sort' => $sort,
@@ -135,6 +140,8 @@ class ReportController extends Controller
                 'type' => $request->type,
                 'business_unit' => $request->business_unit,
                 'contribution_level' => $request->contribution_level,
+                'declaration_question' => $this->normalizeQuestionKey($request->declaration_question),
+                'locale' => $request->string('locale')->toString() === 'id' ? 'id' : 'en',
                 'search' => $request->search,
                 'latest_submission' => $request->boolean('latest_submission', true),
             ],
@@ -264,6 +271,22 @@ class ReportController extends Controller
         abort_if(! $path || ! Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->download($path);
+    }
+
+    /**
+     * A declaration-question key only if it names a real question; anything
+     * else (including an empty string) becomes null, meaning "no detail
+     * expansion" for the export.
+     */
+    private function normalizeQuestionKey(mixed $value): ?string
+    {
+        $value = is_string($value) ? $value : null;
+
+        $keys = array_column(config('coi.questions'), 'key');
+
+        return in_array($value, $keys, true)
+            ? $value
+            : null;
     }
 
     /**

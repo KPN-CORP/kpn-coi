@@ -66,6 +66,7 @@ const props = defineProps<{
         search?: string
         business_unit?: string
         contribution_level?: string
+        declaration_question?: string
         latest_submission?: boolean
         per_page?: number
         sort?: string
@@ -82,6 +83,7 @@ const filter = useForm({
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
     contribution_level: props.filters.contribution_level ?? '',
+    declaration_question: props.filters.declaration_question ?? '',
     latest_submission: props.filters.latest_submission ?? true,
     per_page: props.filters.per_page ?? 20,
     sort: props.filters.sort ?? '',
@@ -178,6 +180,31 @@ function getQuestionTitle(key: string) {
     )
 
     return question?.title?.[locale.value] ?? key
+}
+
+// Options for the export-only "Question Detail" filter: pick a question to
+// expand its per-answer details as extra columns in the Excel export. Titles
+// are long, so prefix with the appendix number and trim to keep the dropdown
+// readable.
+const questionDetailOptions = computed(() => [
+    { value: '', label: t.value.report.noQuestionDetail },
+    ...coiQuestions.value.map((q: any) => {
+        const title = String(q.title?.[locale.value] ?? q.key)
+            .replace(/\s+/g, ' ')
+            .trim()
+
+        return {
+            value: q.key,
+            label: `${q.appendix}. ${
+                title.length > 70 ? `${title.slice(0, 70)}…` : title
+            }`,
+        }
+    }),
+])
+
+function onQuestionDetailSelected(value: string | number | null) {
+    filter.declaration_question = value == null ? '' : String(value)
+    applyFilter()
 }
 
 function downloadPdf(
@@ -279,6 +306,26 @@ function applyFilter() {
         },
     )
 }
+
+// Export-only options start collapsed, but auto-open when a question detail is
+// already selected (e.g. restored from the URL) so the active choice is visible.
+const showExportOptions = ref(!!props.filters.declaration_question)
+
+// Clear every filter back to its default (current period, no status/search,
+// latest-submission on) in one click. Sort/pagination are left untouched.
+function resetFilters() {
+    filter.period = new Date().getFullYear()
+    filter.type = ''
+    filter.business_unit = ''
+    filter.contribution_level = ''
+    filter.declaration_question = ''
+    filter.status = ''
+    filter.declaration_status = ''
+    filter.search = ''
+    filter.latest_submission = true
+
+    applyFilter()
+}
 function changePerPage(value: number) {
     filter.per_page = value
 
@@ -325,7 +372,9 @@ async function exportExcel() {
                     Accept: 'application/json',
                     'X-CSRF-TOKEN': csrfToken(),
                 },
-                body: JSON.stringify(filter.data()),
+                // Stamp the active UI language so the workbook (headers, status
+                // values, question labels) and its filename match the screen.
+                body: JSON.stringify({ ...filter.data(), locale: locale.value }),
             },
         )
 
@@ -571,6 +620,64 @@ async function pollExport(id: number, attempt = 0) {
                         </label>
                     </div>
 
+            </div>
+
+            <!-- Actions row: collapse toggle for export-only options (left) and
+                 a reset for the data filters (right). -->
+            <div
+                class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"
+            >
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
+                    :aria-expanded="showExportOptions"
+                    @click="showExportOptions = !showExportOptions"
+                >
+                    <i
+                        class="fa-solid fa-chevron-right text-xs text-slate-400 transition-transform duration-200"
+                        :class="{ 'rotate-90': showExportOptions }"
+                    />
+                    {{ t.report.exportOptions }}
+                    <span
+                        v-if="filter.declaration_question"
+                        class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white"
+                    >
+                        1
+                    </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                    @click="resetFilters"
+                >
+                    <i class="fa-solid fa-rotate-left" />
+                    {{ t.report.resetFilters }}
+                </button>
+            </div>
+
+            <!-- Collapsible export-only options. Kept out of the filter grid so
+                 it is obvious these change the Excel file, not the table. -->
+            <div
+                v-show="showExportOptions"
+                class="mt-4 rounded-md border border-border bg-slate-50 p-4"
+            >
+                <div class="flex w-full flex-col gap-1.5 sm:max-w-md">
+                    <label class="text-sm font-medium text-slate-700">
+                        {{ t.report.questionDetail }}
+                    </label>
+
+                    <SearchSelect
+                        :model-value="filter.declaration_question"
+                        :options="questionDetailOptions"
+                        :placeholder="t.report.noQuestionDetail"
+                        @update:model-value="onQuestionDetailSelected"
+                    />
+
+                    <p class="text-xs leading-snug text-slate-500">
+                        {{ t.report.questionDetailHint }}
+                    </p>
+                </div>
             </div>
 
         </Card>
