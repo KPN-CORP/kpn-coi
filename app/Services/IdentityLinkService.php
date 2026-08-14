@@ -25,10 +25,13 @@ use Illuminate\Support\Facades\DB;
  *
  * Neither can be a foreign key (the two tables live in different databases), so
  * the grouping is materialised here into declaration_identities and read back
- * by DeclarationScopeService. Resolution walks the whole connected component in
- * both directions, so signing in as any identity -- latest stint, a prior
- * stint, or the old local login -- yields the same set. Nothing about
- * coi_declarations is ever touched: this is a read-side index only.
+ * by DeclarationScopeService. Resolution follows the rehire chain **backward
+ * only** (current stint -> its previous -> ...) plus the non-employee logins
+ * attached to each stint. It never walks forward ("who lists me as previous?"):
+ * that fans out across every row sharing a sentinel value and would merge
+ * unrelated people. Completeness across a whole chain instead comes from the
+ * backfill, which seeds from every declarant and union-finds their groups
+ * together. Nothing about coi_declarations is ever touched: read-side only.
  */
 class IdentityLinkService
 {
@@ -144,28 +147,23 @@ class IdentityLinkService
             foreach ($rows as $row) {
                 $add(DeclarationIdentity::TYPE_EMPLOYEE, (int) $row->id, $employeeId);
 
-                // Backward: the immediately-previous stint.
+                // Backward ONLY: follow this stint to its immediately-previous
+                // one. We deliberately never walk forward ("who lists me as
+                // their previous?"). A forward hop fans out across every row
+                // sharing a value, and rehire exports routinely put a sentinel
+                // (0, '-', 'N/A', ...) in this column instead of null for
+                // non-rehired staff -- forward traversal through that sentinel
+                // would merge the whole company into one person and leak every
+                // declaration to everyone. Backward is a simple one-parent
+                // chain and cannot fan out; the current stint always seeds the
+                // walk, and the backfill's union-find joins earlier stints to it
+                // from their own seeds, so backward alone is complete.
                 $previous = $row->previousEmployeeId();
                 if ($previous !== null) {
                     $prevPointers[$previous] = true;
                     if (! isset($visited[$previous])) {
                         $queue[] = $previous;
                     }
-                }
-            }
-
-            // Forward: later stints whose "previous" points back at this id.
-            $laterIds = Employee::query()
-                ->whereNull('deleted_at')
-                ->where(Employee::REHIRE_PREVIOUS_ID, $employeeId)
-                ->pluck('employee_id');
-
-            $prevPointers[$employeeId] = true;
-
-            foreach ($laterIds as $laterId) {
-                $laterId = trim((string) $laterId);
-                if ($laterId !== '' && ! isset($visited[$laterId])) {
-                    $queue[] = $laterId;
                 }
             }
 
