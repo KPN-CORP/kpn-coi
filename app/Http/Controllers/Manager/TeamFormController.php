@@ -43,6 +43,16 @@ class TeamFormController extends Controller
                     ->orWhere('manager_l2_id', $managerId)
             );
 
+        // Direct reports name this manager as L1; everyone else in the team
+        // reaches them through L2 only.
+        $directIds = (clone $team)
+            ->where('manager_l1_id', $managerId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->flip();
+
+        $line = in_array($request->line, ['direct', 'indirect'], true) ? $request->line : null;
+
         $rows = $this->report->buildRows(
             $formType->id,
             $period,
@@ -58,15 +68,52 @@ class TeamFormController extends Controller
                 ->when(
                     $request->filled('business_unit'),
                     fn ($query) => $query->where('group_company', $request->business_unit)
+                )
+                ->when(
+                    $line === 'direct',
+                    fn ($query) => $query->where('manager_l1_id', $managerId)
+                )
+                ->when(
+                    $line === 'indirect',
+                    fn ($query) => $query->where(
+                        fn ($inner) => $inner
+                            ->whereNull('manager_l1_id')
+                            ->orWhere('manager_l1_id', '!=', $managerId)
+                    )
                 ),
             null
-        );
+        )->map(fn (array $row) => [
+            ...$row,
+            'relation' => $directIds->has($row['user_id']) ? 'direct' : 'indirect',
+        ]);
 
+        // Counts for the status tabs: taken before the status filter so every
+        // tab shows its own size.
         $stats = $this->report->stats($rows);
 
-        if (in_array($request->status, ['signed', 'draft', 'pending', 'no_template'], true)) {
-            $rows = $rows->where('status', $request->status)->values();
-        }
+        $status = in_array($request->status, ['not_signed', 'signed', 'draft', 'pending', 'no_template'], true)
+            ? $request->status
+            : null;
+
+        $rows = match ($status) {
+            // "Not signed" = not started + saved as draft.
+            'not_signed' => $rows->whereIn('status', ['pending', 'draft'])->values(),
+            null => $rows,
+            default => $rows->where('status', $status)->values(),
+        };
+
+        $sort = in_array($request->sort, ['name', 'status', 'signed_at', 'business_unit'], true) ? $request->sort : 'name';
+        $direction = $request->direction === 'desc' ? 'desc' : 'asc';
+
+        // Status sorts by how far along someone is, not alphabetically.
+        $statusOrder = ['pending' => 0, 'draft' => 1, 'signed' => 2, 'no_template' => 3];
+        $sortValue = fn (array $row) => match ($sort) {
+            'status' => $statusOrder[$row['status']] ?? 9,
+            'signed_at' => $row['signed_at'] ?? '',
+            default => mb_strtolower((string) ($row[$sort] ?? '')),
+        };
+
+        $rows = ($direction === 'desc' ? $rows->sortByDesc($sortValue) : $rows->sortBy($sortValue))->values();
 
         $perPage = (int) $request->input('per_page', 10);
 
@@ -89,8 +136,11 @@ class TeamFormController extends Controller
                 'form_type' => $formType->id,
                 'period' => $period,
                 'search' => $search,
-                'status' => $request->status,
+                'status' => $status,
                 'business_unit' => $request->business_unit,
+                'line' => $line,
+                'sort' => $sort,
+                'direction' => $direction,
             ],
             'formType' => $formType->summary(),
             // Switching type on the page moves to that type's team URL.

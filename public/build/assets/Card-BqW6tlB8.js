@@ -1,0 +1,1 @@
+import{F as e,L as t,S as n}from"./app-CBaWa6ov.js";import{t as r}from"./_plugin-vue_export-helper-BDNMzG2s.js";var i={},a={class:``};function o(r,i){return e(),n(`div`,a,[t(r.$slots,`default`)])}var s=r(i,[[`render`,o]]);export{s as t};
