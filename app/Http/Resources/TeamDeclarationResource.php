@@ -18,6 +18,12 @@ class TeamDeclarationResource extends JsonResource
             ? User::find($this->user_id)
             : NonEmployeeUser::find($this->user_id);
 
+        // The account can outlive its profile row (an HRIS user with no
+        // matching employees.id, a non-employee without a non_employees row),
+        // so the profile is optional: fall back to the account's own name
+        // rather than failing the whole page.
+        $profile = $owner?->employee;
+
         return [
 
             'id' => $this->id,
@@ -36,16 +42,14 @@ class TeamDeclarationResource extends JsonResource
                 'id' => $owner?->id,
 
                 'name' => $this->type === 'employee'
-                    ? $owner?->employee->fullname
+                    ? ($profile?->fullname ?? $owner?->name)
                     : $owner?->name,
 
                 'employee_id' => $this->type === 'employee'
                     ? $owner?->employee_id
                     : null,
 
-                'ktp' => $this->type === 'employee'
-                    ? $owner?->employee->ktp
-                    : $owner?->employee->ktp,
+                'ktp' => $profile?->ktp,
 
                 'designation' => $this->type === 'employee'
                     ? $owner?->designation_name

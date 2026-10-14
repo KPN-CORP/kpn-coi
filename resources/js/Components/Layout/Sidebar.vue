@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3'
-import { useNavigation } from '@/Composables/useNavigation'
+import { useNavigation, type NavigationItem } from '@/Composables/useNavigation'
 import { useLocale } from '@/Composables/useLocale'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const { t } = useLocale()
 
@@ -19,11 +19,27 @@ defineEmits<{
     close: []
 }>()
 
-function isActive(routeName: string) {
-    return route().current(routeName)
+function isActive(menu: NavigationItem) {
+    // Items sharing a route (one per form type) are told apart by params.
+    return menu.params
+        ? route().current(menu.route, menu.params)
+        : route().current(menu.activePattern ?? menu.route)
 }
 
 const menus = useNavigation()
+
+const menuKey = (menu: NavigationItem) => menu.route + JSON.stringify(menu.params ?? {})
+
+const childActive = (menu: NavigationItem) => Boolean(menu.children?.some(isActive))
+
+// Dropdowns the user toggled; one holding the current page is open regardless.
+const expanded = ref<Record<string, boolean>>({})
+
+const isExpanded = (menu: NavigationItem) => expanded.value[menuKey(menu)] ?? childActive(menu)
+
+function toggle(menu: NavigationItem) {
+    expanded.value[menuKey(menu)] = !isExpanded(menu)
+}
 
 const groupedMenus = computed(() => {
     return menus.value.reduce((groups, menu) => {
@@ -80,24 +96,90 @@ const groupedMenus = computed(() => {
                     {{ section }}
                 </div>
 
-                <Link
+                <template
                     v-for="menu in items"
-                    :key="menu.route"
-                    :href="route(menu.route)"
-                    class="flex items-center gap-3 border-l-4 border-transparent px-6 py-3 text-sm text-text transition-all"
-                    :class="{
-                        'border-primary bg-red-50 text-primary font-bold':
-                            isActive(menu.route),
-                        'hover:bg-red-50 hover:text-primary':
-                            !isActive(menu.route),
-                    }"
+                    :key="menuKey(menu)"
                 >
-                    <i :class="menu.icon" />
+                    <!-- Dropdown (e.g. a form type for a manager) -->
+                    <div v-if="menu.children">
+                        <button
+                            type="button"
+                            class="flex w-full items-center gap-3 border-l-4 border-transparent px-6 py-3 text-left text-sm text-text transition-all hover:bg-red-50 hover:text-primary"
+                            :class="{ 'text-primary font-bold': childActive(menu) }"
+                            :aria-expanded="isExpanded(menu)"
+                            @click="toggle(menu)"
+                        >
+                            <i :class="menu.icon" />
 
-                    <span>
-                        {{ menu.label }}
-                    </span>
-                </Link>
+                            <span>
+                                {{ menu.label }}
+                            </span>
+
+                            <span
+                                v-if="menu.badge"
+                                class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white"
+                            >
+                                {{ menu.badge }}
+                            </span>
+
+                            <i
+                                class="fa-solid fa-chevron-down text-[10px] transition-transform"
+                                :class="[menu.badge ? '' : 'ml-auto', { 'rotate-180': isExpanded(menu) }]"
+                            />
+                        </button>
+
+                        <div v-show="isExpanded(menu)">
+                            <Link
+                                v-for="child in menu.children"
+                                :key="menuKey(child)"
+                                :href="route(child.route, child.params)"
+                                class="flex items-center gap-3 border-l-4 border-transparent py-2.5 pl-12 pr-6 text-sm text-text transition-all"
+                                :class="{
+                                    'border-primary bg-red-50 text-primary font-bold': isActive(child),
+                                    'hover:bg-red-50 hover:text-primary': !isActive(child),
+                                }"
+                            >
+                                <i :class="[child.icon, 'text-xs']" />
+
+                                <span>
+                                    {{ child.label }}
+                                </span>
+
+                                <span
+                                    v-if="child.badge"
+                                    class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white"
+                                >
+                                    {{ child.badge }}
+                                </span>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <Link
+                        v-else
+                        :href="route(menu.route, menu.params)"
+                        class="flex items-center gap-3 border-l-4 border-transparent px-6 py-3 text-sm text-text transition-all"
+                        :class="{
+                            'border-primary bg-red-50 text-primary font-bold':
+                                isActive(menu),
+                            'hover:bg-red-50 hover:text-primary':
+                                !isActive(menu),
+                        }"
+                    >
+                        <i :class="menu.icon" />
+
+                        <span>
+                            {{ menu.label }}
+                        </span>
+
+                        <span
+                            v-if="menu.badge"
+                            class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white"
+                        >
+                            {{ menu.badge }}
+                        </span>
+                    </Link>
+                </template>
             </div>
         </nav>
 

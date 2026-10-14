@@ -3,6 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Employee;
+use App\Models\FormType;
+use App\Services\FormDeclarationService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -47,6 +50,32 @@ class HandleInertiaRequests extends Middleware
                 'is_manager' => $request->user()
                     ? $isManager
                     : false,
+
+                // One employee menu item per active form type, each with the
+                // number of forms waiting for this account's signature.
+                // Migrations are applied by hand on deploy, so missing form
+                // tables must not take every page down with them.
+                'forms' => function () use ($user) {
+                    if (! $user) {
+                        return [];
+                    }
+
+                    try {
+                        $pending = app(FormDeclarationService::class)->pendingCounts($user);
+
+                        return FormType::query()
+                            ->active()
+                            ->ordered()
+                            ->get()
+                            ->map(fn (FormType $type) => [
+                                ...$type->summary(),
+                                'pending' => $pending[$type->id] ?? 0,
+                            ])
+                            ->all();
+                    } catch (QueryException) {
+                        return [];
+                    }
+                },
             ],
 
             'role' => $user && method_exists($user, 'getRoleNames')

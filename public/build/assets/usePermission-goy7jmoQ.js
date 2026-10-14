@@ -1,0 +1,1 @@
+import{a as e,v as t}from"./app-Ce6vn8Ge.js";function n(){let n=e(),r=t(()=>n.props.permissions??[]);function i(e){return r.value.includes(e)}return{can:i,permissions:r}}export{n as t};

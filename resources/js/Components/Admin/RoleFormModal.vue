@@ -106,6 +106,9 @@ const MODULE_ORDER = [
     'credential',
     'role',
     'declaration',
+    'form_dashboard',
+    'form_master',
+    'form_report',
 ] as const
 
 function moduleLabel(module: string): string {
@@ -124,6 +127,15 @@ function moduleLabel(module: string): string {
 
         case 'declaration':
             return t.value.roleForm.moduleDeclarations
+
+        case 'form_dashboard':
+            return t.value.roleForm.moduleFormDashboard
+
+        case 'form_master':
+            return t.value.roleForm.moduleFormMaster
+
+        case 'form_report':
+            return t.value.roleForm.moduleFormReport
 
         default:
             return module

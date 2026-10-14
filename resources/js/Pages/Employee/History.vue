@@ -29,6 +29,12 @@ const coiQuestions = computed(
     () => page.props.coiQuestions
 )
 
+// Form types with something waiting for this person's signature.
+const pendingForms = computed(
+    () => ((page.props.navigation as any)?.forms ?? [])
+        .filter((form: { pending: number }) => form.pending > 0)
+)
+
 const currentYear = new Date().getFullYear()
 
 const hasCurrentYearDeclaration = computed(() =>
@@ -307,6 +313,26 @@ function downloadAttachment(declaration: Declaration) {
             <span>
                 {{ t.history.notSubmittedWarning }}
             </span>
+        </div>
+        <div
+            v-if="pendingForms.length"
+            class="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800"
+        >
+            <i class="fa-solid fa-file-signature" />
+
+            <span>
+                {{ t.forms.pendingBanner }}
+            </span>
+
+            <Link
+                v-for="form in pendingForms"
+                :key="form.code"
+                :href="route('employee.forms.show', { formType: form.code })"
+                class="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 text-primary hover:underline"
+            >
+                {{ form.name[locale] }} ({{ form.pending }})
+                <i class="fa-solid fa-arrow-right text-xs" />
+            </Link>
         </div>
         <div class="mb-6 flex items-center gap-3">
             <select

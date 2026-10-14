@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\CoiDeclaration;
 use App\Models\DeclarationIdentity;
+use App\Models\FormDeclaration;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -117,9 +118,13 @@ class DeclarationScopeService
         );
     }
 
+    /**
+     * Works for any table keyed the same way -- coi_declarations and
+     * form_declarations both identify their signer by (user_id, type).
+     */
     public function owns(
         User|NonEmployeeUser|null $user,
-        CoiDeclaration $declaration
+        CoiDeclaration|FormDeclaration $declaration
     ): bool {
         foreach ($this->identitiesFor($user) as $identity) {
             if (

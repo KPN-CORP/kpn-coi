@@ -33,6 +33,16 @@ class PermissionSeeder extends Seeder
             'declaration.reject',
 
             'reminder.send',
+
+            'form_dashboard.view',
+
+            'form_master.view',
+            'form_master.create',
+            'form_master.update',
+            'form_master.delete',
+
+            'form_report.view',
+            'form_report.export',
         ];
 
         foreach ($permissions as $permission) {
