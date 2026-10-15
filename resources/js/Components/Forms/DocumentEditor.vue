@@ -43,10 +43,22 @@ const disabled = toRef(props, 'disabled')
 const revision = ref(0)
 const bump = () => revision.value++
 
+// Only the part the toolbar is showing can change what it displays.
+const part = (name: Part, model: typeof header) => useFormEditor({
+    model,
+    disabled,
+    onFocus: () => (active.value = name),
+    onTransaction: () => {
+        if (active.value === name) {
+            bump()
+        }
+    },
+})
+
 const editors = {
-    header: useFormEditor({ model: header, disabled, onFocus: () => (active.value = 'header'), onTransaction: bump }),
-    content: useFormEditor({ model: content, disabled, onFocus: () => (active.value = 'content'), onTransaction: bump }),
-    footer: useFormEditor({ model: footer, disabled, onFocus: () => (active.value = 'footer'), onTransaction: bump }),
+    header: part('header', header),
+    content: part('content', content),
+    footer: part('footer', footer),
 }
 
 const activeEditor = computed<Editor | undefined>(() => editors[active.value].value)

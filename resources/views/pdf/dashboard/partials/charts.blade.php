@@ -23,7 +23,7 @@ Overall Status
 <td width="70%" align="center">
 
 <strong>
-Submission by Business Unit
+{{ $barChart['title'] ?? 'Submission by Business Unit' }}
 </strong>
 
 <br><br>

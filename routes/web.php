@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Admin\CredentialController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\FormDashboardController;
 use App\Http\Controllers\Admin\FormReportController;
 use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\FormTypeController;
@@ -238,9 +237,8 @@ Route::middleware(['auth:web'])->prefix('admin')
     // Forms: report and dashboard, one form type at a time.
     Route::prefix('forms')->name('forms.')->group(function () {
 
-        Route::get('/dashboard', [FormDashboardController::class, 'index'])
-            ->middleware('permission:form_dashboard.view')
-            ->name('dashboard');
+        // Merged into the main dashboard (its Form filter); kept for old links.
+        Route::redirect('/dashboard', '/admin/dashboard')->name('dashboard');
 
         Route::get('/report', [FormReportController::class, 'index'])
             ->middleware('permission:form_report.view')

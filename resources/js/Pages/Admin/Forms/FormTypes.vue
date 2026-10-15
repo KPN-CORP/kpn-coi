@@ -37,7 +37,7 @@ const page = usePage<{ flash: Flash }>()
 const editing = ref<FormTypeRow | null>(null)
 const showModal = ref(false)
 
-const form = useForm({
+const BLANK = {
     name_en: '',
     name_id: '',
     description_en: '',
@@ -45,11 +45,15 @@ const form = useForm({
     icon: 'fa-solid fa-file-signature',
     is_active: true,
     sort_order: 0,
-})
+}
+
+const form = useForm({ ...BLANK })
 
 function openCreate() {
     editing.value = null
-    form.reset()
+    // Not form.reset(): after a successful save Inertia makes the submitted
+    // values the new defaults, so "New" would open with the last type saved.
+    Object.assign(form, BLANK)
     form.clearErrors()
     showModal.value = true
 }

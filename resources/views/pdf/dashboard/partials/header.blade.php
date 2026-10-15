@@ -5,7 +5,7 @@
         <td width="70%">
 
             <h2>
-                CONFLICT OF INTEREST
+                {{ mb_strtoupper($formName['en'] ?? 'Conflict of Interest') }}
             </h2>
 
             <h1>

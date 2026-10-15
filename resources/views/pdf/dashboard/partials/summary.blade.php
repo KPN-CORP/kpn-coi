@@ -1,3 +1,8 @@
+@php
+    // Form types reuse the COI card slots: submitted/pending are signed/not
+    // signed, and the fourth card is drafts instead of conflicts.
+    $isForm = ($formKind ?? 'coi') === 'form';
+@endphp
 <table style="margin-top:20px;margin-bottom:25px;">
 
     <tr>
@@ -34,7 +39,7 @@
 
                     <td align="center">
 
-                        <strong>Submitted</strong>
+                        <strong>{{ $isForm ? 'Signed' : 'Submitted' }}</strong>
 
                         <br><br>
 
@@ -58,7 +63,7 @@
 
                     <td align="center">
 
-                        <strong>Not Submitted</strong>
+                        <strong>{{ $isForm ? 'Not Signed' : 'Not Submitted' }}</strong>
 
                         <br><br>
 
@@ -82,12 +87,12 @@
 
                     <td align="center">
 
-                        <strong>Conflict</strong>
+                        <strong>{{ $isForm ? 'Draft Saved' : 'Conflict' }}</strong>
 
                         <br><br>
 
                         <span style="font-size:28px;color:red;">
-                            {{ $stats['conflict'] }}
+                            {{ $isForm ? $stats['draft'] : $stats['conflict'] }}
                         </span>
 
                     </td>

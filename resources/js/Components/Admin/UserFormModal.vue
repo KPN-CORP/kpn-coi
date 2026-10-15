@@ -3,7 +3,7 @@ import { watch, reactive, ref, computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import Modal from '@/Components/UI/Modal.vue'
 import DateInput from '@/Components/UI/DateInput.vue'
-import SearchSelect from '@/Components/SearchSelect.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import countries from '@/Config/countries.json'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
@@ -470,6 +470,11 @@ watch(() => form.address, () => {
  * Same reasoning as setNationalityType: driven from @change, not a watcher, so
  * that form.reset() does not wipe the location it just restored.
  */
+const businessUnitSelectOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allBusinessUnits },
+    ...props.businessUnitOptions.map(item => ({ value: item, label: item })),
+])
+
 function setBusinessUnit(value: string) {
 
     if (form.business_unit === value) {
@@ -739,10 +744,11 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                             <span class="text-red-500">*</span>
                         </label>
 
-                        <SearchSelect
+                        <SearchableSelect
                             v-model="form.nationality"
                             :options="nationalityOptions"
                             :placeholder="t.userForm.selectNationality"
+                            append-to-body
                         />
 
                         <p
@@ -809,23 +815,13 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         <span class="text-red-500">*</span>
                     </label>
 
-                    <select
-                        :value="form.business_unit"
-                        class="w-full rounded-md border border-border px-3 py-2 text-sm"
-                        @change="setBusinessUnit(($event.target as HTMLSelectElement).value)"
-                    >
-                        <option value="">
-                            {{ t.teamHistory.allBusinessUnits }}
-                        </option>
-
-                        <option
-                            v-for="item in businessUnitOptions"
-                            :key="item"
-                            :value="item"
-                        >
-                            {{ item }}
-                        </option>
-                    </select>
+                    <SearchableSelect
+                        :model-value="form.business_unit"
+                        :options="businessUnitSelectOptions"
+                        class="w-full"
+                        append-to-body
+                        @change="setBusinessUnit(String($event))"
+                    />
 
                     <p
                         v-if="getError('business_unit')"
@@ -846,10 +842,11 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         {{ t.userForm.officeLocation }}
                     </label>
 
-                    <SearchSelect
+                    <SearchableSelect
                         v-model="form.office_area"
                         :options="officeAreasForBusinessUnit"
                         :placeholder="t.userForm.selectOfficeLocation"
+                        append-to-body
                     />
 
                     <p

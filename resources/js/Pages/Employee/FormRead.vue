@@ -21,6 +21,8 @@ const props = defineProps<{
     document: ReadDocument
     draft: { agreed_at: string | null } | null
     fullName: string
+    // The wording being read; the signature is refused if it changes.
+    version: string
 }>()
 
 const { t, locale } = useLocale()
@@ -31,6 +33,7 @@ const page = usePage<{ flash: Flash }>()
 // saved draft means it was already read and agreed to.
 
 const documentEl = ref<HTMLElement | null>(null)
+const actionBar = ref<HTMLElement | null>(null)
 const endMarker = ref<HTMLElement | null>(null)
 const progress = ref(0)
 const reachedEnd = ref(props.draft !== null)
@@ -41,7 +44,8 @@ function updateProgress() {
     }
 
     const box = documentEl.value.getBoundingClientRect()
-    const seen = window.innerHeight - box.top
+    // What has been visible above the fixed action bar.
+    const seen = window.innerHeight - (actionBar.value?.offsetHeight ?? 0) - box.top
     progress.value = Math.max(0, Math.min(1, seen / box.height))
 
     if (progress.value >= 0.99) {
@@ -51,17 +55,29 @@ function updateProgress() {
 
 let observer: IntersectionObserver | null = null
 
+// One layout read per animation frame, however fast the scroll events come.
+let frame = 0
+
+function onScroll() {
+    cancelAnimationFrame(frame)
+    frame = requestAnimationFrame(updateProgress)
+}
+
 onMounted(() => {
     updateProgress()
-    window.addEventListener('scroll', updateProgress, { passive: true })
+    window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', updateProgress)
+
+    // The fixed action bar covers the bottom of the screen; the end only
+    // counts as read once it is visible above it.
+    const barHeight = actionBar.value?.offsetHeight ?? 0
 
     observer = new IntersectionObserver((entries) => {
         if (entries.some(entry => entry.isIntersecting)) {
             reachedEnd.value = true
             progress.value = 1
         }
-    })
+    }, { rootMargin: `0px 0px -${barHeight}px 0px` })
 
     if (endMarker.value) {
         observer.observe(endMarker.value)
@@ -69,7 +85,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-    window.removeEventListener('scroll', updateProgress)
+    window.removeEventListener('scroll', onScroll)
+    cancelAnimationFrame(frame)
     window.removeEventListener('resize', updateProgress)
     observer?.disconnect()
 })
@@ -220,7 +237,10 @@ function saveDraft() {
         </div>
 
         <!-- Actions, always in reach -->
-        <div class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur lg:left-[260px]">
+        <div
+            ref="actionBar"
+            class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur lg:left-[260px]"
+        >
             <div class="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between">
                 <label
                     class="flex items-start gap-3"
@@ -277,6 +297,7 @@ function saveDraft() {
             :template-id="document.id"
             :document-title="document.title[locale]"
             :full-name="fullName"
+            :version="version"
             @close="showSignature = false"
         />
     </EmployeeLayout>

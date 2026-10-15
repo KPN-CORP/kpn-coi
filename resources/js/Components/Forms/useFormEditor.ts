@@ -5,7 +5,7 @@ import Image from '@tiptap/extension-image'
 import { BackgroundColor, Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
-import { onBeforeUnmount, watch, type Ref } from 'vue'
+import { watch, type Ref } from 'vue'
 import { FormTable, FormTableCell, FormTableHeader, FormTableRow, TabNode } from './EditorExtensions'
 import { VariableNode } from './VariableNode'
 
@@ -21,6 +21,10 @@ export function useFormEditor(options: {
     // Every change, selection moves included -- drives the shared toolbar.
     onTransaction?: () => void
 }) {
+    // The HTML this editor last reported. Comparing against it (instead of
+    // calling getHTML() again) keeps each keystroke to one serialisation.
+    let lastEmitted = options.model.value
+
     const editor = useEditor({
         content: options.model.value,
         editable: !options.disabled.value,
@@ -64,7 +68,8 @@ export function useFormEditor(options: {
             attributes: { class: 'form-content' },
         },
         onUpdate: ({ editor: instance }) => {
-            options.model.value = instance.getHTML()
+            lastEmitted = instance.getHTML()
+            options.model.value = lastEmitted
         },
         onFocus: ({ editor: instance }) => options.onFocus(instance as Editor),
         onTransaction: () => options.onTransaction?.(),
@@ -73,14 +78,15 @@ export function useFormEditor(options: {
     // Only push outside changes in (a sample, a copy from the other language);
     // echoing our own value back would reset the cursor on every keystroke.
     watch(options.model, (value) => {
-        if (editor.value && value !== editor.value.getHTML()) {
+        if (editor.value && value !== lastEmitted) {
+            lastEmitted = value
             editor.value.commands.setContent(value, { emitUpdate: false })
         }
     })
 
     watch(options.disabled, (disabled) => editor.value?.setEditable(!disabled))
 
-    onBeforeUnmount(() => editor.value?.destroy())
+    // No destroy() here: useEditor() destroys the editor on unmount itself.
 
     return editor
 }

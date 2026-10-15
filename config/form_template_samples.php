@@ -50,9 +50,9 @@ $identityId = '<table><tbody>'
 return [
 
     // HC form 017.FORM.CHC.X.2026, transcribed from the Word original: A4,
-    // logo header, form number footer. The "Yang menyatakan / Nama / Tanggal"
-    // block of the Word form is left out -- the PDF prints the electronic
-    // signature block itself.
+    // logo header, form number footer. The Word form's "Nama / Tanggal"
+    // lines are replaced by {{signature}}, which prints the name and the
+    // signing date and time.
     [
         'key' => 'kpn_2026',
         'form_type' => 'integrity-pact',
@@ -99,7 +99,14 @@ return [
             .'<li><p style="text-align: justify">Menghindari dan/atau melaporkan ke pihak yang berwenang dalam Perusahaan segala bentuk konflik kepentingan (<em>conflict of interest</em>) yang terjadi dalam Perusahaan;</p></li>'
             .'<li><p style="text-align: justify">Tidak menggunakan aset dan sumber daya milik Perusahaan untuk kepentingan pribadi; serta mengembalikan seluruh aset dan sumber daya Perusahaan yang digunakan paling lambat di hari terakhir bekerja saat hubungan kerja dengan Perusahaan berakhir.</p></li>'
             .'</ol>'
-            .'<p style="text-align: justify">Demikian &ldquo;Pakta Integritas&rdquo; ini saya buat dan tanda tangani tanpa ada paksaan dari pihak manapun. Apabila di kemudian hari terbukti perilaku saya bertentangan dengan pernyataan-pernyataan yang saya buat dalam &ldquo;Pakta Integritas&rdquo; ini maka saya bersedia menerima konsekuensi sesuai peraturan, kebijakan dan ketentuan yang berlaku dalam Perusahaan.</p>',
+            .'<p style="text-align: justify">Demikian &ldquo;Pakta Integritas&rdquo; ini saya buat dan tanda tangani tanpa ada paksaan dari pihak manapun. Apabila di kemudian hari terbukti perilaku saya bertentangan dengan pernyataan-pernyataan yang saya buat dalam &ldquo;Pakta Integritas&rdquo; ini maka saya bersedia menerima konsekuensi sesuai peraturan, kebijakan dan ketentuan yang berlaku dalam Perusahaan.</p>'
+            .'<p></p>'
+            .'<p>Yang menyatakan,</p>'
+            .'<p>'.$v('signature').'</p>'
+            .'<table data-borderless="true"><tbody>'
+            .'<tr><td colwidth="110"><p>Nama lengkap</p></td><td><p>: '.$v('employee_name').'</p></td></tr>'
+            .'<tr><td colwidth="110"><p>Tanggal</p></td><td><p>: '.$v('sign_date').'</p></td></tr>'
+            .'</tbody></table>',
         'content_en' => '<h1 style="text-align: center">INTEGRITY PACT</h1>'
             .'<p style="text-align: justify">I, the undersigned:</p>'
             .'<table><tbody>'
@@ -126,7 +133,14 @@ return [
             .'<li><p style="text-align: justify">Avoid and/or report to the authorized parties within the Company any form of conflict of interest that occurs within the Company;</p></li>'
             .'<li><p style="text-align: justify">Not use Company assets and resources for personal gain; and return all Company assets and resources used no later than the last day of work when the employment relationship with the Company ends.</p></li>'
             .'</ol>'
-            .'<p style="text-align: justify">This &ldquo;Integrity Pact&rdquo; is made and signed by me without any form of coercion from any party. If in the future my behavior is proven to contradict the statements I made in this &ldquo;Integrity Pact&rdquo;, then I am willing to accept the consequences in accordance with the regulations, policies, and provisions applied in the Company.</p>',
+            .'<p style="text-align: justify">This &ldquo;Integrity Pact&rdquo; is made and signed by me without any form of coercion from any party. If in the future my behavior is proven to contradict the statements I made in this &ldquo;Integrity Pact&rdquo;, then I am willing to accept the consequences in accordance with the regulations, policies, and provisions applied in the Company.</p>'
+            .'<p></p>'
+            .'<p>The undersigned,</p>'
+            .'<p>'.$v('signature').'</p>'
+            .'<table data-borderless="true"><tbody>'
+            .'<tr><td colwidth="110"><p>Full name</p></td><td><p>: '.$v('employee_name').'</p></td></tr>'
+            .'<tr><td colwidth="110"><p>Date</p></td><td><p>: '.$v('sign_date').'</p></td></tr>'
+            .'</tbody></table>',
     ],
 
     [
@@ -148,7 +162,8 @@ return [
             .'</ol>'
             .'<p>I understand that any violation of this integrity pact may result in sanctions in accordance with Company regulations and the applicable laws.</p>'
             .'<p>This integrity pact is made consciously and without coercion from any party.</p>'
-            .'<p>'.$v('work_location').', '.$v('sign_date').'</p>',
+            .'<p>Signed at '.$v('work_location').',</p>'
+            .'<p>'.$v('signature').'</p>',
         'content_id' => '<h1 style="text-align: center">PAKTA INTEGRITAS KARYAWAN</h1>'
             .'<p>Saya yang bertanda tangan di bawah ini:</p>'.$identityId
             .'<p>dengan ini menyatakan untuk periode '.$v('period').' bahwa saya akan:</p>'
@@ -162,7 +177,8 @@ return [
             .'</ol>'
             .'<p>Saya memahami bahwa setiap pelanggaran atas pakta integritas ini dapat dikenakan sanksi sesuai dengan peraturan Perusahaan dan hukum yang berlaku.</p>'
             .'<p>Demikian pakta integritas ini saya buat dengan penuh kesadaran dan tanpa paksaan dari pihak mana pun.</p>'
-            .'<p>'.$v('work_location').', '.$v('sign_date').'</p>',
+            .'<p>Ditandatangani di '.$v('work_location').',</p>'
+            .'<p>'.$v('signature').'</p>',
     ],
 
     [
@@ -180,7 +196,8 @@ return [
             .'<li><p>I will not use intermediaries, family members or third parties to do anything I am prohibited from doing myself.</p></li>'
             .'</ol>'
             .'<p>I am prepared to accept the consequences under Company regulations and the law should I breach this statement.</p>'
-            .'<p>'.$v('work_location').', '.$v('sign_date').'</p>',
+            .'<p>Signed at '.$v('work_location').',</p>'
+            .'<p>'.$v('signature').'</p>',
         'content_id' => '<h1 style="text-align: center">PERNYATAAN ANTI SUAP DAN ANTI GRATIFIKASI</h1>'
             .'<p>Saya, '.$v('employee_name').' (ID Karyawan '.$v('employee_id').'), '.$v('job_title').' di '.$v('company').', dengan ini menyatakan bahwa:</p>'
             .'<ol>'
@@ -190,7 +207,8 @@ return [
             .'<li><p>Saya tidak akan menggunakan perantara, anggota keluarga, atau pihak ketiga untuk melakukan hal-hal yang dilarang untuk saya lakukan sendiri.</p></li>'
             .'</ol>'
             .'<p>Saya bersedia menerima konsekuensi sesuai peraturan Perusahaan dan hukum yang berlaku apabila melanggar pernyataan ini.</p>'
-            .'<p>'.$v('work_location').', '.$v('sign_date').'</p>',
+            .'<p>Ditandatangani di '.$v('work_location').',</p>'
+            .'<p>'.$v('signature').'</p>',
     ],
 
     [
@@ -216,7 +234,7 @@ return [
             .'<li><p>Protect all Company information and data entrusted to me, during and after my engagement.</p></li>'
             .'</ul>'
             .'<p>I understand that a breach of this integrity pact may lead to termination of my engagement and other consequences under the agreement and the law.</p>'
-            .'<p>'.$v('sign_date').'</p>',
+            .'<p>'.$v('signature').'</p>',
         'content_id' => '<h1 style="text-align: center">PAKTA INTEGRITAS NON-KARYAWAN</h1>'
             .'<p>Saya yang bertanda tangan di bawah ini:</p>'
             .'<table><tbody>'
@@ -234,7 +252,7 @@ return [
             .'<li><p>Menjaga seluruh informasi dan data Perusahaan yang dipercayakan kepada saya, baik selama maupun setelah masa kerja sama.</p></li>'
             .'</ul>'
             .'<p>Saya memahami bahwa pelanggaran atas pakta integritas ini dapat mengakibatkan pengakhiran kerja sama dan konsekuensi lain sesuai perjanjian dan hukum yang berlaku.</p>'
-            .'<p>'.$v('sign_date').'</p>',
+            .'<p>'.$v('signature').'</p>',
     ],
 
 ];

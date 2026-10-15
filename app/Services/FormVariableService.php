@@ -23,7 +23,24 @@ class FormVariableService
 {
     private const PLACEHOLDER = '/\{\{\s*([a-z_]+)\s*\}\}/';
 
-    private const LOCALIZED_DATES = ['sign_date', 'date_of_birth'];
+    /**
+     * The optional signature block. Printed only where a template places it --
+     * the template owns its signature layout, nothing is added for it.
+     */
+    public const SIGNATURE = 'signature';
+
+    /**
+     * Times are shown in Jakarta time, like the COI declaration PDF -- the
+     * app itself runs in UTC.
+     */
+    public const DISPLAY_TIMEZONE = 'Asia/Jakarta';
+
+    /**
+     * Date variables: kept ISO in values/snapshots and written out in the
+     * reader's language by displayValues(). `sign_date` is a date and time
+     * and is formatted separately.
+     */
+    public const LOCALIZED_DATES = ['date_of_birth', 'date_of_joining'];
 
     /** @var array<string, string>|null contribution_level_code -> name */
     private ?array $companyNames = null;
@@ -58,7 +75,7 @@ class FormVariableService
     }
 
     /**
-     * Raw values, locale-independent. sign_date and date_of_birth stay ISO and
+     * Raw values, locale-independent. Dates (LOCALIZED_DATES) stay ISO and
      * are formatted per language in render().
      *
      * @return array<string, string|null>
@@ -94,43 +111,98 @@ class FormVariableService
             'business_unit' => $profile?->group_company,
             'work_location' => $workLocation,
             'date_of_joining' => $profile?->date_of_joining
-                ? Carbon::parse($profile->date_of_joining)->format('d-m-Y')
+                ? Carbon::parse($profile->date_of_joining)->toDateString()
                 : null,
             'period' => (string) $period,
-            'sign_date' => ($signedAt ?? now())->toDateString(),
+            // Date and time; before signing it is "now", i.e. what it would say.
+            'sign_date' => ($signedAt ?? now())->toIso8601String(),
         ];
     }
 
     /**
-     * Replace every known {{key}} with its escaped value; blanks print as "-".
-     * Unknown keys are left as written so a typo is visible, not silently lost.
+     * Replace every known {{key}} with its display HTML. Unknown keys are left
+     * as written so a typo is visible, not silently lost.
      *
      * @param  array<string, string|null>  $values
      */
     public function render(string $html, array $values, string $locale): string
     {
-        $known = $this->definitions();
+        $display = $this->displayValues($values, $locale);
 
         return (string) preg_replace_callback(
             self::PLACEHOLDER,
-            function (array $match) use ($values, $known, $locale) {
-                $key = $match[1];
-
-                if (! array_key_exists($key, $known)) {
-                    return $match[0];
-                }
-
-                $value = $values[$key] ?? null;
-
-                // Kept ISO in the snapshot; written out in the reader's language.
-                if (in_array($key, self::LOCALIZED_DATES, true) && filled($value)) {
-                    $value = Carbon::parse($value)->locale($locale)->translatedFormat('j F Y');
-                }
-
-                return e(filled($value) ? (string) $value : '-');
-            },
+            fn (array $match) => $display[$match[1]] ?? $match[0],
             $html
         );
+    }
+
+    /**
+     * Every variable as ready-to-insert HTML in one language: text escaped,
+     * blanks as "-", dates written out, the signature as its block. This is
+     * the one place values are formatted -- the template editor's preview
+     * uses this output too rather than formatting again in the browser.
+     *
+     * Pass `signed_name` (with the signing time as `sign_date`) for a real
+     * signature; without it {{signature}} marks where it will appear.
+     *
+     * @param  array<string, string|null>  $values
+     * @return array<string, string>
+     */
+    public function displayValues(array $values, string $locale): array
+    {
+        $display = [];
+
+        foreach (array_keys($this->definitions()) as $key) {
+            $value = $values[$key] ?? null;
+
+            $display[$key] = match (true) {
+                $key === self::SIGNATURE => $this->signatureHtml($values, $locale),
+                $key === 'sign_date' && filled($value) => e($this->dateTime((string) $value, $locale)),
+                in_array($key, self::LOCALIZED_DATES, true) && filled($value) => e($this->date((string) $value, $locale)),
+                default => e(filled($value) ? (string) $value : '-'),
+            };
+        }
+
+        return $display;
+    }
+
+    /**
+     * The name the signer typed, in the COI PDF's handwriting face.
+     *
+     * @param  array<string, string|null>  $values
+     */
+    private function signatureHtml(array $values, string $locale): string
+    {
+        $id = $locale === 'id';
+        $name = trim((string) ($values['signed_name'] ?? ''));
+
+        if ($name === '') {
+            return '<span class="form-signature-placeholder">'.e($id
+                ? 'Tanda tangan Anda akan muncul di sini setelah Anda menandatangani'
+                : 'Your signature will appear here once you sign').'</span>';
+        }
+
+        // Only the typed name, in handwriting: "Declared by", name and date
+        // lines belong to the template's own layout.
+        return '<span class="form-signature-name">'.e($name).'</span>';
+    }
+
+    /** "27 Juli 2026 Pukul 10:38:03" -- the COI declaration's format. */
+    private function dateTime(string $value, string $locale): string
+    {
+        $time = Carbon::parse($value)->timezone(self::DISPLAY_TIMEZONE)->locale($locale === 'id' ? 'id' : 'en');
+
+        // A date-only value (snapshots from before sign_date carried a time).
+        if (strlen($value) <= 10) {
+            return Carbon::parse($value)->locale($locale === 'id' ? 'id' : 'en')->translatedFormat('d F Y');
+        }
+
+        return $time->translatedFormat('d F Y').' '.($locale === 'id' ? 'Pukul' : 'at').' '.$time->format('H:i:s');
+    }
+
+    private function date(string $value, string $locale): string
+    {
+        return Carbon::parse($value)->locale($locale === 'id' ? 'id' : 'en')->translatedFormat('d F Y');
     }
 
     private function companyName(?string $code): ?string

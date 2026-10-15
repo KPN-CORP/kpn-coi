@@ -11,6 +11,7 @@ import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import { formatDate } from '@/Utils/date'
 import Pagination from '@/Components/UI/Pagination.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
 
@@ -397,6 +398,11 @@ function changePerPage(value: number) {
     applyFilter()
 }
 
+const businessUnitSelectOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allBusinessUnits },
+    ...props.businessUnitOptions.map(item => ({ value: item, label: item })),
+])
+
 function applyFilter() {
     router.get(
         route('admin.credentials'),
@@ -418,23 +424,13 @@ function applyFilter() {
         >
             <template #actions>
                 <div class="flex flex-wrap gap-2">
-                    <select
+                    <SearchableSelect
                         v-model="filter.business_unit"
-                        class="min-w-40 rounded-md border border-border px-3 py-2 text-sm"
+                        :options="businessUnitSelectOptions"
+                        class="w-64 max-w-full"
+                        :aria-label="t.common.businessUnit"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.teamHistory.allBusinessUnits }}
-                        </option>
-
-                        <option
-                            v-for="item in businessUnitOptions"
-                            :key="item"
-                            :value="item"
-                        >
-                            {{ item }}
-                        </option>
-                    </select>
+                    />
 
                     <input
                         v-model="filter.search"

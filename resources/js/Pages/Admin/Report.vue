@@ -8,12 +8,16 @@ import { route } from 'ziggy-js'
 import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
-import SearchSelect from '@/Components/SearchSelect.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import { formatDateTime } from '@/Utils/date'
 import debounce from 'lodash/debounce'
 import { useLocale } from '@/Composables/useLocale'
+import { usePermission } from '@/Composables/usePermission'
+import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
+import type { FormRow } from '@/Components/Forms/types'
 
 const { t, locale } = useLocale()
+const { can } = usePermission()
 
 const page = usePage()
 
@@ -43,8 +47,9 @@ interface Declaration {
 }
 
 const props = defineProps<{
+    // COI rows, or FormRow for a form type (formKind === 'form').
     declarations: {
-        data: Declaration[]
+        data: any[]
         links: any[]
         current_page: number
         last_page: number
@@ -72,10 +77,25 @@ const props = defineProps<{
         sort?: string
         direction?: string
     }
+
+    // Which declaration the page shows: 'coi' or a form type code.
+    form: string
+    formKind: 'coi' | 'form'
+    formTypeId: number | null
+    formName: { en: string, id: string }
+    formOptions: { value: string, label: { en: string, id: string } }[]
 }>()
+
+const isForm = computed(() => props.formKind === 'form')
+
+const formSelectOptions = computed(() => props.formOptions.map(option => ({
+    value: option.value,
+    label: option.label[locale.value],
+})))
 
 
 const filter = useForm({
+    form: props.form,
     period: props.filters.period ?? new Date().getFullYear(),
     status: props.filters.status ?? '',
     declaration_status: props.filters.declaration_status ?? '',
@@ -123,7 +143,7 @@ function sortIcon(column: string) {
 // 2025 is a historical import with no per-question breakdown: the Q1..Qn
 // columns collapse into a single conflict mark, and the row's document is
 // opened directly instead of the review modal.
-const isLegacyReport = computed(() => Number(filter.period) === 2025)
+const isLegacyReport = computed(() => !isForm.value && Number(filter.period) === 2025)
 
 function openAttachment(declaration: Declaration) {
     if (!declaration.declaration?.id) {
@@ -296,6 +316,69 @@ function onBusinessUnitChange() {
     applyFilter()
 }
 
+// A form type can be read across every period ('all'); with Latest
+// Submission on that keeps each person's newest signature.
+const periodOptions = computed(() => [
+    ...(isForm.value ? [{ value: 'all', label: t.value.teamHistory.allPeriods }] : []),
+    ...props.periods.map(period => ({ value: period, label: String(period) })),
+])
+
+const typeOptions = computed(() => [
+    { value: '', label: t.value.report.allTypes },
+    { value: 'employee', label: t.value.common.employee },
+    { value: 'non_employee', label: t.value.common.nonEmployee },
+])
+
+const statusOptions = computed(() => (isForm.value
+    ? [
+        { value: '', label: t.value.common.allStatus },
+        { value: 'signed', label: t.value.forms.statusSigned },
+        { value: 'not_signed', label: t.value.forms.statusPending },
+        { value: 'draft', label: t.value.forms.statusDraft },
+        { value: 'pending', label: t.value.forms.statusNotStarted },
+        { value: 'no_template', label: t.value.forms.statusNoTemplate },
+    ]
+    : [
+        { value: '', label: t.value.common.allStatus },
+        { value: 'submitted', label: t.value.common.submitted },
+        { value: 'draft', label: t.value.status.draft },
+        { value: 'pending', label: t.value.common.notSubmitted },
+    ]))
+
+// The form type table: same look as the COI one, columns of a signature.
+const formColumns = computed(() => [
+    { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
+    { label: t.value.common.period, key: 'period', class: '' },
+    { label: t.value.report.columnType, key: 'type', class: '' },
+    { label: t.value.report.columnFormStatus, key: 'status', class: '' },
+    { label: t.value.dashboard.form, key: '', class: '' },
+    { label: t.value.forms.columnSignedAt, key: 'signed_at', class: '' },
+])
+
+function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
+    window.open(
+        route('admin.forms.report.pdf', { declaration: row.declaration_id, locale: language }),
+        '_blank',
+    )
+}
+
+// Status values differ between COI and form types, and so do the sortable
+// columns: a form switch starts from a clean status and sort.
+function onFormChanged() {
+    filter.status = ''
+    filter.declaration_status = ''
+    filter.sort = ''
+    filter.direction = 'asc'
+
+    applyFilter()
+}
+
+const declarationStatusOptions = computed(() => [
+    { value: '', label: t.value.common.allStatus },
+    { value: 'clear', label: t.value.common.clear },
+    { value: 'conflict', label: t.value.common.hasConflict },
+])
+
 function applyFilter() {
     router.get(
         route('admin.report'),
@@ -307,12 +390,63 @@ function applyFilter() {
     )
 }
 
-// Export-only options start collapsed, but auto-open when a question detail is
-// already selected (e.g. restored from the URL) so the active choice is visible.
-const showExportOptions = ref(!!props.filters.declaration_question)
+// --- Filter bar -----------------------------------------------------------------
+// Form, period, search and Latest Submission stay in view; the rest sit in a
+// collapsible panel and show as removable chips while set.
+
+type ChipKey = 'type' | 'business_unit' | 'contribution_level' | 'status' | 'declaration_status' | 'declaration_question'
+
+const labelOf = (options: { value: string | number, label: string }[], value: unknown) =>
+    options.find(option => option.value === value)?.label ?? String(value)
+
+const activeChips = computed(() => {
+    const chips: { key: ChipKey, label: string, value: string }[] = []
+
+    if (filter.type) {
+        chips.push({ key: 'type', label: t.value.dashboard.declarationType, value: labelOf(typeOptions.value, filter.type) })
+    }
+
+    if (filter.business_unit) {
+        chips.push({ key: 'business_unit', label: t.value.report.columnBusinessUnit, value: filter.business_unit })
+    }
+
+    if (filter.contribution_level) {
+        chips.push({ key: 'contribution_level', label: t.value.report.columnContributionLevel, value: labelOf(contributionLevelSelectOptions.value, filter.contribution_level) })
+    }
+
+    if (filter.status) {
+        chips.push({ key: 'status', label: t.value.report.columnFormStatus, value: labelOf(statusOptions.value, filter.status) })
+    }
+
+    if (!isForm.value && filter.declaration_status) {
+        chips.push({ key: 'declaration_status', label: t.value.report.columnDeclarationStatus, value: labelOf(declarationStatusOptions.value, filter.declaration_status) })
+    }
+
+    if (!isForm.value && filter.declaration_question) {
+        chips.push({ key: 'declaration_question', label: t.value.report.questionDetail, value: labelOf(questionDetailOptions.value, filter.declaration_question) })
+    }
+
+    return chips
+})
+
+// Open on arrival only when something in it is already set.
+const showFilterPanel = ref(activeChips.value.length > 0)
+
+function removeChip(key: ChipKey) {
+    filter[key] = ''
+
+    // A company only makes sense inside its business unit.
+    if (key === 'business_unit') {
+        filter.contribution_level = ''
+    }
+
+    applyFilter()
+}
+
+const hasAnyFilter = computed(() => activeChips.value.length > 0 || filter.search !== '' || !filter.latest_submission)
 
 // Clear every filter back to its default (current period, no status/search,
-// latest-submission on) in one click. Sort/pagination are left untouched.
+// latest-submission on) in one click. Form, sort and page size are kept.
 function resetFilters() {
     filter.period = new Date().getFullYear()
     filter.type = ''
@@ -326,6 +460,7 @@ function resetFilters() {
 
     applyFilter()
 }
+
 function changePerPage(value: number) {
     filter.per_page = value
 
@@ -354,8 +489,28 @@ function csrfToken(): string {
     )
 }
 
+const canExport = computed(() => !isForm.value || can('form_report.export'))
+
 async function exportExcel() {
     if (exportState.value === 'generating') {
+        return
+    }
+
+    // A form type's workbook is small and built in the request.
+    if (isForm.value) {
+        window.location.href = route('admin.forms.report.export', {
+            form_type: props.formTypeId,
+            period: filter.period,
+            type: filter.type,
+            business_unit: filter.business_unit,
+            contribution_level: filter.contribution_level,
+            search: filter.search,
+            status: filter.status,
+            latest_submission: filter.latest_submission ? 1 : 0,
+            sort: filter.sort,
+            direction: filter.direction,
+        })
+
         return
     }
 
@@ -433,10 +588,11 @@ async function pollExport(id: number, attempt = 0) {
     <AdminLayout>
         <PageHeader
             :title="t.report.title"
-            :description="t.report.description"
+            :description="`${formName[locale]} - ${t.report.description}`"
         >
             <template #actions>
                 <button
+                    v-if="canExport"
                     class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                     :disabled="exportState === 'generating'"
                     @click="exportExcel"
@@ -456,235 +612,383 @@ async function pollExport(id: number, attempt = 0) {
 
         <!-- FILTERS -->
 
-        <Card class="mb-6">
+        <section class="mb-6 rounded-lg border border-border bg-white shadow-sm">
+            <!-- Always in view: what is reported, for when, and who -->
+            <div class="flex flex-wrap items-end gap-3 p-4">
+                <div class="flex flex-col gap-1.5">
+                    <label
+                        for="report-form"
+                        class="text-xs font-medium uppercase tracking-wide text-slate-500"
+                    >
+                        {{ t.dashboard.form }}
+                    </label>
+                    <SearchableSelect
+                        id="report-form"
+                        v-model="filter.form"
+                        :options="formSelectOptions"
+                        class="w-60 max-w-full"
+                        @change="onFormChanged"
+                    />
+                </div>
 
-            <div class="grid items-end gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div class="flex flex-col gap-1.5">
+                    <label
+                        for="report-period"
+                        class="text-xs font-medium uppercase tracking-wide text-slate-500"
+                    >
+                        {{ t.dashboard.reportingPeriod }}
+                    </label>
+                    <SearchableSelect
+                        id="report-period"
+                        v-model="filter.period"
+                        :options="periodOptions"
+                        class="w-40 max-w-full"
+                        @change="applyFilter"
+                    />
+                </div>
 
-                    <!-- Reporting Period -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
-                            {{ t.dashboard.reportingPeriod }}
-                        </label>
+                <div class="relative min-w-[16rem] flex-1">
+                    <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
+                    <input
+                        v-model="filter.search"
+                        type="search"
+                        :placeholder="t.report.searchPlaceholder"
+                        :aria-label="t.common.search"
+                        class="w-full rounded-md border border-border py-2 pl-9 pr-3 text-sm"
+                    >
+                </div>
 
-                        <select
-                            v-model="filter.period"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
-                            @change="applyFilter"
-                        >
-                            <option
-                                v-for="period in periods"
-                                :key="period"
-                                :value="period"
-                            >
-                                {{ period }}
-                            </option>
-                        </select>
-                    </div>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
+                    :class="showFilterPanel || activeChips.length
+                        ? 'border-primary bg-red-50 text-primary'
+                        : 'border-border text-slate-700 hover:bg-slate-50'"
+                    :aria-expanded="showFilterPanel"
+                    aria-controls="report-filter-panel"
+                    @click="showFilterPanel = !showFilterPanel"
+                >
+                    <i class="fa-solid fa-sliders" />
+                    {{ t.report.filters }}
+                    <span
+                        v-if="activeChips.length"
+                        class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white"
+                    >
+                        {{ activeChips.length }}
+                    </span>
+                    <i
+                        class="fa-solid fa-chevron-down text-xs transition-transform duration-200"
+                        :class="{ 'rotate-180': showFilterPanel }"
+                    />
+                </button>
 
-                    <!-- Declaration Type -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                <!-- Latest Submission: a switch, as it is on/off -->
+                <label class="inline-flex cursor-pointer select-none items-center gap-2 py-2 text-sm text-slate-700">
+                    <input
+                        v-model="filter.latest_submission"
+                        type="checkbox"
+                        role="switch"
+                        class="peer sr-only"
+                        @change="applyFilter"
+                    >
+                    <span
+                        class="relative h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40"
+                        :class="filter.latest_submission ? 'bg-primary' : 'bg-slate-300'"
+                        aria-hidden="true"
+                    >
+                        <span
+                            class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                            :class="{ 'translate-x-4': filter.latest_submission }"
+                        />
+                    </span>
+                    {{ t.report.latestSubmission }}
+                </label>
+            </div>
+
+            <!-- More filters -->
+            <div
+                v-show="showFilterPanel"
+                id="report-filter-panel"
+                class="border-t border-border bg-slate-50/60 px-4 py-4"
+            >
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.dashboard.declarationType }}
                         </label>
-
-                        <select
+                        <SearchableSelect
                             v-model="filter.type"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                            :options="typeOptions"
+                            class="w-full"
                             @change="applyFilter"
-                        >
-                            <option value="">
-                                {{ t.report.allTypes }}
-                            </option>
-                            <option value="employee">
-                                {{ t.common.employee }}
-                            </option>
-
-                            <option value="non_employee">
-                                {{ t.common.nonEmployee }}
-                            </option>
-                        </select>
+                        />
                     </div>
 
-                    <!-- Business Unit -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.report.columnBusinessUnit }}
                         </label>
-
-                        <SearchSelect
+                        <SearchableSelect
                             :model-value="filter.business_unit"
                             :options="businessUnitSelectOptions"
-                            :placeholder="t.teamHistory.allBusinessUnits"
+                            class="w-full"
                             @update:model-value="onBusinessUnitSelected"
                         />
                     </div>
 
-                    <!-- Contribution Level -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.report.columnContributionLevel }}
                         </label>
-
-                        <SearchSelect
+                        <SearchableSelect
                             :model-value="filter.contribution_level"
                             :options="contributionLevelSelectOptions"
-                            :placeholder="t.report.allContributionLevels"
+                            class="w-full"
                             @update:model-value="onContributionLevelSelected"
                         />
                     </div>
 
-                    <!-- Status -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.report.columnFormStatus }}
                         </label>
-
-                        <select
+                        <SearchableSelect
                             v-model="filter.status"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                            :options="statusOptions"
+                            class="w-full"
                             @change="applyFilter"
-                        >
-                            <option value="">
-                                {{ t.common.allStatus }}
-                            </option>
-
-                            <option value="submitted">
-                                {{ t.common.submitted }}
-                            </option>
-
-                            <option value="draft">
-                                {{ t.status.draft }}
-                            </option>
-
-                            <option value="pending">
-                                {{ t.common.notSubmitted }}
-                            </option>
-                        </select>
+                        />
                     </div>
 
-                    <!-- Declaration Status -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
+                    <div
+                        v-if="!isForm"
+                        class="flex flex-col gap-1.5"
+                    >
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.report.columnDeclarationStatus }}
                         </label>
-
-                        <select
+                        <SearchableSelect
                             v-model="filter.declaration_status"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
+                            :options="declarationStatusOptions"
+                            class="w-full"
                             @change="applyFilter"
-                        >
-                            <option value="">
-                                {{ t.common.allStatus }}
-                            </option>
-
-                            <option value="clear">
-                                {{ t.common.clear }}
-                            </option>
-
-                            <option value="conflict">
-                                {{ t.common.hasConflict }}
-                            </option>
-                        </select>
+                        />
                     </div>
+                </div>
 
-                    <!-- Search -->
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">
-                            {{ t.common.search }}
-                        </label>
-
-                        <input
-                            v-model="filter.search"
-                            type="text"
-                            :placeholder="t.report.searchPlaceholder"
-                            class="w-full rounded-md border border-border px-3 py-2 text-sm"
-                        >
-                    </div>
-
-                    <!-- Latest Submission -->
-                    <div class="flex flex-col gap-2">
-                        <label class="hidden text-sm font-medium text-slate-700 sm:block">
-                            &nbsp;
-                        </label>
-
-                        <label
-                            class="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm cursor-pointer select-none"
-                        >
-                            <input
-                                v-model="filter.latest_submission"
-                                type="checkbox"
-                                class="h-4 w-4 rounded border-border"
-                                @change="applyFilter"
-                            >
-                            {{ t.report.latestSubmission }}
-                        </label>
-                    </div>
-
-            </div>
-
-            <!-- Actions row: collapse toggle for export-only options (left) and
-                 a reset for the data filters (right). -->
-            <div
-                class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4"
-            >
-                <button
-                    type="button"
-                    class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-                    :aria-expanded="showExportOptions"
-                    @click="showExportOptions = !showExportOptions"
+                <!-- COI export-only option: kept apart, it changes the Excel
+                     file, not the table. -->
+                <div
+                    v-if="!isForm"
+                    class="mt-4 flex flex-col gap-1.5 border-t border-dashed border-border pt-4 sm:max-w-md"
                 >
-                    <i
-                        class="fa-solid fa-chevron-right text-xs text-slate-400 transition-transform duration-200"
-                        :class="{ 'rotate-90': showExportOptions }"
-                    />
-                    {{ t.report.exportOptions }}
-                    <span
-                        v-if="filter.declaration_question"
-                        class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white"
-                    >
-                        1
-                    </span>
-                </button>
-
-                <button
-                    type="button"
-                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-                    @click="resetFilters"
-                >
-                    <i class="fa-solid fa-rotate-left" />
-                    {{ t.report.resetFilters }}
-                </button>
-            </div>
-
-            <!-- Collapsible export-only options. Kept out of the filter grid so
-                 it is obvious these change the Excel file, not the table. -->
-            <div
-                v-show="showExportOptions"
-                class="mt-4 rounded-md border border-border bg-slate-50 p-4"
-            >
-                <div class="flex w-full flex-col gap-1.5 sm:max-w-md">
-                    <label class="text-sm font-medium text-slate-700">
+                    <label class="flex items-center gap-2 text-xs font-medium text-slate-600">
+                        <i class="fa-solid fa-file-excel text-green-700" />
                         {{ t.report.questionDetail }}
                     </label>
-
-                    <SearchSelect
+                    <SearchableSelect
                         :model-value="filter.declaration_question"
                         :options="questionDetailOptions"
                         :placeholder="t.report.noQuestionDetail"
+                        append-to-body
                         @update:model-value="onQuestionDetailSelected"
                     />
-
                     <p class="text-xs leading-snug text-slate-500">
                         {{ t.report.questionDetailHint }}
                     </p>
                 </div>
             </div>
 
+            <!-- Active filters -->
+            <div
+                v-if="hasAnyFilter"
+                class="flex flex-wrap items-center gap-2 border-t border-border px-4 py-2.5 text-sm"
+            >
+                <span class="text-slate-500">
+                    {{ declarations.total }} {{ t.report.results }}
+                </span>
+
+                <button
+                    v-for="chip in activeChips"
+                    :key="chip.key"
+                    type="button"
+                    class="inline-flex max-w-xs items-center gap-1.5 rounded-full border border-red-100 bg-red-50 px-2.5 py-1 text-xs text-primary hover:bg-red-100"
+                    :aria-label="`${t.report.removeFilter}: ${chip.label} ${chip.value}`"
+                    @click="removeChip(chip.key)"
+                >
+                    <span class="text-slate-500">{{ chip.label }}:</span>
+                    <span class="truncate font-medium">{{ chip.value }}</span>
+                    <i class="fa-solid fa-xmark" />
+                </button>
+
+                <button
+                    type="button"
+                    class="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-primary"
+                    @click="resetFilters"
+                >
+                    <i class="fa-solid fa-rotate-left" />
+                    {{ t.report.resetFilters }}
+                </button>
+            </div>
+        </section>
+
+        <!-- TABLE: form type -->
+
+        <Card v-if="isForm">
+            <div class="table-container">
+                <table class="table-custom min-w-[1100px]">
+                    <thead>
+                        <tr class="border-b border-border text-left text-xs uppercase tracking-wide text-slate-500">
+                            <th
+                                v-for="col in formColumns"
+                                :key="col.label"
+                                :class="['py-3 whitespace-nowrap', col.class]"
+                                :aria-sort="col.key && filter.sort === col.key ? (filter.direction === 'asc' ? 'ascending' : 'descending') : undefined"
+                            >
+                                <button
+                                    v-if="col.key"
+                                    type="button"
+                                    class="inline-flex select-none items-center gap-1.5 uppercase tracking-[inherit] [font:inherit] transition-colors hover:text-slate-700"
+                                    @click="toggleSort(col.key)"
+                                >
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </button>
+
+                                <template v-else>
+                                    {{ col.label }}
+                                </template>
+                            </th>
+                            <th class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]">
+                                {{ t.common.action }}
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody v-if="declarations.data.length">
+                        <tr
+                            v-for="row in (declarations.data as FormRow[])"
+                            :key="row.key"
+                            class="group border-b border-slate-100"
+                        >
+                            <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
+                                <div
+                                    v-if="row.business_unit"
+                                    class="mt-0.5 truncate text-xs text-slate-400"
+                                    :title="row.business_unit"
+                                >
+                                    {{ row.business_unit }}
+                                </div>
+                                <div
+                                    class="truncate font-medium text-slate-800"
+                                    :title="row.name"
+                                >
+                                    {{ row.name }}
+                                </div>
+                                <div class="mt-0.5 truncate text-xs text-slate-400">
+                                    {{ row.employee_id || '-' }}
+                                </div>
+                                <div
+                                    v-if="row.contribution_level"
+                                    class="mt-0.5 truncate text-xs text-slate-400"
+                                    :title="row.contribution_level"
+                                >
+                                    {{ row.contribution_level }}
+                                </div>
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap text-slate-600">
+                                {{ row.period }}
+                            </td>
+
+                            <td class="py-4">
+                                <span
+                                    class="inline-block whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium"
+                                    :class="row.type === 'employee'
+                                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                        : 'border-amber-200 bg-amber-50 text-amber-700'"
+                                >
+                                    {{ row.type === 'employee' ? t.common.employee : t.common.nonEmployee }}
+                                </span>
+                            </td>
+
+                            <td class="py-4">
+                                <FormStatusBadge :status="row.status" />
+                            </td>
+
+                            <td class="py-4 text-slate-600">
+                                {{ row.template_title?.[locale] ?? '-' }}
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap text-slate-600">
+                                {{ row.signed_at ? formatDateTime(row.signed_at) : '-' }}
+                            </td>
+
+                            <td class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]">
+                                <div
+                                    v-if="row.declaration_id"
+                                    class="flex items-center justify-center gap-2"
+                                >
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadFormPdf(row, 'id')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        ID
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary-custom btn-sm"
+                                        @click="downloadFormPdf(row, 'en')"
+                                    >
+                                        <i class="fa-solid fa-file-pdf" />
+                                        EN
+                                    </button>
+                                </div>
+
+                                <span
+                                    v-else
+                                    class="text-xs text-slate-400"
+                                >
+                                    {{ t.common.noSubmission }}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+
+                    <tbody v-else>
+                        <tr>
+                            <td
+                                :colspan="formColumns.length + 1"
+                                class="py-10 text-center"
+                            >
+                                <div class="flex flex-col items-center">
+                                    <i class="fa-solid fa-file-circle-xmark text-4xl text-slate-300" />
+
+                                    <div class="mt-3 font-semibold text-slate-600">
+                                        {{ t.report.noDeclarationsFound }}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <Pagination
+                :links="props.declarations.links"
+                :per-page="props.declarations.per_page"
+                :total="props.declarations.total"
+                :from="props.declarations.from"
+                :to="props.declarations.to"
+                @update:per-page="changePerPage"
+            />
         </Card>
 
-        <!-- TABLE -->
+        <!-- TABLE: Conflict of Interest -->
 
-        <Card>
+        <Card v-else>
             <div class="table-container">
                 <table
                     class="table-custom"

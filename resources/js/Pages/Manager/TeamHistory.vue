@@ -9,6 +9,7 @@ import debounce from 'lodash/debounce'
 import DeclarationReviewModal from '@/Components/Declaration/DeclarationReviewModal.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import { useLocale } from '@/Composables/useLocale'
 
 const { t, locale } = useLocale()
@@ -129,6 +130,28 @@ const sortableColumns = computed(() => [
     { label: t.value.teamHistory.columnDeclarationStatus, key: 'has_conflict' },
 ])
 
+const periodOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allPeriods },
+    ...props.periods.map(period => ({ value: period, label: String(period) })),
+])
+
+const businessUnitSelectOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allBusinessUnits },
+    ...props.businessUnitOptions.map(unit => ({ value: unit, label: unit })),
+])
+
+const statusOptions = computed(() => [
+    { value: '', label: t.value.common.allStatus },
+    { value: 'submitted', label: t.value.common.submitted },
+    { value: 'pending', label: t.value.common.notSubmitted },
+])
+
+const declarationStatusOptions = computed(() => [
+    { value: '', label: t.value.common.allStatus },
+    { value: 'clear', label: t.value.common.clear },
+    { value: 'conflict', label: t.value.common.hasConflict },
+])
+
 function toggleSort(column: string) {
     if (filter.sort === column) {
         filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
@@ -232,23 +255,12 @@ function exportExcel() {
                         {{ t.teamHistory.declarationPeriod }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.period"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        :options="periodOptions"
+                        class="w-48 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.teamHistory.allPeriods }}
-                        </option>
-
-                        <option
-                            v-for="period in periods"
-                            :key="period"
-                            :value="period"
-                        >
-                            {{ period }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Business Unit -->
@@ -257,23 +269,12 @@ function exportExcel() {
                         {{ t.common.businessUnit }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.business_unit"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                        :options="businessUnitSelectOptions"
+                        class="w-64 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.teamHistory.allBusinessUnits }}
-                        </option>
-
-                        <option
-                            v-for="unit in businessUnitOptions"
-                            :key="unit"
-                            :value="unit"
-                        >
-                            {{ unit }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Form Status -->
@@ -282,23 +283,12 @@ function exportExcel() {
                         {{ t.teamHistory.formStatus }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.status"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        :options="statusOptions"
+                        class="w-48 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.common.allStatus }}
-                        </option>
-
-                        <option value="submitted">
-                            {{ t.common.submitted }}
-                        </option>
-
-                        <option value="pending">
-                            {{ t.common.notSubmitted }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Declaration Status -->
@@ -307,23 +297,12 @@ function exportExcel() {
                         {{ t.teamHistory.columnDeclarationStatus }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.declaration_status"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-40"
+                        :options="declarationStatusOptions"
+                        class="w-48 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.common.allStatus }}
-                        </option>
-
-                        <option value="clear">
-                            {{ t.common.clear }}
-                        </option>
-
-                        <option value="conflict">
-                            {{ t.common.hasConflict }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Search -->

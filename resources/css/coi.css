@@ -214,6 +214,38 @@ a {
     --ms-option-color-pointed: var(--primary);
 }
 
+/* SearchableSelect: sized like the text inputs/selects next to it. */
+.multiselect.searchable-select {
+    --ms-font-size: 0.875rem;
+    --ms-line-height: 1.4286; /* unitless: text-sm leading, as on inputs */
+    --ms-py: calc(0.5rem - 1px);
+    --ms-px: 0.75rem;
+    --ms-bg: #fff;
+    --ms-dropdown-radius: var(--radius-md);
+    --ms-max-height: 16rem;
+    background: #fff;
+}
+
+/* Widths (w-48, w-full...) are set by the page on the wrapper. */
+.multiselect.searchable-select .multiselect-single-label {
+    padding-right: 2rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Validation error, like the red-bordered inputs. */
+.searchable-select-error .multiselect.searchable-select {
+    --ms-border-color: #ef4444;
+    --ms-bg: #fef2f2;
+    background: #fef2f2;
+}
+
+/* A dropdown opened on <body> (appendToBody) must clear modals. */
+body > .multiselect-dropdown {
+    z-index: 1100;
+}
+
 /* ===================================
    SIDEBAR
 =================================== */
@@ -845,10 +877,11 @@ select:focus {
 /* An empty paragraph is a blank line the author typed; give it a line's
    height (the server does the same for the PDF, see keepBlankLines). */
 .form-content p:empty::before { content: '\00a0'; }
-.form-content h1 { font-size: 1.4rem; font-weight: 700; }
-.form-content h2 { font-size: 1.2rem; font-weight: 700; }
-.form-content h3 { font-size: 1.05rem; font-weight: 700; }
-.form-content h4 { font-size: 0.95rem; font-weight: 700; }
+/* em: relative to the document's base size, as in the PDF. */
+.form-content h1 { font-size: 1.4em; font-weight: 700; }
+.form-content h2 { font-size: 1.2em; font-weight: 700; }
+.form-content h3 { font-size: 1.1em; font-weight: 700; }
+.form-content h4 { font-size: 1em; font-weight: 700; }
 .form-content ul { list-style: disc; padding-left: 1.5rem; }
 .form-content ol { list-style: decimal; padding-left: 1.5rem; }
 .form-content ol ol { list-style-type: lower-alpha; }
@@ -858,7 +891,8 @@ select:focus {
 .form-content li p { margin: 0; }
 .form-content blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; color: #475569; }
 .form-content hr { border: 0; border-top: 1px solid #cbd5e1; margin: 1rem 0; }
-.form-content table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+/* Auto layout, like the PDF (dompdf ignores cell widths under fixed). */
+.form-content table { width: 100%; border-collapse: collapse; }
 .form-content td,
 .form-content th { border: 1px solid #cbd5e1; padding: 0.35rem 0.5rem; vertical-align: top; }
 .form-content th { background: #f1f5f9; font-weight: 600; text-align: left; }
@@ -878,12 +912,32 @@ select:focus {
 }
 
 .form-content .ProseMirror-selectednode.form-variable { outline: 2px solid #ab2f2b; }
+
+/* {{signature}} -- the COI declaration's signature look; mirrored in
+   resources/views/pdf/form_declaration.blade.php. */
+.form-content .form-signature-name {
+    font-family: 'Ephesis', cursive;
+    font-size: 22pt;
+    line-height: 1.2;
+}
+
+/* Before signing: where the signature will go. */
+.form-content .form-signature-placeholder {
+    display: inline-block;
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.85em;
+    font-style: italic;
+    padding: 0.75rem 1rem;
+}
 .ProseMirror.form-content { outline: none; }
 .ProseMirror .selectedCell { background: #fee2e2; }
 
 /* Where a template's default font is applied (editor, paper view), the
    document text takes it instead of the screen default above. */
-.form-font-inherit .form-content { font-family: inherit; font-size: inherit; line-height: inherit; }
+.form-font-inherit .form-content { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
 .form-content sub,
 .form-content sup { font-size: 0.75em; }
 
@@ -952,6 +1006,8 @@ select:focus {
 }
 .form-zone:hover { border-color: #cbd5e1; }
 .form-zone.is-active { border-color: #f1a5a2; }
+/* Keyboard focus: a clear ring (the editor itself has no outline). */
+.form-zone:focus-within { border-color: #ab2f2b; box-shadow: 0 0 0 2px rgb(171 47 43 / 0.15); }
 .form-zone-label {
     position: absolute;
     top: -0.55rem;

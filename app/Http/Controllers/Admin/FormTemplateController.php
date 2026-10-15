@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SaveFormTemplateRequest;
 use App\Models\FormTemplate;
 use App\Models\FormType;
+use App\Models\User;
 use App\Services\FormTemplateService;
 use App\Services\FormVariableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -106,14 +108,26 @@ class FormTemplateController extends Controller
     {
         abort_unless($this->templates->canManage($template, $request->user()), 403);
 
-        if ($template->isLocked()) {
+        // Checked and written under the template's row lock -- the same lock
+        // signing takes -- so a signature cannot land in between.
+        $saved = DB::transaction(function () use ($request, $template) {
+            $current = FormTemplate::query()->whereKey($template->id)->lockForUpdate()->firstOrFail();
+
+            if ($current->isLocked()) {
+                return false;
+            }
+
+            $this->templates->save($current, $request->validated(), $request->user());
+
+            return true;
+        });
+
+        if (! $saved) {
             return back()->with(
                 'error',
                 'This template has already been signed and can no longer be edited. Duplicate it to make changes.'
             );
         }
-
-        $this->templates->save($template, $request->validated(), $request->user());
 
         return redirect()
             ->route('admin.master.templates.index')
@@ -181,14 +195,19 @@ class FormTemplateController extends Controller
     {
         abort_unless($this->templates->canManage($template, $request->user()), 403);
 
-        if ($template->isLocked()) {
+        // Same row lock as update() and signing.
+        $deleted = DB::transaction(function () use ($template) {
+            $current = FormTemplate::query()->whereKey($template->id)->lockForUpdate()->firstOrFail();
+
+            return $current->isLocked() ? false : (bool) $current->delete();
+        });
+
+        if (! $deleted) {
             return back()->with(
                 'error',
                 'This template has already been signed and cannot be deleted. Deactivate it instead.'
             );
         }
-
-        $template->delete();
 
         return back()->with('success', 'Template deleted.');
     }
@@ -231,12 +250,27 @@ class FormTemplateController extends Controller
             'formTypes' => FormType::options(),
             // Preselect the type the list was filtered by when creating.
             'defaultFormType' => FormType::selectedOrDefault($request->input('form_type'))?->id,
-            // The admin's own data, so the preview reads like a real form.
-            'sampleValues' => $this->variables->resolve(
-                $user,
-                (int) ($template?->period ?? now()->year)
-            ),
+            // The admin's own data, already formatted per language by the
+            // same code signers get, so the preview reads like a real signed
+            // form -- signature included.
+            'previewValues' => $this->previewValues($user, (int) ($template?->period ?? now()->year)),
         ]);
+    }
+
+    /**
+     * @return array{en: array<string, string>, id: array<string, string>}
+     */
+    private function previewValues(User $user, int $period): array
+    {
+        $values = [
+            ...$this->variables->resolve($user, $period),
+            'signed_name' => $this->variables->fullNameFor($user),
+        ];
+
+        return [
+            'en' => $this->variables->displayValues($values, 'en'),
+            'id' => $this->variables->displayValues($values, 'id'),
+        ];
     }
 
     private function summary(FormTemplate $template): array

@@ -6,44 +6,41 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\DashboardExport;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TeamDeclarationResource;
-use App\Models\CoiDeclaration;
-use App\Models\Employee;
-use App\Services\DataScopeService;
 use App\Services\DashboardService;
+use App\Services\FormDashboardService;
+use App\Services\FormSelectionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Date;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 
+/**
+ * One dashboard for every declaration: the "Form" filter picks Conflict of
+ * Interest or one form type (Pakta Integritas, ...). Both are served in the
+ * same shape, so the page and its PDF stay one implementation.
+ */
 class DashboardController extends Controller
 {
-    private DashboardService $dashboardService;
-
-    public function __construct(DashboardService $dashboardService)
-    {
-        $this->dashboardService = $dashboardService;
-    }
+    public function __construct(
+        private readonly DashboardService $dashboardService,
+        private readonly FormDashboardService $formDashboard,
+        private readonly FormSelectionService $forms,
+    ) {}
 
     public function index(Request $request): Response
     {
-        return Inertia::render(
-            'Admin/Dashboard',
-            $this->dashboardService->getDashboardData($request)
-        );
+        return Inertia::render('Admin/Dashboard', $this->data($request));
     }
 
     public function downloadDashboardPdf(Request $request)
     {
-        $data = $this->dashboardService->getDashboardData($request);
+        $data = $this->data($request);
 
         $pdf = Pdf::loadView(
             'pdf.dashboard.dashboard',
             [
-                ...$this->dashboardService->getDashboardData($request),
+                ...$data,
                 'statusChart' => $request->input('status_chart'),
                 'businessUnitChart' => $request->input('business_unit_chart'),
             ]
@@ -51,7 +48,8 @@ class DashboardController extends Controller
             'isRemoteEnabled' => true,
             'isHtml5ParserEnabled' => true,
         ]);
-        return $pdf->download('Commitment Corner Dashboard.pdf');
+
+        return $pdf->download(sprintf('Commitment Corner Dashboard - %s.pdf', $data['formName']['en']));
     }
 
     public function exportExcel(Request $request)
@@ -62,5 +60,23 @@ class DashboardController extends Controller
             ),
             'Commitment Corner Dashboard.xlsx'
         );
+    }
+
+    /**
+     * The selected form's dashboard plus what the Form filter offers.
+     */
+    private function data(Request $request): array
+    {
+        $user = $request->user();
+
+        $options = $this->forms->options($user, 'dashboard.view', 'form_dashboard.view');
+
+        $formType = $this->forms->selected($request, $options);
+
+        $data = $formType
+            ? $this->formDashboard->getDashboardData($request, $formType, $user)
+            : $this->dashboardService->getDashboardData($request);
+
+        return [...$data, ...$this->forms->props($formType, $options)];
     }
 }

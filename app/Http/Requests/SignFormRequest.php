@@ -21,6 +21,8 @@ class SignFormRequest extends FormRequest
             'locale' => ['required', 'in:en,id'],
             'signed_name' => ['required', 'string', 'max:255'],
             'agree' => ['accepted'],
+            // The template's updated_at as shown on the reading page.
+            'version' => ['required', 'string', 'max:40'],
         ];
     }
 

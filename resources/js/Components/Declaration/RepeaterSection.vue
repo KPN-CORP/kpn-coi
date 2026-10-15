@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, watch, watchEffect } from 'vue'
-import SearchSelect from '@/Components/SearchSelect.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
 import DateInput from '@/Components/UI/DateInput.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import { locales } from '@/Config/locales'
 
 interface FieldOption {
@@ -167,6 +167,8 @@ function getMultiOptions(
             name: company.name,
         }))
 }
+
+const yearOptions = computed(() => years.map(year => ({ value: year, label: String(year) })))
 
 function onSelectChange(
     row: Record<string, any>,
@@ -398,30 +400,16 @@ const years = Array.from(
 
                     <!-- Select -->
 
-                    <SearchSelect
+                    <SearchableSelect
                         v-else-if="field.type === 'select'"
                         v-model="row[field.key]"
                         :options="getOptions(field, row)"
                         :placeholder="t.common.selectPlaceholder"
                         :disabled="field.disabled"
-                        @update:modelValue="
+                        @update:model-value="
                             onSelectChange(row, field, index)
                         "
-                    >
-
-                        <option value="" selected disabled>
-                            {{ t.common.selectPlaceholder }}
-                        </option>
-
-                        <option
-                            v-for="option in getOptions(field, row)"
-                            :key="option.value"
-                            :value="option.value"
-                        >
-                            {{ option.label }}
-                        </option>
-
-                    </SearchSelect>
+                    />
 
                     <!-- Date Range -->
 
@@ -486,28 +474,13 @@ const years = Array.from(
                     <!-- Year -->
 
                     <div v-else-if="field.type === 'year'">
-                        <select
+                        <SearchableSelect
                             v-model="row[field.key]"
-                            :class="[
-                                'w-full rounded-md border px-3 py-2 text-sm',
-                                getError(index, field.key)
-                                    ? 'border-red-500 bg-red-50'
-                                    : 'border-border'
-                            ]"
+                            :options="yearOptions"
+                            :placeholder="t.repeater.selectYear"
+                            :class="['w-full', getError(index, field.key) ? 'searchable-select-error' : '']"
                             @change="onSelectChange(row, field, index)"
-                        >
-                            <option value="" disabled>
-                                {{ t.repeater.selectYear }}
-                            </option>
-
-                            <option
-                                v-for="year in years"
-                                :key="year"
-                                :value="year"
-                            >
-                                {{ year }}
-                            </option>
-                        </select>
+                        />
 
                         <p
                             v-if="getError(index, field.key)"

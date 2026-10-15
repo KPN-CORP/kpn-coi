@@ -65,6 +65,8 @@ export const TabNode = Node.create({
 
                 return this.editor.commands.insertFormTab()
             },
+            // Tab is taken for the gap, so give keyboard users a way out.
+            Escape: () => this.editor.commands.blur(),
         }
     },
 })

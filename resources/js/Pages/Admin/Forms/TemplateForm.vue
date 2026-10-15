@@ -10,6 +10,7 @@ import { usePermission } from '@/Composables/usePermission'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import FormTypeSelect from '@/Components/Forms/FormTypeSelect.vue'
 import type { FontOptions, FormSample, FormTypeOption, FormVariable, PageLayout } from '@/Components/Forms/types'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
@@ -49,7 +50,9 @@ const props = defineProps<{
     businessUnitOptions: string[]
     unitRestricted: boolean
     variables: FormVariable[]
-    sampleValues: Record<string, string | null>
+    // Each variable as display HTML per language, formatted by the server
+    // (FormVariableService::displayValues), signature included.
+    previewValues: Record<Language, Record<string, string>>
     samples: FormSample[]
     formTypes: FormTypeOption[]
     defaultFormType: number | null
@@ -173,38 +176,14 @@ const escapeHtml = (value: string) => value
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
 
-function formatSignDate(value: string, lang: Language): string {
-    const date = new Date(`${value}T00:00:00`)
-
-    return Number.isNaN(date.getTime())
-        ? value
-        : date.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-}
-
-const knownKeys = computed(() => new Set(props.variables.map(variable => variable.key)))
-
 // Mirrors FormVariableService::render() so the preview matches what
 // signers get. Only the admin's own input is shown here; what employees see is
 // sanitised and rendered on the server.
 function renderPreview(html: string, lang: Language): string {
-    const values = { ...props.sampleValues, period: String(form.period) }
+    const values: Record<string, string> = { ...props.previewValues[lang], period: escapeHtml(String(form.period)) }
 
     // The chip styling is editor-only; the server strips it on save.
-    return html.replaceAll(' class="form-variable"', '').replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (match, key: string) => {
-        if (!knownKeys.value.has(key)) {
-            return match
-        }
-
-        let value = values[key] ?? ''
-
-        // Kept ISO in the data; written out in the reader's language, as the
-        // server does (FormVariableService::LOCALIZED_DATES).
-        if ((key === 'sign_date' || key === 'date_of_birth') && value) {
-            value = formatSignDate(value, lang)
-        }
-
-        return escapeHtml(value || '-')
-    })
+    return html.replaceAll(' class="form-variable"', '').replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (match, key: string) => values[key] ?? match)
 }
 
 const preview = computed(() => {
@@ -217,11 +196,15 @@ const preview = computed(() => {
     }
 })
 
-const errorsFor = (lang: Language) => ({
-    header: form.errors[`header_${lang}`],
-    content: form.errors[`content_${lang}`],
-    footer: form.errors[`footer_${lang}`],
-})
+// Computed once per error change -- a fresh object per render would push new
+// props into both languages' editors on every keystroke.
+const editorErrors = computed(() => Object.fromEntries(
+    (['en', 'id'] as Language[]).map(lang => [lang, {
+        header: form.errors[`header_${lang}`],
+        content: form.errors[`content_${lang}`],
+        footer: form.errors[`footer_${lang}`],
+    }]),
+) as Record<Language, { header?: string, content?: string, footer?: string }>)
 
 // --- Page setup -----------------------------------------------------------
 
@@ -279,6 +262,24 @@ const availableSamples = computed(() => {
 
     return props.samples.filter(sample => !sample.form_type || sample.form_type === code)
 })
+
+const paperSizeOptions = computed(() => props.paperSizes.map(size => ({ value: size.key, label: paperLabels[size.key] ?? size.key })))
+
+const orientationOptions = computed(() => [
+    { value: 'portrait', label: t.value.forms.portrait },
+    { value: 'landscape', label: t.value.forms.landscape },
+])
+
+const fontFamilyOptions = computed(() => props.fontOptions.fonts.map(font => ({ value: font.key, label: font.label })))
+
+const fontSizeOptions = computed(() => props.fontOptions.sizes.map(size => ({ value: size, label: `${size} pt` })))
+
+const lineHeightOptions = computed(() => props.fontOptions.lineHeights.map(height => ({ value: height, label: String(height) })))
+
+const sampleOptions = computed(() => [
+    { value: '', label: t.value.forms.chooseSample },
+    ...availableSamples.value.map(sample => ({ value: sample.key, label: sample.name[locale.value] })),
+])
 
 async function applySample() {
     const sample = availableSamples.value.find(item => item.key === selectedSample.value)
@@ -568,30 +569,21 @@ function duplicate() {
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="form-side-label">{{ t.forms.paperSize }}</label>
-                                <select
+                                <SearchableSelect
                                     v-model="form.paper_size"
-                                    class="form-side-input"
+                                    :options="paperSizeOptions"
+                                    class="w-full"
                                     :disabled="readOnly"
-                                >
-                                    <option
-                                        v-for="size in paperSizes"
-                                        :key="size.key"
-                                        :value="size.key"
-                                    >
-                                        {{ paperLabels[size.key] ?? size.key }}
-                                    </option>
-                                </select>
+                                />
                             </div>
                             <div>
                                 <label class="form-side-label">{{ t.forms.orientation }}</label>
-                                <select
+                                <SearchableSelect
                                     v-model="form.orientation"
-                                    class="form-side-input"
+                                    :options="orientationOptions"
+                                    class="w-full"
                                     :disabled="readOnly"
-                                >
-                                    <option value="portrait">{{ t.forms.portrait }}</option>
-                                    <option value="landscape">{{ t.forms.landscape }}</option>
-                                </select>
+                                />
                             </div>
                         </div>
 
@@ -628,53 +620,32 @@ function duplicate() {
 
                         <div>
                             <label class="form-side-label">{{ t.forms.documentFont }}</label>
-                            <select
+                            <SearchableSelect
                                 v-model="form.font_family"
-                                class="form-side-input"
+                                :options="fontFamilyOptions"
+                                class="w-full"
                                 :disabled="readOnly"
-                            >
-                                <option
-                                    v-for="font in fontOptions.fonts"
-                                    :key="font.key"
-                                    :value="font.key"
-                                >
-                                    {{ font.label }}
-                                </option>
-                            </select>
+                            />
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="form-side-label">{{ t.forms.fontSize }}</label>
-                                <select
-                                    v-model.number="form.font_size"
-                                    class="form-side-input"
+                                <SearchableSelect
+                                    v-model="form.font_size"
+                                    :options="fontSizeOptions"
+                                    class="w-full"
                                     :disabled="readOnly"
-                                >
-                                    <option
-                                        v-for="size in fontOptions.sizes"
-                                        :key="size"
-                                        :value="size"
-                                    >
-                                        {{ size }} pt
-                                    </option>
-                                </select>
+                                />
                             </div>
                             <div>
                                 <label class="form-side-label">{{ t.forms.lineSpacing }}</label>
-                                <select
-                                    v-model.number="form.line_height"
-                                    class="form-side-input"
+                                <SearchableSelect
+                                    v-model="form.line_height"
+                                    :options="lineHeightOptions"
+                                    class="w-full"
                                     :disabled="readOnly"
-                                >
-                                    <option
-                                        v-for="height in fontOptions.lineHeights"
-                                        :key="height"
-                                        :value="height"
-                                    >
-                                        {{ height }}
-                                    </option>
-                                </select>
+                                />
                             </div>
                         </div>
                         <p class="form-side-hint">{{ t.forms.documentFontHint }}</p>
@@ -689,23 +660,13 @@ function duplicate() {
                         <i class="fa-solid fa-wand-magic-sparkles" />
                         {{ t.forms.useSample }}
                     </h2>
-                    <select
+                    <SearchableSelect
                         v-model="selectedSample"
-                        class="form-side-input"
+                        :options="sampleOptions"
+                        class="w-full"
                         :aria-label="t.forms.useSample"
                         @change="applySample"
-                    >
-                        <option value="">
-                            {{ t.forms.chooseSample }}
-                        </option>
-                        <option
-                            v-for="sample in availableSamples"
-                            :key="sample.key"
-                            :value="sample.key"
-                        >
-                            {{ sample.name[locale] }}
-                        </option>
-                    </select>
+                    />
                 </section>
             </aside>
 
@@ -778,7 +739,7 @@ function duplicate() {
                     :variables="variables"
                     :font-options="fontOptions"
                     :disabled="readOnly"
-                    :errors="errorsFor(tab.key)"
+                    :errors="editorErrors[tab.key]"
                 />
             </div>
         </form>

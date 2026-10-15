@@ -32,7 +32,10 @@ return [
         'work_location' => ['en' => 'Work Location', 'id' => 'Lokasi Kerja'],
         'date_of_joining' => ['en' => 'Date of Joining', 'id' => 'Tanggal Bergabung'],
         'period' => ['en' => 'Period', 'id' => 'Periode'],
-        'sign_date' => ['en' => 'Signing Date', 'id' => 'Tanggal Tanda Tangan'],
+        'sign_date' => ['en' => 'Signing Date & Time', 'id' => 'Tanggal & Waktu Tanda Tangan'],
+        // The name the signer typed, in handwriting (as on the COI PDF). Only
+        // the name: labels and the date are the template's own layout.
+        'signature' => ['en' => 'Signature', 'id' => 'Tanda Tangan'],
     ],
 
     /*

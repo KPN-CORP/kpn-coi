@@ -13,9 +13,8 @@ use App\Models\NonEmployeeUser;
 use App\Models\User;
 use App\Services\DeclarationScopeService;
 use App\Services\FormDeclarationService;
-use App\Services\FormImageService;
+use App\Services\FormPdfService;
 use App\Services\FormVariableService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,6 +26,7 @@ class FormController extends Controller
         private readonly FormDeclarationService $forms,
         private readonly FormVariableService $variables,
         private readonly DeclarationScopeService $scope,
+        private readonly FormPdfService $pdf,
     ) {}
 
     /**
@@ -53,6 +53,8 @@ class FormController extends Controller
                 'publish_at' => $template->publish_at?->toIso8601String(),
                 'title' => ['en' => $template->title_en, 'id' => $template->title_id],
                 'draft_saved_at' => $drafts->get($template->period)?->agreed_at?->toIso8601String(),
+                // When the draft row was first saved; nothing yet without one.
+                'created_at' => $drafts->get($template->period)?->created_at?->toIso8601String(),
             ])
             ->values();
 
@@ -69,9 +71,11 @@ class FormController extends Controller
                 'period' => $declaration->period,
                 'signed_name' => $declaration->signed_name,
                 'signed_at' => $declaration->signed_at?->toIso8601String(),
+                // The row's first save: the draft, or the signature itself.
+                'created_at' => $declaration->created_at?->toIso8601String(),
                 'locale' => $declaration->locale,
                 // From the values snapshotted at signing, not today's profile.
-                ...$this->forms->renderBilingual($declaration->template, $declaration->variables ?? []),
+                ...$this->forms->renderBilingual($declaration->template, $this->forms->signedValues($declaration)),
             ])
             ->values();
 
@@ -106,12 +110,15 @@ class FormController extends Controller
                 'id' => $applicable->id,
                 'period' => $applicable->period,
                 'publish_at' => $applicable->publish_at?->toIso8601String(),
+                // The route-bound model carries the full body; the pending
+                // lookup only loads the columns it needs to decide.
                 ...$this->forms->renderBilingual(
-                    $applicable,
-                    $this->variables->resolve($account, $applicable->period)
+                    $template,
+                    $this->variables->resolve($account, $template->period)
                 ),
             ],
             'draft' => $draft ? ['agreed_at' => $draft->agreed_at?->toIso8601String()] : null,
+            'version' => self::version($template),
             'fullName' => $this->variables->fullNameFor($account),
         ]);
     }
@@ -152,6 +159,16 @@ class FormController extends Controller
             return back()->with('error', $this->unavailableMessage());
         }
 
+        // The signer agrees to the wording they read. If an admin changed the
+        // template after the page was opened, send them back to re-read it.
+        if ($request->input('version') !== self::version($template)) {
+            return redirect()
+                ->route('employee.forms.read', [$applicable->formType, $template])
+                ->with('error', $request->input('locale') === 'id'
+                    ? 'Dokumen ini baru saja diperbarui. Silakan baca kembali sebelum menandatangani.'
+                    : 'This document was just updated. Please read it again before signing.');
+        }
+
         $this->forms->sign(
             $account,
             $applicable,
@@ -176,7 +193,7 @@ class FormController extends Controller
     {
         abort_unless($this->scope->owns($request->user(), $declaration), 403);
 
-        return self::pdfResponse($this->forms, $declaration, $request->string('locale')->toString());
+        return $this->pdf->download($declaration, $request->string('locale')->toString());
     }
 
     /**
@@ -189,64 +206,18 @@ class FormController extends Controller
             ->firstWhere('id', $template->id);
     }
 
+    /**
+     * Identifies the wording a signer read (see sign()).
+     */
+    private static function version(FormTemplate $template): string
+    {
+        return (string) $template->updated_at?->getTimestamp();
+    }
+
     private function unavailableMessage(): string
     {
         return request()->input('locale', app()->getLocale()) === 'id'
             ? 'Form ini tidak tersedia atau sudah ditandatangani.'
             : 'This form is not available or has already been signed.';
-    }
-
-    private static function mmToPt(float $mm): float
-    {
-        return round($mm * 72 / 25.4, 2);
-    }
-
-    /**
-     * Shared with the admin report so both print the same document.
-     */
-    public static function pdfResponse(
-        FormDeclarationService $forms,
-        FormDeclaration $declaration,
-        string $locale
-    ) {
-        // A draft has no signature or snapshot to print.
-        abort_unless($declaration->isSigned(), 404);
-
-        if (! in_array($locale, ['en', 'id'], true)) {
-            $locale = $declaration->locale ?: 'en';
-        }
-
-        $document = $forms->renderSigned($declaration, $locale);
-
-        $images = app(FormImageService::class);
-
-        $page = $declaration->template->pageLayout();
-
-        // dompdf cannot follow the session-protected image route, so images
-        // are inlined; remote fetching stays off.
-        $pdf = Pdf::loadView('pdf.form_declaration', [
-            'declaration' => $declaration,
-            'title' => $document['title'],
-            'content' => $images->inlineForPdf($document['content']),
-            'header' => $images->inlineForPdf($document['header']),
-            'footer' => $images->inlineForPdf($document['footer']),
-            'page' => $page,
-            'locale' => $locale,
-        ])->setOptions([
-            'isRemoteEnabled' => false,
-            'isHtml5ParserEnabled' => true,
-        ])->setPaper([0, 0, self::mmToPt($page['width']), self::mmToPt($page['height'])]);
-
-        $slug = fn (string $value) => trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $value), '-');
-
-        $name = $slug((string) data_get($declaration->variables, 'employee_name', 'signer'));
-
-        return $pdf->download(sprintf(
-            '%s-%s-%s-%s.pdf',
-            $slug($declaration->formType?->name($locale) ?? 'Form'),
-            $declaration->period,
-            $name,
-            strtoupper($locale)
-        ));
     }
 }

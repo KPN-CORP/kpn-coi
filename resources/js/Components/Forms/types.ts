@@ -74,11 +74,16 @@ export interface RenderedForm {
     page: PageLayout
 }
 
+/** A row's status. 'pending' = not started. */
 export type FormStatus = 'signed' | 'draft' | 'pending' | 'no_template'
+
+/** Status filter values: a row status, or 'not_signed' (pending + draft). */
+export type FormStatusFilter = FormStatus | 'not_signed'
 
 /** One person in the report / dashboard / team view (FormReportService). */
 export interface FormRow {
     key: string
+    period: number
     type: 'employee' | 'non_employee'
     user_id: number
     name: string
@@ -86,6 +91,7 @@ export interface FormRow {
     business_unit: string | null
     contribution_level: string | null
     designation: string | null
+    level: string | null
     work_location: string | null
     status: FormStatus
     template_id: number | null
@@ -99,8 +105,11 @@ export interface FormRow {
 export interface FormStats {
     total: number
     signed: number
-    pending: number
     draft: number
+    // Owes a signature, but has not opened/saved anything yet.
+    not_started: number
+    // not_started + draft: everyone who still has to sign.
+    not_signed: number
     no_template: number
     rate: number
 }

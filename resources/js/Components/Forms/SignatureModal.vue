@@ -15,6 +15,7 @@ const props = defineProps<{
     templateId: number
     documentTitle: string
     fullName: string
+    version: string
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +28,7 @@ const form = useForm({
     locale: locale.value as string,
     signed_name: '',
     agree: true,
+    version: '',
 })
 
 const input = ref<HTMLInputElement | null>(null)
@@ -57,6 +59,7 @@ function sign() {
 
     // Stamp the language the signer is reading in at the moment of signing.
     form.locale = locale.value
+    form.version = props.version
     form.post(route('employee.forms.sign', props.templateId), {
         preserveScroll: true,
     })

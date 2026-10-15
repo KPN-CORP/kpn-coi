@@ -38,6 +38,9 @@ class FormTemplateService
     public function applicableAcrossPeriods(?string $businessUnit, ?int $formTypeId = null): Collection
     {
         return FormTemplate::query()
+            // Runs for the menu badge on every page: only what resolution and
+            // the pending list need, never the longText bodies.
+            ->select(FormTemplate::SUMMARY_COLUMNS)
             ->available()
             ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
             ->orderByDesc('period')

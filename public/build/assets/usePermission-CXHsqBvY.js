@@ -1,1 +1,0 @@
-import{a as e,v as t}from"./app-CBaWa6ov.js";function n(){let n=e(),r=t(()=>n.props.permissions??[]);function i(e){return r.value.includes(e)}return{can:i,permissions:r}}export{n as t};

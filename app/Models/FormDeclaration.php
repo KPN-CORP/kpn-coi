@@ -19,6 +19,15 @@ class FormDeclaration extends Model
 
     public const STATUS_SIGNED = 'signed';
 
+    /**
+     * A row is a draft unless signing says otherwise. The column's database
+     * default is `signed`; this keeps a forgotten status (an import, a
+     * seeder) from producing a "signature" with no name or snapshot.
+     */
+    protected $attributes = [
+        'status' => self::STATUS_DRAFT,
+    ];
+
     protected $connection = 'mysql';
 
     protected $table = 'form_declarations';

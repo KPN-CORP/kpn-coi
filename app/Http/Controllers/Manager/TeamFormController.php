@@ -21,7 +21,7 @@ class TeamFormController extends Controller
 
     /**
      * Form status (for one form type) of everyone reporting to this manager
-     * (L1 or L2).
+     * (L1 or L2), for one period or all of them.
      * Role data restrictions do not apply here, same as Team History: the
      * reporting line is the scope.
      */
@@ -29,7 +29,14 @@ class TeamFormController extends Controller
     {
         abort_unless($formType->is_active, 404);
 
-        $period = $request->filled('period') ? (int) $request->period : (int) now()->year;
+        $periods = $this->report->periods($formType->id);
+
+        // "all" lists every period; otherwise one period, this year by default.
+        $allPeriods = $request->input('period') === 'all';
+        $period = ! $allPeriods && $request->filled('period') ? (int) $request->period : (int) now()->year;
+
+        // On by default, like the COI Team History toggle.
+        $latestSubmission = $request->boolean('latest_submission', true);
 
         $managerId = $request->user()->employee_id;
 
@@ -43,20 +50,8 @@ class TeamFormController extends Controller
                     ->orWhere('manager_l2_id', $managerId)
             );
 
-        // Direct reports name this manager as L1; everyone else in the team
-        // reaches them through L2 only.
-        $directIds = (clone $team)
-            ->where('manager_l1_id', $managerId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->flip();
-
-        $line = in_array($request->line, ['direct', 'indirect'], true) ? $request->line : null;
-
-        $rows = $this->report->buildRows(
-            $formType->id,
-            $period,
-            $this->report->joinedBy(clone $team, $period)
+        $people = fn (int $forPeriod) => [
+            $this->report->joinedBy(clone $team, $forPeriod)
                 ->when(
                     filled($search),
                     fn ($query) => $query->where(
@@ -68,52 +63,25 @@ class TeamFormController extends Controller
                 ->when(
                     $request->filled('business_unit'),
                     fn ($query) => $query->where('group_company', $request->business_unit)
-                )
-                ->when(
-                    $line === 'direct',
-                    fn ($query) => $query->where('manager_l1_id', $managerId)
-                )
-                ->when(
-                    $line === 'indirect',
-                    fn ($query) => $query->where(
-                        fn ($inner) => $inner
-                            ->whereNull('manager_l1_id')
-                            ->orWhere('manager_l1_id', '!=', $managerId)
-                    )
                 ),
-            null
-        )->map(fn (array $row) => [
-            ...$row,
-            'relation' => $directIds->has($row['user_id']) ? 'direct' : 'indirect',
-        ]);
+            null,
+        ];
 
-        // Counts for the status tabs: taken before the status filter so every
-        // tab shows its own size.
-        $stats = $this->report->stats($rows);
+        $rows = $this->report->buildRowsAcross($formType->id, $allPeriods ? $periods : [$period], $people);
 
-        $status = in_array($request->status, ['not_signed', 'signed', 'draft', 'pending', 'no_template'], true)
-            ? $request->status
-            : null;
+        $status = FormReportService::statusFilter($request->status);
+        $rows = $this->report->filterStatus($rows, $status);
 
-        $rows = match ($status) {
-            // "Not signed" = not started + saved as draft.
-            'not_signed' => $rows->whereIn('status', ['pending', 'draft'])->values(),
-            null => $rows,
-            default => $rows->where('status', $status)->values(),
-        };
+        // Applied after the status filter, as on the COI Team History: "latest
+        // signed" means the newest signature, not the newest row.
+        if ($latestSubmission) {
+            $rows = $this->report->latestPerPerson($rows);
+        }
 
-        $sort = in_array($request->sort, ['name', 'status', 'signed_at', 'business_unit'], true) ? $request->sort : 'name';
+        $sort = in_array($request->sort, FormReportService::SORTABLE, true) ? $request->sort : 'name';
         $direction = $request->direction === 'desc' ? 'desc' : 'asc';
 
-        // Status sorts by how far along someone is, not alphabetically.
-        $statusOrder = ['pending' => 0, 'draft' => 1, 'signed' => 2, 'no_template' => 3];
-        $sortValue = fn (array $row) => match ($sort) {
-            'status' => $statusOrder[$row['status']] ?? 9,
-            'signed_at' => $row['signed_at'] ?? '',
-            default => mb_strtolower((string) ($row[$sort] ?? '')),
-        };
-
-        $rows = ($direction === 'desc' ? $rows->sortByDesc($sortValue) : $rows->sortBy($sortValue))->values();
+        $rows = $this->report->sort($rows, $sort, $direction);
 
         $perPage = (int) $request->input('per_page', 10);
 
@@ -131,21 +99,20 @@ class TeamFormController extends Controller
                 $page,
                 ['path' => $request->url(), 'query' => $request->query()]
             ),
-            'stats' => $stats,
             'filters' => [
                 'form_type' => $formType->id,
-                'period' => $period,
+                'period' => $allPeriods ? 'all' : $period,
                 'search' => $search,
                 'status' => $status,
                 'business_unit' => $request->business_unit,
-                'line' => $line,
+                'latest_submission' => $latestSubmission,
                 'sort' => $sort,
                 'direction' => $direction,
             ],
             'formType' => $formType->summary(),
             // Switching type on the page moves to that type's team URL.
             'formTypes' => array_values(array_filter(FormType::options(), fn (array $type) => $type['is_active'])),
-            'periods' => $this->report->periods($formType->id),
+            'periods' => $periods,
             'businessUnitOptions' => (clone $team)
                 ->whereNotNull('group_company')
                 ->distinct()

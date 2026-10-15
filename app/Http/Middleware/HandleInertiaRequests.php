@@ -7,6 +7,7 @@ use App\Models\FormType;
 use App\Services\FormDeclarationService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -53,15 +54,24 @@ class HandleInertiaRequests extends Middleware
 
                 // One employee menu item per active form type, each with the
                 // number of forms waiting for this account's signature.
+                //
+                // The account is resolved inside the closure, not taken from
+                // $user above: share() runs before the route's
+                // auth:web,non_employee middleware has picked the guard, so
+                // $request->user() is still null for a non-employee session.
+                // The closure is evaluated after the route ran.
+                //
                 // Migrations are applied by hand on deploy, so missing form
                 // tables must not take every page down with them.
-                'forms' => function () use ($user) {
-                    if (! $user) {
+                'forms' => function () {
+                    $account = Auth::guard('web')->user() ?? Auth::guard('non_employee')->user();
+
+                    if (! $account) {
                         return [];
                     }
 
                     try {
-                        $pending = app(FormDeclarationService::class)->pendingCounts($user);
+                        $pending = app(FormDeclarationService::class)->pendingCounts($account);
 
                         return FormType::query()
                             ->active()
@@ -72,7 +82,12 @@ class HandleInertiaRequests extends Middleware
                                 'pending' => $pending[$type->id] ?? 0,
                             ])
                             ->all();
-                    } catch (QueryException) {
+                    } catch (QueryException $exception) {
+                        // Logged, not swallowed silently: this also catches a
+                        // kpncorp outage or a broken query, not only missing
+                        // tables.
+                        report($exception);
+
                         return [];
                     }
                 },

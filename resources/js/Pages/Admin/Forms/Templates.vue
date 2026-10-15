@@ -9,10 +9,11 @@ import { usePermission } from '@/Composables/usePermission'
 import { formatDateTime } from '@/Utils/date'
 import FormTypeSelect from '@/Components/Forms/FormTypeSelect.vue'
 import type { FormTypeOption, Localized, Paginated } from '@/Components/Forms/types'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
-import { ref } from 'vue'
-import debounce from 'lodash/debounce'
+import { computed, ref } from 'vue'
+import { useDebounced } from '@/Composables/useFilterQuery'
 import Swal from 'sweetalert2'
 
 interface TemplateRow {
@@ -46,6 +47,11 @@ const formType = ref(props.filters.form_type ? Number(props.filters.form_type) :
 const period = ref(props.filters.period ?? '')
 const search = ref(props.filters.search ?? '')
 
+const periodOptions = computed(() => [
+    { value: '', label: t.value.forms.allPeriods },
+    ...props.periods.map(item => ({ value: String(item), label: String(item) })),
+])
+
 function reload(overrides: Record<string, unknown> = {}) {
     router.get(
         route('admin.master.templates.index'),
@@ -60,7 +66,7 @@ function reload(overrides: Record<string, unknown> = {}) {
     )
 }
 
-const onSearch = debounce(() => reload({ page: 1 }), 400)
+const onSearch = useDebounced(() => reload({ page: 1 }))
 
 function statusOf(template: TemplateRow): { label: string, classes: string } {
     if (!template.is_active) {
@@ -140,23 +146,13 @@ async function destroy(template: TemplateRow) {
                 />
             </div>
 
-            <select
+            <SearchableSelect
                 v-model="period"
-                class="rounded-md border border-border px-3 py-2 text-sm"
+                :options="periodOptions"
+                class="w-48 max-w-full"
+                :aria-label="t.common.period"
                 @change="reload({ page: 1 })"
-            >
-                <option value="">
-                    {{ t.forms.allPeriods }}
-                </option>
-
-                <option
-                    v-for="item in periods"
-                    :key="item"
-                    :value="String(item)"
-                >
-                    {{ item }}
-                </option>
-            </select>
+            />
 
             <input
                 v-model="search"

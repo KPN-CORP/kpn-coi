@@ -18,7 +18,7 @@ const badge = computed(() => {
             return { label: t.value.forms.statusDraft, classes: 'bg-amber-50 text-amber-700 border-amber-200' }
 
         case 'pending':
-            return { label: t.value.forms.statusPending, classes: 'bg-red-50 text-red-700 border-red-200' }
+            return { label: t.value.forms.statusNotStarted, classes: 'bg-red-50 text-red-700 border-red-200' }
 
         default:
             return { label: t.value.forms.statusNoTemplate, classes: 'bg-slate-50 text-slate-500 border-slate-200' }

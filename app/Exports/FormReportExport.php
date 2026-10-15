@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Exports;
 
 use App\Services\FormReportService;
+use App\Services\FormVariableService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -22,7 +23,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
     public function __construct(
         private readonly Collection $rows,
         private readonly string $formTypeName,
-        private readonly int $period,
+        private readonly int|string $period,
     ) {}
 
     public function title(): string
@@ -35,8 +36,9 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
     {
         $statusLabels = [
             FormReportService::STATUS_SIGNED => 'Signed',
-            FormReportService::STATUS_DRAFT => 'Draft (not signed)',
-            FormReportService::STATUS_PENDING => 'Not Signed',
+            // Same wording as the screens (FormStatusBadge).
+            FormReportService::STATUS_DRAFT => 'Draft saved',
+            FormReportService::STATUS_PENDING => 'Not started',
             FormReportService::STATUS_NO_TEMPLATE => 'No Template',
         ];
 
@@ -58,7 +60,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
 
         foreach ($this->rows as $row) {
             $sheet[] = [
-                $this->period,
+                $row['period'],
                 $row['employee_id'] ?: '-',
                 $row['name'],
                 $row['type'] === 'employee' ? 'Employee' : 'Non Employee',
@@ -70,7 +72,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
                 $statusLabels[$row['status']] ?? $row['status'],
                 $row['signed_name'] ?? '-',
                 $row['signed_at']
-                    ? Carbon::parse($row['signed_at'])->timezone(config('app.timezone'))->format('d-m-Y H:i:s')
+                    ? Carbon::parse($row['signed_at'])->timezone(FormVariableService::DISPLAY_TIMEZONE)->format('d-m-Y H:i:s')
                     : '-',
                 $row['signed_locale'] ? strtoupper($row['signed_locale']) : '-',
             ];

@@ -5,6 +5,8 @@
 
     <title>{{ $title }}</title>
 
+    <link href="https://fonts.googleapis.com/css2?family=Ephesis&display=swap" rel="stylesheet">
+
 @php
     // Header/footer sit inside the top/bottom margins, a fixed distance from
     // the paper edge (Word's default is ~12.5mm; smaller when the margin is
@@ -34,11 +36,6 @@
             font-size: 0.8em;
         }
 
-        #form-header p,
-        #form-footer p {
-            margin: 0;
-        }
-
         img {
             max-width: 100%;
         }
@@ -54,19 +51,25 @@
         }
 
 
-        .content p {
-            margin: 0 0 8px;
+        /* Spacing and sizes mirror .form-content in resources/css/coi.css
+           (what the signer read on screen): blocks 9.6px apart (0.6rem
+           there), headings in em of the template's base size. Change both
+           together. */
+        .content > * {
+            margin: 0;
         }
 
-        /* Relative to the template's base size. */
-        .content h1 { font-size: 1.4em; margin: 12px 0 8px; }
-        .content h2 { font-size: 1.2em; margin: 12px 0 8px; }
-        .content h3 { font-size: 1.1em; margin: 10px 0 6px; }
-        .content h4 { font-size: 1em; margin: 10px 0 6px; }
+        .content > * + * {
+            margin-top: 9.6px;
+        }
+
+        .content h1 { font-size: 1.4em; }
+        .content h2 { font-size: 1.2em; }
+        .content h3 { font-size: 1.1em; }
+        .content h4 { font-size: 1em; }
 
         .content ul,
         .content ol {
-            margin: 0 0 8px;
             padding-left: 22px;
         }
 
@@ -74,8 +77,8 @@
         .content ol ol { list-style-type: lower-alpha; }
         .content ol ol ol { list-style-type: lower-roman; }
 
-        .content li {
-            margin-bottom: 4px;
+        .content li + li {
+            margin-top: 4px;
         }
 
         .content li p {
@@ -83,7 +86,6 @@
         }
 
         .content blockquote {
-            margin: 0 0 8px;
             padding-left: 10px;
             border-left: 2px solid #999;
         }
@@ -94,7 +96,6 @@
         .content table {
             width: 100%;
             border-collapse: collapse;
-            margin: 0 0 10px;
         }
 
         .content td,
@@ -124,6 +125,7 @@
         .content th {
             background: #f1f5f9;
             font-weight: bold;
+            text-align: left;
         }
 
         .content hr {
@@ -132,43 +134,18 @@
             margin: 10px 0;
         }
 
-        .signature {
-            margin-top: 28px;
-            width: 260px;
-            page-break-inside: avoid;
-        }
-
-        .signature .label {
-            margin-bottom: 6px;
-        }
-
-        .signature .stamp {
-            border: 1px solid #ab2f2b;
-            color: #ab2f2b;
-            padding: 6px 8px;
-            font-size: 8pt;
-        }
-
-        .signature .name {
-            margin-top: 6px;
-            font-weight: bold;
-            border-top: 1px solid #000;
-            padding-top: 4px;
-        }
-
-        .audit {
-            margin-top: 18px;
-            font-size: 7pt;
-            color: #555;
+        /* The signature variable -- same look as the COI declaration PDF
+           (pdf/partials/consent.blade.php). Mirrored in coi.css. */
+        .form-signature-name {
+            font-family: "Ephesis", cursive;
+            font-weight: normal;
+            font-style: normal;
+            font-size: 22pt;
+            line-height: 1.2;
         }
     </style>
 </head>
 <body>
-@php
-    $id = $locale === 'id';
-    $signedAt = $declaration->signed_at?->timezone(config('app.timezone'));
-@endphp
-
     {{-- Fixed elements must come before the body to repeat on every page. --}}
     @if (filled(strip_tags($header, '<img>')))
         <div id="form-header" class="content">{!! $header !!}</div>
@@ -184,23 +161,8 @@
          render (FormVariableService), so it is printed unescaped. --}}
     <div class="content">{!! $content !!}</div>
 
-    <div class="signature">
-        <div class="label">
-            {{ $id ? 'Yang menyatakan,' : 'Declared by,' }}
-        </div>
-
-        <div class="stamp">
-            {{ $id ? 'Ditandatangani secara elektronik' : 'Signed electronically' }}<br>
-            {{ $signedAt?->locale($locale)->translatedFormat('j F Y, H:i') }}
-        </div>
-
-        <div class="name">{{ $declaration->signed_name }}</div>
-    </div>
-
-    <div class="audit">
-        {{ $id ? 'Periode' : 'Period' }}: {{ $declaration->period }}
-        &middot; {{ $id ? 'Nomor dokumen' : 'Document number' }}: IP-{{ $declaration->period }}-{{ str_pad((string) $declaration->id, 6, '0', STR_PAD_LEFT) }}
-        &middot; {{ $id ? 'Bahasa saat ditandatangani' : 'Language at signing' }}: {{ strtoupper($declaration->locale) }}
-    </div>
+    {{-- Nothing is printed beyond the template: no signature block (the
+         template lays out its own with the signature / sign_date /
+         employee_name variables) and no period / document number line. --}}
 </body>
 </html>

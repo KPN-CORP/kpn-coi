@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import { useLocale } from '@/Composables/useLocale'
+import { computed } from 'vue'
 import type { FormTypeOption } from './types'
 
 /**
@@ -7,7 +9,7 @@ import type { FormTypeOption } from './types'
  * `allowAll` adds an "All Form Types" choice (template list only -- reports
  * and dashboards always show one type, since forms are not comparable).
  */
-withDefaults(
+const props = withDefaults(
     defineProps<{
         options: FormTypeOption[]
         allowAll?: boolean
@@ -22,28 +24,22 @@ withDefaults(
 const model = defineModel<number | string | null>()
 
 const { t, locale } = useLocale()
+
+const selectOptions = computed(() => [
+    ...(props.allowAll ? [{ value: '', label: t.value.forms.allFormTypes }] : []),
+    ...props.options.map(option => ({
+        value: option.id,
+        label: `${option.name[locale.value]}${option.is_active ? '' : ` ${t.value.forms.inactiveSuffix}`}`,
+    })),
+])
 </script>
 
 <template>
-    <select
+    <SearchableSelect
         v-model="model"
-        class="w-full rounded-md border border-border px-3 py-2 text-sm"
+        :options="selectOptions"
+        class="w-full"
         :disabled="disabled"
         :aria-label="t.forms.formType"
-    >
-        <option
-            v-if="allowAll"
-            value=""
-        >
-            {{ t.forms.allFormTypes }}
-        </option>
-
-        <option
-            v-for="option in options"
-            :key="option.id"
-            :value="option.id"
-        >
-            {{ option.name[locale] }}{{ option.is_active ? '' : ` ${t.forms.inactiveSuffix}` }}
-        </option>
-    </select>
+    />
 </template>

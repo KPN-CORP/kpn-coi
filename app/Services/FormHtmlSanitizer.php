@@ -47,14 +47,14 @@ class FormHtmlSanitizer
         $previous = libxml_use_internal_errors(true);
 
         $document->loadHTML(
-            '<?xml encoding="UTF-8"><div id="pact-root">'.$html.'</div>',
+            '<?xml encoding="UTF-8"><div id="form-root">'.$html.'</div>',
             LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
         );
 
         libxml_clear_errors();
         libxml_use_internal_errors($previous);
 
-        $root = $document->getElementById('pact-root');
+        $root = $document->getElementById('form-root');
 
         if (! $root) {
             return '';
@@ -153,6 +153,20 @@ class FormHtmlSanitizer
             if (preg_match('/^\d{1,4}(,\d{1,4}){0,49}$/', $colwidth)) {
                 $keep['colwidth'] = $colwidth;
                 $styles[] = 'width: '.min(3000, array_sum(array_map('intval', explode(',', $colwidth)))).'px';
+            }
+        }
+
+        // Ordered lists can resume numbering ("2. ...") or use letters/roman
+        // numerals; Tiptap writes these as start/type.
+        if ($tag === 'ol') {
+            $start = (int) $element->getAttribute('start');
+
+            if ($start > 1 && $start <= 999) {
+                $keep['start'] = (string) $start;
+            }
+
+            if (in_array($element->getAttribute('type'), ['1', 'a', 'A', 'i', 'I'], true)) {
+                $keep['type'] = $element->getAttribute('type');
             }
         }
 

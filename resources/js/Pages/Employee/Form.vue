@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import PageHeader from '@/Components/UI/PageHeader.vue'
+import Card from '@/Components/UI/Card.vue'
 import Modal from '@/Components/UI/Modal.vue'
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
 import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
-import type { Localized, RenderedForm } from '@/Components/Forms/types'
-import { formatDate, formatDateTime } from '@/Utils/date'
+import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
+import type { FormStatus, Localized, RenderedForm } from '@/Components/Forms/types'
+import { formatDateTime } from '@/Utils/date'
 import { useLocale } from '@/Composables/useLocale'
 import { Head, Link, usePage } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { Flash } from '@/Config/inertia'
 
 interface PendingItem {
@@ -17,6 +20,7 @@ interface PendingItem {
     publish_at: string | null
     title: Localized
     draft_saved_at: string | null
+    created_at: string | null
 }
 
 interface SignedForm extends RenderedForm {
@@ -24,10 +28,23 @@ interface SignedForm extends RenderedForm {
     period: number
     signed_name: string
     signed_at: string | null
+    created_at: string | null
     locale: 'en' | 'id'
 }
 
-defineProps<{
+// One table row: a form still to sign (template) or a signed one.
+interface Row {
+    key: string
+    period: number
+    title: Localized
+    status: FormStatus
+    date: string | null
+    createdAt: string | null
+    pending?: PendingItem
+    signed?: SignedForm
+}
+
+const props = defineProps<{
     formType: {
         id: number
         code: string
@@ -42,6 +59,101 @@ defineProps<{
 const { t, locale } = useLocale()
 
 const page = usePage<{ flash: Flash }>()
+
+const rows = computed<Row[]>(() => [
+    ...props.pending.map(item => ({
+        key: `pending-${item.id}`,
+        period: item.period,
+        title: item.title,
+        status: (item.draft_saved_at ? 'draft' : 'pending') as FormStatus,
+        date: null,
+        createdAt: item.created_at,
+        pending: item,
+    })),
+    ...props.signed.map(item => ({
+        key: `signed-${item.id}`,
+        period: item.period,
+        title: item.title,
+        status: 'signed' as FormStatus,
+        date: item.signed_at,
+        createdAt: item.created_at,
+        signed: item,
+    })),
+])
+
+// --- Filter and sort (a person has a handful of rows: done in the browser) ---
+
+const period = ref('')
+
+const periods = computed(() => [...new Set(rows.value.map(row => row.period))].sort((a, b) => b - a))
+
+const periodOptions = computed(() => [
+    { value: '', label: t.value.history.allPeriods },
+    ...periods.value.map(item => ({ value: String(item), label: String(item) })),
+])
+
+type SortKey = 'period' | 'status' | 'date' | 'createdAt'
+
+const sortKey = ref<SortKey>('period')
+const sortDir = ref<'asc' | 'desc'>('desc')
+
+const columns = computed<{ key: SortKey, label: string }[]>(() => [
+    { key: 'period', label: t.value.history.columnPeriod },
+    { key: 'status', label: t.value.history.columnFormStatus },
+    { key: 'date', label: t.value.forms.columnSignedAt },
+    { key: 'createdAt', label: t.value.history.columnCreatedDate },
+])
+
+// Still to sign first when sorting by status.
+const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2 }
+
+const visibleRows = computed(() => {
+    const value = (row: Row): number | string => {
+        switch (sortKey.value) {
+            case 'status':
+                return STATUS_ORDER[row.status] ?? 9
+            case 'date':
+                return row.date ?? ''
+            case 'createdAt':
+                return row.createdAt ?? ''
+            default:
+                return row.period
+        }
+    }
+
+    const direction = sortDir.value === 'asc' ? 1 : -1
+
+    return rows.value
+        .filter(row => !period.value || row.period === Number(period.value))
+        .sort((a, b) => {
+            const x = value(a)
+            const y = value(b)
+
+            // Unsigned rows go above signed ones within the same period.
+            return x < y ? -direction : x > y ? direction : (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+        })
+})
+
+function toggleSort(key: SortKey) {
+    if (sortKey.value === key) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    } else {
+        sortKey.value = key
+        sortDir.value = 'asc'
+    }
+}
+
+function sortIcon(key: SortKey) {
+    if (sortKey.value !== key) {
+        return 'fa-solid fa-sort text-slate-300'
+    }
+
+    return sortDir.value === 'asc'
+        ? 'fa-solid fa-sort-up text-slate-600'
+        : 'fa-solid fa-sort-down text-slate-600'
+}
+
+// --- Actions ---------------------------------------------------------------
 
 const viewing = ref<SignedForm | null>(null)
 
@@ -72,152 +184,135 @@ function downloadPdf(id: number, language: 'en' | 'id') {
             :message="page.props.flash?.error"
         />
 
-        <!-- Waiting for the signature -->
-        <section class="mb-8">
-            <h2 class="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-500">
-                {{ t.forms.pendingTitle }}
-                <span
-                    v-if="pending.length"
-                    class="rounded-full bg-primary px-2 py-0.5 text-xs text-white"
-                >{{ pending.length }}</span>
-            </h2>
+        <div
+            v-if="pending.length"
+            class="mb-6 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+        >
+            <i class="fa-solid fa-triangle-exclamation" />
 
-            <div
-                v-if="pending.length"
-                class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
-            >
-                <article
-                    v-for="item in pending"
-                    :key="item.id"
-                    class="flex flex-col rounded-lg border border-border bg-white p-5 shadow-sm transition hover:shadow-md"
-                >
-                    <div class="mb-3 flex items-start justify-between gap-3">
-                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-red-50 text-lg text-primary">
-                            <i :class="formType.icon" />
-                        </span>
+            <span>{{ t.forms.notSignedWarning }}</span>
+        </div>
 
-                        <span
-                            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
-                            :class="item.draft_saved_at ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600'"
+        <div class="mb-6 flex items-center gap-3">
+            <SearchableSelect
+                v-model="period"
+                :options="periodOptions"
+                class="w-48 max-w-full"
+                :aria-label="t.history.columnPeriod"
+            />
+        </div>
+
+        <Card>
+            <div class="table-container">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th class="py-3">{{ t.forms.columnForm }}</th>
+                            <th
+                                v-for="col in columns"
+                                :key="col.key"
+                                class="py-3"
+                                :aria-sort="sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                            >
+                                <button
+                                    type="button"
+                                    class="inline-flex select-none items-center gap-1.5 whitespace-nowrap uppercase tracking-[inherit] [font:inherit] transition-colors hover:text-slate-700"
+                                    @click="toggleSort(col.key)"
+                                >
+                                    {{ col.label }}
+                                    <i :class="sortIcon(col.key)" />
+                                </button>
+                            </th>
+                            <th class="py-3">{{ t.common.action }}</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <tr
+                            v-for="row in visibleRows"
+                            :key="row.key"
+                            class="border-b border-slate-100 text-center"
                         >
-                            <i
-                                class="fa-solid"
-                                :class="item.draft_saved_at ? 'fa-floppy-disk' : 'fa-circle'"
-                                :style="item.draft_saved_at ? undefined : { fontSize: '6px' }"
-                            />
-                            {{ item.draft_saved_at ? t.forms.statusDraft : t.forms.statusNotStarted }}
-                        </span>
-                    </div>
+                            <td class="py-4 text-left font-medium text-slate-800">
+                                {{ row.title[locale] ?? '-' }}
+                            </td>
 
-                    <h3 class="font-bold text-slate-800">{{ item.title[locale] }}</h3>
+                            <td class="py-4 font-semibold">
+                                {{ row.period }}
+                            </td>
 
-                    <p class="mt-1 text-sm text-slate-500">
-                        {{ t.common.period }} {{ item.period }}
-                        <template v-if="item.publish_at">&middot; {{ t.forms.publishedAt }} {{ formatDate(item.publish_at.slice(0, 10)) }}</template>
-                    </p>
+                            <td class="py-4">
+                                <FormStatusBadge :status="row.status" />
+                            </td>
 
-                    <p
-                        v-if="item.draft_saved_at"
-                        class="mt-2 text-xs text-amber-700"
-                    >
-                        {{ t.forms.draftSavedAt }} {{ formatDateTime(item.draft_saved_at) }}
-                    </p>
+                            <td class="py-4">
+                                {{ row.date ? formatDateTime(row.date) : '-' }}
+                            </td>
 
-                    <div class="mt-auto pt-5">
-                        <Link
-                            :href="route('employee.forms.read', { formType: formType.code, template: item.id })"
-                            class="btn-primary-custom w-full justify-center"
-                        >
-                            <i class="fa-solid fa-book-open" />
-                            {{ item.draft_saved_at ? t.forms.continueSigning : t.forms.openToRead }}
-                        </Link>
-                    </div>
-                </article>
+                            <td class="py-4">
+                                {{ row.createdAt ? formatDateTime(row.createdAt) : '-' }}
+                            </td>
+
+                            <td class="py-4">
+                                <div class="flex justify-center gap-2">
+                                    <Link
+                                        v-if="row.pending"
+                                        :href="route('employee.forms.read', { formType: formType.code, template: row.pending.id })"
+                                        class="btn btn-sm"
+                                        :class="row.pending.draft_saved_at
+                                            ? 'bg-yellow-400 text-white hover:bg-yellow-500 hover:font-bold'
+                                            : 'btn-primary-custom'"
+                                    >
+                                        <i class="fa-solid fa-book-open" />
+                                        {{ row.pending.draft_saved_at ? t.common.continue : t.forms.openToRead }}
+                                    </Link>
+
+                                    <template v-if="row.signed">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm"
+                                            @click="viewing = row.signed"
+                                        >
+                                            <i class="fa-solid fa-eye" />
+                                            {{ t.common.view }}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            :title="`PDF ${t.forms.indonesian}`"
+                                            @click="downloadPdf(row.signed.id, 'id')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            ID
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            :title="`PDF ${t.forms.english}`"
+                                            @click="downloadPdf(row.signed.id, 'en')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            EN
+                                        </button>
+                                    </template>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <tr v-if="!visibleRows.length">
+                            <td
+                                colspan="6"
+                                class="py-8 text-center text-slate-500"
+                            >
+                                {{ t.history.noRecords }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-
-            <div
-                v-else
-                class="flex flex-col items-center gap-2 rounded-lg border border-dashed border-green-300 bg-green-50 px-6 py-8 text-center"
-            >
-                <span class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-xl text-green-600">
-                    <i class="fa-solid fa-check" />
-                </span>
-                <p class="font-semibold text-green-800">{{ t.forms.allDone }}</p>
-                <p class="text-sm text-green-700">{{ t.forms.noPending }}</p>
-            </div>
-        </section>
-
-        <!-- Signed -->
-        <section>
-            <h2 class="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                {{ t.forms.signedTitle }}
-            </h2>
-
-            <div
-                v-if="signed.length"
-                class="divide-y divide-slate-100 overflow-hidden rounded-lg border border-border bg-white shadow-sm"
-            >
-                <div
-                    v-for="item in signed"
-                    :key="item.id"
-                    class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                    <div class="flex items-start gap-3">
-                        <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
-                            <i class="fa-solid fa-file-signature" />
-                        </span>
-                        <div>
-                            <div class="font-semibold text-slate-800">
-                                {{ item.title[locale] ?? '-' }}
-                                <span class="ml-1 text-sm font-normal text-slate-400">&middot; {{ item.period }}</span>
-                            </div>
-                            <div class="text-sm text-slate-500">
-                                {{ t.forms.signedName }} <span class="font-medium text-slate-700">{{ item.signed_name }}</span>
-                                &middot; {{ formatDateTime(item.signed_at) }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2 sm:shrink-0">
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary btn-sm"
-                            @click="viewing = item"
-                        >
-                            <i class="fa-solid fa-eye" />
-                            {{ t.common.view }}
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary-custom btn-sm"
-                            :title="`PDF ${t.forms.indonesian}`"
-                            @click="downloadPdf(item.id, 'id')"
-                        >
-                            <i class="fa-solid fa-file-pdf" />
-                            ID
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary-custom btn-sm"
-                            :title="`PDF ${t.forms.english}`"
-                            @click="downloadPdf(item.id, 'en')"
-                        >
-                            <i class="fa-solid fa-file-pdf" />
-                            EN
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <p
-                v-else
-                class="rounded-lg border border-dashed border-border bg-white px-5 py-6 text-center text-sm text-slate-500"
-            >
-                {{ t.forms.noSigned }}
-            </p>
-        </section>
+        </Card>
 
         <Modal
             :show="viewing !== null"
@@ -246,16 +341,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                         :content="viewing.content[locale]"
                         :header="viewing.header[locale]"
                         :footer="viewing.footer[locale]"
-                    >
-                        <div class="mt-6 w-fit rounded-md border border-primary px-4 py-3 text-sm text-primary">
-                            <div class="text-xs">
-                                {{ t.forms.electronicSignature }} &middot; {{ formatDateTime(viewing.signed_at) }}
-                            </div>
-                            <div class="mt-1 font-bold">
-                                {{ viewing.signed_name }}
-                            </div>
-                        </div>
-                    </FormDocument>
+                    />
                 </div>
             </template>
         </Modal>

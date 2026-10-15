@@ -4,6 +4,7 @@ import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import StatCard from '@/Components/UI/StatCard.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Declaration } from '@/Config/declaration'
 import { onMounted, ref, watch, reactive, computed } from 'vue'
@@ -18,11 +19,15 @@ const { t, locale } = useLocale()
 const statusChart = ref<ChartInstance | null>(null)
 const barChart = ref<ChartInstance | null>(null)
 
+// For a form type, submitted/pending are signed/not signed and the fourth
+// card is drafts instead of conflicts (FormDashboardService).
 interface DashboardStats {
     total: number
     pending: number
     submitted: number
-    conflict: number
+    conflict?: number
+    draft?: number
+    not_started?: number
 }
 
 interface BarChart {
@@ -50,26 +55,50 @@ function renderStatusChart() {
     statusChart.value = new Chart(statusChartRef.value, {
         type: 'doughnut',
 
-        data: {
-            labels: [
-                t.value.common.submitted,
-                t.value.common.notSubmitted,
-            ],
-
-            datasets: [{
-                data: [
-                    props.stats.submitted,
-                    props.stats.pending,
+        data: isForm.value
+            ? {
+                labels: [
+                    t.value.forms.statusSigned,
+                    t.value.forms.statusDraft,
+                    t.value.forms.statusNotStarted,
                 ],
 
-                backgroundColor: [
-                    '#2f855a',
-                    '#cbd5e1',
+                datasets: [{
+                    data: [
+                        props.stats.submitted,
+                        props.stats.draft ?? 0,
+                        props.stats.not_started ?? 0,
+                    ],
+
+                    backgroundColor: [
+                        '#2f855a',
+                        '#f59e0b',
+                        '#cbd5e1',
+                    ],
+
+                    borderWidth: 0,
+                }],
+            }
+            : {
+                labels: [
+                    t.value.common.submitted,
+                    t.value.common.notSubmitted,
                 ],
 
-                borderWidth: 0,
-            }],
-        },
+                datasets: [{
+                    data: [
+                        props.stats.submitted,
+                        props.stats.pending,
+                    ],
+
+                    backgroundColor: [
+                        '#2f855a',
+                        '#cbd5e1',
+                    ],
+
+                    borderWidth: 0,
+                }],
+            },
 
         options: {
             responsive: true,
@@ -97,6 +126,12 @@ function localizeDatasetLabel(label: string): string {
 
         case 'Not Submitted':
             return t.value.common.notSubmitted
+
+        case 'Signed':
+            return t.value.forms.statusSigned
+
+        case 'Not Signed':
+            return t.value.forms.statusPending
 
         default:
             return label
@@ -139,7 +174,7 @@ function renderBarChart() {
 
                         display: true,
 
-                        text: t.value.dashboard.submissionsByBusinessUnit,
+                        text: barChartTitle.value,
 
                     },
 
@@ -213,6 +248,13 @@ const props = defineProps<{
 
     barChart: BarChart
 
+    // Which declaration the page shows: 'coi' or a form type code.
+    form: string
+    formKind: 'coi' | 'form'
+    formTypeId: number | null
+    formName: { en: string, id: string }
+    formOptions: { value: string, label: { en: string, id: string } }[]
+
         filters: {
             period?: string
             status?: string
@@ -222,6 +264,7 @@ const props = defineProps<{
     }>()
 
 const filter = useForm({
+    form: props.form,
     period: props.filters.period || new Date().getFullYear().toString(),
     status: props.filters.status ?? '',
     business_unit: props.filters.business_unit ?? '',
@@ -241,10 +284,42 @@ const typeLabel = computed(() => {
     return t.value.report.allTypes
 })
 
+const isForm = computed(() => props.formKind === 'form')
+
+const formSelectOptions = computed(() => props.formOptions.map(option => ({
+    value: option.value,
+    label: option.label[locale.value],
+})))
+
+const barChartTitle = computed(() => (isForm.value
+    ? t.value.dashboard.signedByBusinessUnit
+    : t.value.dashboard.submissionsByBusinessUnit))
+
+const periodOptions = computed(() => props.periods.map(period => ({ value: period, label: String(period) })))
+
+const typeOptions = computed(() => [
+    { value: 'all', label: t.value.report.allTypes },
+    { value: 'employee', label: t.value.common.employee },
+    { value: 'non_employee', label: t.value.common.nonEmployee },
+])
+
+const businessUnitSelectOptions = computed(() => [
+    { value: '', label: t.value.teamHistory.allBusinessUnits },
+    ...props.businessUnitOptions.map(item => ({ value: item, label: item })),
+])
+
+const statusOptions = computed(() => [
+    { value: '', label: t.value.common.allStatus },
+    { value: 'submitted', label: t.value.common.submitted },
+    { value: 'pending', label: t.value.common.notSubmitted },
+    { value: 'conflict', label: t.value.common.hasConflict },
+])
+
 function applyFilter() {
     router.get(
         route('admin.dashboard'),
         {
+            form: filter.form,
             period: filter.period,
             business_unit: filter.business_unit,
             type: filter.type,
@@ -296,6 +371,8 @@ async function downloadDashboardPdf() {
     append('_token', document
         .querySelector('meta[name="csrf-token"]')
         ?.getAttribute('content'))
+
+    append('form', filter.form)
 
     append('period', filter.period)
 
@@ -408,15 +485,21 @@ function openReport(
     // declaration_status rather than status.
     switch (filters.status ?? filters.declaration_status) {
         case 'submitted':
+        case 'signed':
             total = props.stats.submitted
             break
 
         case 'pending':
+        case 'not_signed':
             total = props.stats.pending
             break
 
+        case 'draft':
+            total = props.stats.draft ?? 0
+            break
+
         case 'conflict':
-            total = props.stats.conflict
+            total = props.stats.conflict ?? 0
             break
     }
 
@@ -431,22 +514,22 @@ function openReport(
         return
     }
 
+    // The reports use an empty type for "all"; the dashboard uses the
+    // literal 'all', so translate before linking.
+    const shared = {
+        period: filter.period,
+        type: filter.type === 'all' ? '' : filter.type,
+        business_unit: filter.business_unit,
+    }
+
     window.open(
-        route(
-            'admin.report',
-            {
-                period: filter.period,
-                status: filter.status,
-                // The report uses an empty type for "all"; the dashboard uses
-                // the literal 'all', so translate before linking.
-                type: filter.type === 'all' ? '' : filter.type,
-                business_unit: filter.business_unit,
-                ...filters,
-            },
-        ),
+        isForm.value
+            ? route('admin.report', { ...shared, form: props.form, ...filters })
+            : route('admin.report', { ...shared, status: filter.status, ...filters }),
         '_blank',
     )
 }
+
 onMounted(() => {
 
     if (props.barChart.labels.length) {
@@ -491,10 +574,24 @@ watch(locale, () => {
     <AdminLayout>
         <PageHeader
             :title="t.dashboard.title"
-            :description="t.dashboard.description"
+            :description="`${formName[locale]} - ${t.dashboard.description}`"
         />
         <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div class="flex flex-wrap items-end gap-4">
+
+                <!-- Form: Conflict of Interest or a form type -->
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-slate-700">
+                        {{ t.dashboard.form }}
+                    </label>
+
+                    <SearchableSelect
+                        v-model="filter.form"
+                        :options="formSelectOptions"
+                        class="w-56 max-w-full"
+                        @change="applyFilter"
+                    />
+                </div>
 
                 <!-- Reporting Period -->
                 <div class="flex flex-col gap-2">
@@ -502,19 +599,12 @@ watch(locale, () => {
                         {{ t.dashboard.reportingPeriod }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.period"
-                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        :options="periodOptions"
+                        class="w-36 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option
-                            v-for="period in periods"
-                            :key="period"
-                            :value="period"
-                        >
-                            {{ period }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Declaration Type -->
@@ -523,23 +613,12 @@ watch(locale, () => {
                         {{ t.dashboard.declarationType }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.type"
-                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        :options="typeOptions"
+                        class="w-48 max-w-full"
                         @change="onTypeChanged"
-                    >
-                        <option value="all">
-                            {{ t.report.allTypes }}
-                        </option>
-
-                        <option value="employee">
-                            {{ t.common.employee }}
-                        </option>
-
-                        <option value="non_employee">
-                            {{ t.common.nonEmployee }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Business Unit -->
@@ -549,23 +628,12 @@ watch(locale, () => {
                         {{ t.common.businessUnit }}
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.business_unit"
-                        class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
+                        :options="businessUnitSelectOptions"
+                        class="w-64 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            {{ t.teamHistory.allBusinessUnits }}
-                        </option>
-
-                        <option
-                            v-for="item in businessUnitOptions"
-                            :key="item"
-                            :value="item"
-                        >
-                            {{ item }}
-                        </option>
-                    </select>
+                    />
                 </div>
 
                 <!-- Status -->
@@ -574,27 +642,12 @@ watch(locale, () => {
                         Status
                     </label>
 
-                    <select
+                    <SearchableSelect
                         v-model="filter.status"
-                        class="rounded-md border border-border px-3 py-2 text-sm"
+                        :options="statusOptions"
+                        class="w-48 max-w-full"
                         @change="applyFilter"
-                    >
-                        <option value="">
-                            All Status
-                        </option>
-
-                        <option value="submitted">
-                            Submitted
-                        </option>
-
-                        <option value="pending">
-                            Not Submitted
-                        </option>
-
-                        <option value="conflict">
-                            Has Conflict
-                        </option>
-                    </select>
+                    />
                 </div> -->
 
             </div>
@@ -631,25 +684,41 @@ watch(locale, () => {
                     {{ t.dashboard.kpiTotal }} {{ typeLabel }}
                 </div>
             </Card>
-            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'submitted',})">
+            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({ status: isForm ? 'signed' : 'submitted' })">
                 <div class="stat-num text-green-600">
                     {{ stats.submitted }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiSubmitted }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ isForm ? t.dashboard.kpiSigned : t.dashboard.kpiSubmitted }}
                 </div>
             </Card>
-            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({status: 'pending',})">
+            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({ status: isForm ? 'not_signed' : 'pending' })">
                 <div class="stat-num text-yellow-500">
                     {{ stats.pending }}
                 </div>
                 <div class="stat-title">
-                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiNotSubmitted }}
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ isForm ? t.dashboard.kpiNotSigned : t.dashboard.kpiNotSubmitted }}
                 </div>
             </Card>
-            <Card class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md" @click="openReport({declaration_status: 'conflict',})">
+            <Card
+                v-if="isForm"
+                class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md"
+                @click="openReport({ status: 'draft' })"
+            >
+                <div class="stat-num text-orange-500">
+                    {{ stats.draft ?? 0 }}
+                </div>
+                <div class="stat-title">
+                    {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiDraft }}
+                </div>
+            </Card>
+            <Card
+                v-else
+                class="stat-card cursor-pointer transition hover:-translate-y-1 hover:shadow-md"
+                @click="openReport({ declaration_status: 'conflict' })"
+            >
                 <div class="stat-num text-red-600">
-                    {{ stats.conflict }}
+                    {{ stats.conflict ?? 0 }}
                 </div>
                 <div class="stat-title">
                     {{ t.dashboard.kpiTotal }} {{ typeLabel }} <br> {{ t.dashboard.kpiConflict }}
@@ -679,7 +748,7 @@ watch(locale, () => {
             <Card class="card-custom md:col-span-8 bg-white">
                 <div class="mb-4">
                     <h2 class="font-semibold">
-                        {{ t.dashboard.submissionsByBusinessUnit }}
+                        {{ barChartTitle }}
                     </h2>
                 </div>
 

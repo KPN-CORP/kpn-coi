@@ -8,12 +8,16 @@ use App\Http\Controllers\Controller;
 use App\Jobs\GenerateReportDownload;
 use App\Models\CoiDeclaration;
 use App\Models\Companies;
+use App\Models\FormType;
 use App\Models\ReportDownload;
 use App\Services\DataScopeService;
+use App\Services\FormReportService;
+use App\Services\FormSelectionService;
 use App\Services\ReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -22,8 +26,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index(Request $request): Response
+    /**
+     * One report for every declaration: the "Form" filter picks Conflict of
+     * Interest (below) or a form type (formReport()), on the same page.
+     */
+    public function index(Request $request, FormSelectionService $forms): Response
     {
+        $formOptions = $forms->options(Auth::user(), 'report.view', 'form_report.view');
+
+        $formType = $forms->selected($request, $formOptions);
+
+        if ($formType) {
+            return $this->formReport($request, $formType, $forms->props($formType, $formOptions));
+        }
+
+        $formProps = $forms->props(null, $formOptions);
+
         $period = (int) (
             $request->period
             ?? now()->year
@@ -120,8 +138,61 @@ class ReportController extends Controller
 
                 'companyNames' => Companies::query()
                     ->pluck('contribution_level', 'contribution_level_code'),
+
+                ...$formProps,
             ]
         );
+    }
+
+    /**
+     * A form type's rows on the report page, in FormReportService's shape
+     * (one row per person for the period, signed or not).
+     */
+    private function formReport(Request $request, FormType $formType, array $formProps): Response
+    {
+        $report = app(FormReportService::class);
+        $scope = app(DataScopeService::class);
+
+        $period = FormReportController::period($request);
+        $latestSubmission = FormReportController::latestSubmission($request);
+
+        $filters = FormReportController::filters($request);
+
+        $rows = $report->sort(
+            $report->adminReportRows(Auth::user(), $formType->id, $period, $filters, $latestSubmission),
+            $request->input('sort'),
+            $request->input('direction') === 'desc' ? 'desc' : 'asc'
+        );
+
+        $perPage = (int) $request->input('per_page', 20);
+
+        if (! in_array($perPage, [10, 20, 50, 100], true)) {
+            $perPage = 20;
+        }
+
+        $page = max(1, (int) $request->input('page', 1));
+
+        return Inertia::render('Admin/Report', [
+            'declarations' => new LengthAwarePaginator(
+                $rows->forPage($page, $perPage)->values(),
+                $rows->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            ),
+            'filters' => [
+                ...$filters,
+                'period' => $period ?? 'all',
+                'latest_submission' => $latestSubmission,
+                'per_page' => $perPage,
+                'sort' => $request->input('sort'),
+                'direction' => $request->input('direction', 'asc'),
+            ],
+            'businessUnitOptions' => $scope->businessUnitOptions(Auth::user()),
+            'contributionLevelOptions' => $scope->contributionLevelOptions(Auth::user()),
+            'periods' => $report->periods($formType->id),
+            ...$formProps,
+        ]);
     }
 
     /**

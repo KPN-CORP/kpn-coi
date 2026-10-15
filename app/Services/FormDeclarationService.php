@@ -9,6 +9,7 @@ use App\Models\FormTemplate;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -111,16 +112,23 @@ class FormDeclarationService
      */
     public function saveDraft(User|NonEmployeeUser $account, FormTemplate $template, string $locale): FormDeclaration
     {
-        return FormDeclaration::query()->updateOrCreate(
-            $this->rowKey($account, $template),
-            [
+        return $this->onceOnly($account, $template, function (FormDeclaration $declaration) use ($account, $template, $locale) {
+            // Never downgrade: a draft request that lost a race with Sign
+            // (two tabs, a retry) leaves the signature as it is.
+            if ($declaration->isSigned()) {
+                return $declaration;
+            }
+
+            $declaration->fill([
                 'template_id' => $template->id,
                 'status' => FormDeclaration::STATUS_DRAFT,
                 'locale' => $locale,
                 'agreed_at' => now(),
                 'business_unit' => $this->variables->businessUnitFor($account),
-            ]
-        );
+            ])->save();
+
+            return $declaration;
+        });
     }
 
     public function sign(
@@ -130,12 +138,15 @@ class FormDeclarationService
         string $locale,
         Request $request
     ): FormDeclaration {
-        return DB::transaction(function () use ($account, $template, $signedName, $locale, $request) {
+        return $this->onceOnly($account, $template, function (FormDeclaration $declaration) use ($account, $template, $signedName, $locale, $request) {
+            // A second click / retry: the first one already signed.
+            if ($declaration->isSigned()) {
+                return $declaration;
+            }
+
             $signedAt = now();
 
             // Turns an existing draft into the signature, or creates it.
-            $declaration = FormDeclaration::query()->firstOrNew($this->rowKey($account, $template));
-
             $declaration->fill([
                 'template_id' => $template->id,
                 'status' => FormDeclaration::STATUS_SIGNED,
@@ -151,6 +162,39 @@ class FormDeclarationService
 
             return $declaration;
         });
+    }
+
+    /**
+     * Run a change to this account's single row for the template's form type
+     * and period, serialised against concurrent requests:
+     *
+     * - the template row is locked, so an admin edit/delete of the wording
+     *   (FormTemplateController, which takes the same lock) cannot slip in
+     *   between "still unsigned, editable" and the signature;
+     * - the declaration row is locked when it exists; when it does not, two
+     *   requests can both try to insert it, and the loser re-reads the
+     *   winner's row instead of failing on the unique key.
+     *
+     * @param  callable(FormDeclaration): FormDeclaration  $change
+     */
+    private function onceOnly(User|NonEmployeeUser $account, FormTemplate $template, callable $change): FormDeclaration
+    {
+        $key = $this->rowKey($account, $template);
+
+        try {
+            return DB::transaction(function () use ($template, $key, $change) {
+                FormTemplate::query()->whereKey($template->id)->lockForUpdate()->first();
+
+                $declaration = FormDeclaration::query()->where($key)->lockForUpdate()->first()
+                    ?? new FormDeclaration($key);
+
+                return $change($declaration);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return DB::transaction(function () use ($key, $change) {
+                return $change(FormDeclaration::query()->where($key)->lockForUpdate()->firstOrFail());
+            });
+        }
     }
 
     /**
@@ -174,7 +218,23 @@ class FormDeclarationService
      */
     public function renderSigned(FormDeclaration $declaration, string $locale): array
     {
-        return $this->render($declaration->template, $declaration->variables ?? [], $locale);
+        return $this->render($declaration->template, $this->signedValues($declaration), $locale);
+    }
+
+    /**
+     * The snapshot plus what {{signature}} and {{sign_date}} print. The
+     * signing time comes from signed_at, not the snapshot: early snapshots
+     * kept the date only.
+     *
+     * @return array<string, string|null>
+     */
+    public function signedValues(FormDeclaration $declaration): array
+    {
+        return [
+            ...($declaration->variables ?? []),
+            'signed_name' => $declaration->signed_name,
+            'sign_date' => $declaration->signed_at?->toIso8601String(),
+        ];
     }
 
     /**

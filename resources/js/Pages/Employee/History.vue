@@ -7,6 +7,7 @@ import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
 import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
+import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import { formatDateTime } from '@/Utils/date'
 
 import { Link, router, usePage } from '@inertiajs/vue3'
@@ -14,6 +15,7 @@ import { ref, computed } from 'vue'
 import type { Flash } from '@/Config/inertia'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
+import type { NavigationForm } from '@/Composables/useNavigation'
 
 const { t, locale } = useLocale()
 
@@ -31,8 +33,8 @@ const coiQuestions = computed(
 
 // Form types with something waiting for this person's signature.
 const pendingForms = computed(
-    () => ((page.props.navigation as any)?.forms ?? [])
-        .filter((form: { pending: number }) => form.pending > 0)
+    () => ((page.props.navigation as { forms?: NavigationForm[] })?.forms ?? [])
+        .filter(form => form.pending > 0)
 )
 
 const currentYear = new Date().getFullYear()
@@ -103,6 +105,11 @@ function reload(overrides: Record<string, unknown> = {}) {
         },
     )
 }
+
+const periodOptions = computed(() => [
+    { value: '', label: t.value.history.allPeriods },
+    ...props.periods.map(period => ({ value: period, label: String(period) })),
+])
 
 function changePerPage(value: number) {
     reload({ per_page: value })
@@ -335,23 +342,13 @@ function downloadAttachment(declaration: Declaration) {
             </Link>
         </div>
         <div class="mb-6 flex items-center gap-3">
-            <select
-                class="form-select"
-                :value="filters.period"
-                @change="changePeriod(($event.target as HTMLSelectElement).value)"
-            >
-                <option value="">
-                    {{ t.history.allPeriods }}
-                </option>
-
-                <option
-                    v-for="period in periods"
-                    :key="period"
-                    :value="period"
-                >
-                    {{ period }}
-                </option>
-            </select>
+            <SearchableSelect
+                :model-value="filters.period ?? ''"
+                :options="periodOptions"
+                class="w-48 max-w-full"
+                :aria-label="t.history.columnPeriod"
+                @change="changePeriod(String($event))"
+            />
         </div>
 
         <Card>

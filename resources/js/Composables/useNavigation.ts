@@ -38,12 +38,30 @@ export function useNavigation() {
 
         const items: NavigationItem[] = []
 
-        items.push({
+        // The COI declaration, shaped like the form type items below: a link to
+        // the person's own history, or for a manager a dropdown that adds
+        // their team's.
+        const coi: NavigationItem = {
             section: t.value.nav.myAccount,
-            label: t.value.nav.history,
-            icon: 'fa-solid fa-clock-rotate-left',
+            label: t.value.nav.conflictOfInterest,
+            icon: 'fa-solid fa-scale-balanced',
             route: 'employee.history',
-        })
+        }
+
+        items.push(navigation.is_manager
+            ? {
+                ...coi,
+                children: [
+                    { ...coi, label: t.value.nav.myHistory, icon: 'fa-solid fa-user' },
+                    {
+                        section: coi.section,
+                        label: t.value.nav.teamHistory,
+                        icon: 'fa-solid fa-users',
+                        route: 'manager.team-history',
+                    },
+                ],
+            }
+            : coi)
 
         // One item per active form type (Master Settings -> Form Type). A
         // manager gets it as a dropdown: their own declaration, and the same
@@ -62,10 +80,10 @@ export function useNavigation() {
                 ? {
                     ...own,
                     children: [
-                        { ...own, label: t.value.nav.myDeclaration, icon: 'fa-solid fa-user' },
+                        { ...own, label: t.value.nav.myHistory, icon: 'fa-solid fa-user' },
                         {
                             section: own.section,
-                            label: t.value.nav.teamDeclaration,
+                            label: t.value.nav.teamHistory,
                             icon: 'fa-solid fa-users',
                             route: 'manager.forms.team',
                             params: { formType: form.code },
@@ -75,16 +93,8 @@ export function useNavigation() {
                 : own)
         }
 
-        if (navigation.is_manager) {
-            items.push({
-                section: t.value.nav.myAccount,
-                label: t.value.nav.teamHistory,
-                icon: 'fa-solid fa-users',
-                route: 'manager.team-history',
-            })
-        }
-
-        if (can('dashboard.view')) {
+        // One dashboard for COI and every form type (its Form filter).
+        if (can('dashboard.view') || can('form_dashboard.view')) {
             items.push({
                 section: t.value.nav.administration,
                 label: t.value.nav.dashboard,
@@ -93,7 +103,8 @@ export function useNavigation() {
             })
         }
 
-        if (can('report.view')) {
+        // One report for COI and every form type (its Form filter).
+        if (can('report.view') || can('form_report.view')) {
             items.push({
                 section: t.value.nav.administration,
                 label: t.value.nav.reports,
@@ -117,24 +128,6 @@ export function useNavigation() {
                 label: t.value.nav.roleManagement,
                 icon: 'fa-solid fa-user-shield',
                 route: 'admin.roles',
-            })
-        }
-
-        if (can('form_dashboard.view')) {
-            items.push({
-                section: t.value.nav.forms,
-                label: t.value.nav.formDashboard,
-                icon: 'fa-solid fa-chart-pie',
-                route: 'admin.forms.dashboard',
-            })
-        }
-
-        if (can('form_report.view')) {
-            items.push({
-                section: t.value.nav.forms,
-                label: t.value.nav.formReport,
-                icon: 'fa-solid fa-clipboard-check',
-                route: 'admin.forms.report',
             })
         }
 

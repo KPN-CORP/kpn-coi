@@ -12,8 +12,9 @@ import type { FontOptions, FormVariable } from './types'
  * footer) was focused last, so the page carries a single set of controls
  * instead of one per editor. Table tools appear only inside a table.
  *
- * Every button runs from @mousedown.prevent on its element (see the template)
- * so clicking the toolbar never steals the selection from the editor.
+ * Every button has a bare @mousedown.prevent -- so clicking it never steals
+ * focus/selection from the editor -- and does its work on @click, which also
+ * fires for Enter/Space, keeping the toolbar usable from the keyboard.
  */
 const props = defineProps<{
     editor: Editor | null | undefined
@@ -227,7 +228,7 @@ async function setRowHeight() {
                 class="form-tb-btn"
                 :title="t.forms.undo"
                 :aria-label="t.forms.undo"
-                @mousedown.prevent="run(c => c.undo())"
+                @mousedown.prevent @click="run(c => c.undo())"
             >
                 <i class="fa-solid fa-rotate-left" />
             </button>
@@ -236,7 +237,7 @@ async function setRowHeight() {
                 class="form-tb-btn"
                 :title="t.forms.redo"
                 :aria-label="t.forms.redo"
-                @mousedown.prevent="run(c => c.redo())"
+                @mousedown.prevent @click="run(c => c.redo())"
             >
                 <i class="fa-solid fa-rotate-right" />
             </button>
@@ -256,7 +257,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': style.active() }"
-                        @mousedown.prevent="style.apply(); close()"
+                        @mousedown.prevent @click="style.apply(); close()"
                     >
                         <span :class="{ 'text-base font-bold': style.key === 'h1', 'font-bold': style.key === 'h2', 'font-semibold': style.key === 'h3' }">
                             {{ style.label }}
@@ -276,7 +277,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': !currentFont() }"
-                        @mousedown.prevent="run(c => c.unsetFontFamily()); close()"
+                        @mousedown.prevent @click="run(c => c.unsetFontFamily()); close()"
                     >
                         {{ t.forms.defaultFont }}
                     </button>
@@ -287,7 +288,7 @@ async function setRowHeight() {
                         class="form-menu-item"
                         :class="{ 'is-active': currentFont()?.key === font.key }"
                         :style="{ fontFamily: font.css }"
-                        @mousedown.prevent="run(c => c.setFontFamily(font.css)); close()"
+                        @mousedown.prevent @click="run(c => c.setFontFamily(font.css)); close()"
                     >
                         {{ font.label }}
                     </button>
@@ -306,7 +307,7 @@ async function setRowHeight() {
                             type="button"
                             class="form-menu-item"
                             :class="{ 'is-active': !currentSize() }"
-                            @mousedown.prevent="run(c => c.unsetFontSize()); close()"
+                            @mousedown.prevent @click="run(c => c.unsetFontSize()); close()"
                         >
                             {{ t.forms.defaultSize }}
                         </button>
@@ -316,7 +317,7 @@ async function setRowHeight() {
                             type="button"
                             class="form-menu-item"
                             :class="{ 'is-active': currentSize() === String(size) }"
-                            @mousedown.prevent="run(c => c.setFontSize(`${size}pt`)); close()"
+                            @mousedown.prevent @click="run(c => c.setFontSize(`${size}pt`)); close()"
                         >
                             {{ size }} pt
                         </button>
@@ -339,7 +340,7 @@ async function setRowHeight() {
                 :class="{ 'is-active': isActive(mark.name) }"
                 :title="mark.title"
                 :aria-label="mark.title"
-                @mousedown.prevent="mark.action"
+                @mousedown.prevent @click="mark.action"
             >
                 <i :class="['fa-solid', mark.icon]" />
             </button>
@@ -368,14 +369,14 @@ async function setRowHeight() {
                             type="button"
                             class="h-6 w-6 rounded border border-slate-200 hover:scale-110"
                             :style="{ background: colour }"
-                            :aria-label="colour"
-                            @mousedown.prevent="setColour(kind, colour); close()"
+                            :aria-label="`${kind === 'text' ? t.forms.textColor : t.forms.highlight} ${colour}`"
+                            @mousedown.prevent @click="setColour(kind, colour); close()"
                         />
                     </div>
                     <button
                         type="button"
                         class="form-menu-item"
-                        @mousedown.prevent="setColour(kind, null); close()"
+                        @mousedown.prevent @click="setColour(kind, null); close()"
                     >
                         <i class="fa-solid fa-droplet-slash w-4 text-slate-400" />
                         {{ t.forms.noColor }}
@@ -398,7 +399,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': isActive({ textAlign: align.key }) }"
-                        @mousedown.prevent="run(c => c.setTextAlign(align.key)); close()"
+                        @mousedown.prevent @click="run(c => c.setTextAlign(align.key)); close()"
                     >
                         <i :class="[align.icon, 'w-4']" />
                         {{ align.label }}
@@ -412,7 +413,7 @@ async function setRowHeight() {
                 :class="{ 'is-active': isActive('bulletList') }"
                 :title="t.forms.bulletList"
                 :aria-label="t.forms.bulletList"
-                @mousedown.prevent="run(c => c.toggleBulletList())"
+                @mousedown.prevent @click="run(c => c.toggleBulletList())"
             >
                 <i class="fa-solid fa-list-ul" />
             </button>
@@ -422,7 +423,7 @@ async function setRowHeight() {
                 :class="{ 'is-active': isActive('orderedList') }"
                 :title="t.forms.numberedList"
                 :aria-label="t.forms.numberedList"
-                @mousedown.prevent="run(c => c.toggleOrderedList())"
+                @mousedown.prevent @click="run(c => c.toggleOrderedList())"
             >
                 <i class="fa-solid fa-list-ol" />
             </button>
@@ -440,7 +441,7 @@ async function setRowHeight() {
                     <button
                         type="button"
                         class="form-menu-item"
-                        @mousedown.prevent="run(c => c.insertTable({ rows: 3, cols: 2, withHeaderRow: false })); close()"
+                        @mousedown.prevent @click="run(c => c.insertTable({ rows: 3, cols: 2, withHeaderRow: false })); close()"
                     >
                         <i class="fa-solid fa-table w-4 text-slate-500" />
                         {{ t.forms.insertTable }}
@@ -449,7 +450,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :disabled="uploading"
-                        @mousedown.prevent="fileInput?.click(); close()"
+                        @mousedown.prevent @click="fileInput?.click(); close()"
                     >
                         <i
                             class="w-4 text-slate-500"
@@ -460,7 +461,7 @@ async function setRowHeight() {
                     <button
                         type="button"
                         class="form-menu-item"
-                        @mousedown.prevent="run(c => c.setHorizontalRule()); close()"
+                        @mousedown.prevent @click="run(c => c.setHorizontalRule()); close()"
                     >
                         <i class="fa-solid fa-minus w-4 text-slate-500" />
                         {{ t.forms.insertLine }}
@@ -468,7 +469,7 @@ async function setRowHeight() {
                     <button
                         type="button"
                         class="form-menu-item"
-                        @mousedown.prevent="run(c => c.insertFormTab()); close()"
+                        @mousedown.prevent @click="run(c => c.insertFormTab()); close()"
                     >
                         <i class="fa-solid fa-right-long w-4 text-slate-500" />
                         {{ t.forms.insertTab }}
@@ -477,7 +478,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': isActive('blockquote') }"
-                        @mousedown.prevent="run(c => c.toggleBlockquote()); close()"
+                        @mousedown.prevent @click="run(c => c.toggleBlockquote()); close()"
                     >
                         <i class="fa-solid fa-quote-left w-4 text-slate-500" />
                         {{ t.forms.quote }}
@@ -496,7 +497,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': isActive('superscript') }"
-                        @mousedown.prevent="run(c => c.toggleSuperscript()); close()"
+                        @mousedown.prevent @click="run(c => c.toggleSuperscript()); close()"
                     >
                         <i class="fa-solid fa-superscript w-4 text-slate-500" />
                         {{ t.forms.superscript }}
@@ -505,7 +506,7 @@ async function setRowHeight() {
                         type="button"
                         class="form-menu-item"
                         :class="{ 'is-active': isActive('subscript') }"
-                        @mousedown.prevent="run(c => c.toggleSubscript()); close()"
+                        @mousedown.prevent @click="run(c => c.toggleSubscript()); close()"
                     >
                         <i class="fa-solid fa-subscript w-4 text-slate-500" />
                         {{ t.forms.subscript }}
@@ -513,7 +514,7 @@ async function setRowHeight() {
                     <button
                         type="button"
                         class="form-menu-item"
-                        @mousedown.prevent="run(c => c.unsetAllMarks()); close()"
+                        @mousedown.prevent @click="run(c => c.unsetAllMarks()); close()"
                     >
                         <i class="fa-solid fa-text-slash w-4 text-slate-500" />
                         {{ t.forms.clearFormatting }}
@@ -541,7 +542,7 @@ async function setRowHeight() {
                                 :key="variable.key"
                                 type="button"
                                 class="form-menu-item flex-col !items-start !gap-0"
-                                @mousedown.prevent="run(c => c.insertFormVariable(variable.key)); close()"
+                                @mousedown.prevent @click="run(c => c.insertFormVariable(variable.key)); close()"
                             >
                                 <span class="text-sm text-slate-700">{{ variable.label[locale] }}</span>
                                 <span class="font-mono text-[11px] text-slate-400">{{ token(variable.key) }}</span>
@@ -574,7 +575,8 @@ async function setRowHeight() {
                 type="button"
                 class="form-tb-btn gap-1.5 px-2 text-xs"
                 :title="tool.label"
-                @mousedown.prevent="tool.action"
+                :aria-label="tool.label"
+                @mousedown.prevent @click="tool.action"
             >
                 <i :class="tool.icon" />
                 <span class="hidden 2xl:inline">{{ tool.label }}</span>
@@ -585,7 +587,9 @@ async function setRowHeight() {
                 class="form-tb-btn gap-1.5 px-2 text-xs"
                 :class="{ 'is-active': isActive('table', { borderless: true }) }"
                 :title="t.forms.borderlessTable"
-                @mousedown.prevent="toggleBorders"
+                :aria-label="t.forms.borderlessTable"
+                :aria-pressed="isActive('table', { borderless: true })"
+                @mousedown.prevent @click="toggleBorders"
             >
                 <i class="fa-solid fa-border-none" />
                 <span class="hidden 2xl:inline">{{ t.forms.borderlessTable }}</span>
@@ -595,7 +599,8 @@ async function setRowHeight() {
                 type="button"
                 class="form-tb-btn ml-auto gap-1.5 px-2 text-xs text-red-600"
                 :title="t.forms.deleteTable"
-                @mousedown.prevent="run(c => c.deleteTable())"
+                :aria-label="t.forms.deleteTable"
+                @mousedown.prevent @click="run(c => c.deleteTable())"
             >
                 <i class="fa-solid fa-trash-can" />
                 <span class="hidden sm:inline">{{ t.forms.deleteTable }}</span>

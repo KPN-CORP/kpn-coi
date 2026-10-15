@@ -25,6 +25,15 @@ class FormTemplate extends Model
         'legal' => [215.9, 355.6],
     ];
 
+    /**
+     * Enough to decide which template applies and to list it, without the
+     * six longText body columns. Load the full row only to render one.
+     */
+    public const SUMMARY_COLUMNS = [
+        'id', 'form_type_id', 'period', 'title_en', 'title_id',
+        'business_units', 'publish_at', 'is_active', 'updated_at',
+    ];
+
     protected $connection = 'mysql';
 
     protected $table = 'form_templates';
