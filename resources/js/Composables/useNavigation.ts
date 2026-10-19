@@ -131,7 +131,8 @@ export function useNavigation() {
             })
         }
 
-        if (can('form_master.view')) {
+        // Also limited to the accounts in FORM_MASTER_ADMIN_EMAILS.
+        if (can('form_master.view') && navigation.form_master) {
             items.push({
                 section: t.value.nav.masterSettings,
                 label: t.value.nav.templates,

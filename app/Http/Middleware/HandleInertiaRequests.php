@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Employee;
 use App\Models\FormType;
 use App\Services\FormDeclarationService;
+use App\Services\FormMasterAccess;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -51,6 +52,10 @@ class HandleInertiaRequests extends Middleware
                 'is_manager' => $request->user()
                     ? $isManager
                     : false,
+
+                // Master Settings menu: listed accounts only, see
+                // FormMasterAccess (the permission is checked client-side too).
+                'form_master' => FormMasterAccess::isListed($request->user()),
 
                 // One employee menu item per active form type, each with the
                 // number of forms waiting for this account's signature.

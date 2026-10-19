@@ -7,20 +7,22 @@ namespace App\Services;
 use Spatie\Permission\Models\Permission;
 
 /**
- * Who may grant or take away the Master Settings (form templates and form
- * types) permissions in Role Management: only the accounts whose email is
- * listed in FORM_MASTER_ADMIN_EMAILS (config forms.master_admin_emails).
+ * Master Settings (form templates and form types) is limited to the accounts
+ * whose email is listed in FORM_MASTER_ADMIN_EMAILS (config
+ * forms.master_admin_emails):
  *
- * Holding form_master.* still decides who uses Master Settings; this only
- * guards handing it out. An empty list means nobody can change it from the
- * screen -- existing grants stay as they are.
+ * - only they see and open it (menu, EnsureFormMasterAdmin on the routes),
+ *   and still need the form_master.* permission for each action;
+ * - only they can grant or take away form_master.* in Role Management.
+ *
+ * An empty list closes Master Settings to everyone; existing grants stay.
  */
 class FormMasterAccess
 {
     /** Permission name prefix of the Master Settings module. */
     public const PREFIX = 'form_master.';
 
-    public static function canAssign(?object $user): bool
+    public static function isListed(?object $user): bool
     {
         $email = mb_strtolower(trim((string) ($user->email ?? '')));
 
@@ -54,7 +56,7 @@ class FormMasterAccess
      */
     public static function permissionsToSave(?object $user, array $requested, array $current): array
     {
-        if (self::canAssign($user)) {
+        if (self::isListed($user)) {
             return array_values($requested);
         }
 
@@ -70,7 +72,7 @@ class FormMasterAccess
      */
     public static function visiblePermissions(?object $user, $permissions)
     {
-        return self::canAssign($user)
+        return self::isListed($user)
             ? $permissions
             : $permissions->reject(fn (Permission $permission) => self::isMasterPermission($permission->name))->values();
     }

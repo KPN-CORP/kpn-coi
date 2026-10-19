@@ -254,7 +254,9 @@ Route::middleware(['auth:web'])->prefix('admin')
     });
 
     // Master Settings: form templates and form types.
-    Route::prefix('master')->name('master.')->group(function () {
+    // Master Settings: listed accounts only (FORM_MASTER_ADMIN_EMAILS), and
+    // each route still checks its form_master.* permission.
+    Route::prefix('master')->name('master.')->middleware('form_master_admin')->group(function () {
 
         Route::get('/templates', [FormTemplateController::class, 'index'])
             ->middleware('permission:form_master.view')
