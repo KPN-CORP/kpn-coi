@@ -1,1 +1,0 @@
-import{B as e,I as t,P as n,T as r,Y as i,y as a}from"./app-BGTVsWOh.js";import{i as o,n as s}from"./navigation-PZ3CZQaS.js";var c=r({__name:`EmployeeLayout`,setup(r){let c={name:`Metta Saputra`,employee_id:`KPN-01124040`,initials:`M`};return(r,l)=>(n(),a(o,{navigation:i(s),user:c},{default:e(()=>[t(r.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

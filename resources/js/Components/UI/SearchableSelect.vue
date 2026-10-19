@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Multiselect from '@vueform/multiselect'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useLocale } from '@/Composables/useLocale'
 
 /**
@@ -69,12 +69,42 @@ const value = computed({
         emit('change', outer)
     },
 })
+
+// --- Open upward when the list would run off the bottom of the screen ------
+// (e.g. a field at the foot of a sidebar). Decided just before it opens --
+// on pointer down or keyboard focus -- so the list never flashes downward.
+
+// Matches --ms-max-height in coi.css (16rem) plus the list's border/margin.
+const LIST_MAX_HEIGHT = 16 * 16 + 12
+const OPTION_HEIGHT = 36
+
+const wrapper = ref<HTMLElement | null>(null)
+const direction = ref<'bottom' | 'top'>('bottom')
+
+function chooseDirection() {
+    const box = wrapper.value?.getBoundingClientRect()
+
+    if (!box) {
+        return
+    }
+
+    const needed = Math.min(LIST_MAX_HEIGHT, Math.max(1, props.options.length) * OPTION_HEIGHT + 12)
+    const below = window.innerHeight - box.bottom
+    const above = box.top
+
+    direction.value = below < needed && above > below ? 'top' : 'bottom'
+}
 </script>
 
 <template>
     <!-- The wrapper takes the page's classes (w-48, w-full...): the library's
          own width: 100% would otherwise win over them. -->
-    <div class="searchable-select-wrap">
+    <div
+        ref="wrapper"
+        class="searchable-select-wrap"
+        @pointerdown.capture="chooseDirection"
+        @focusin="chooseDirection"
+    >
         <Multiselect
             :id="id"
             v-model="value"
@@ -89,6 +119,7 @@ const value = computed({
             :no-options-text="t.common.noResults"
             :aria="ariaLabel ? { 'aria-label': ariaLabel } : {}"
             :append-to-body="appendToBody"
+            :open-direction="direction"
             class="searchable-select"
         />
     </div>

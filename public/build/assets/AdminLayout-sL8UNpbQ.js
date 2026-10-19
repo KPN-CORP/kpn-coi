@@ -1,0 +1,1 @@
+import{B as e,I as t,P as n,T as r,Y as i,y as a}from"./app-DO2B2Rv-.js";import{i as o,t as s}from"./navigation-CwB28L0l.js";var c=r({__name:`AdminLayout`,setup(r){let c={name:`Commitment Corner Admin`,employee_id:`ADM-00001`,initials:`CA`};return(r,l)=>(n(),a(o,{navigation:i(s),user:c},{default:e(()=>[t(r.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};
