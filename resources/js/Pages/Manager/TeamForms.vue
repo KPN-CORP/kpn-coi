@@ -264,6 +264,13 @@ function sortIcon(key: SortKey) {
 
                             <td class="py-4">
                                 <FormStatusBadge :status="row.status" />
+                                <div
+                                    v-if="row.resign_required"
+                                    class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700"
+                                >
+                                    <i class="fa-solid fa-rotate" />
+                                    {{ t.forms.resignRequired }}
+                                </div>
                             </td>
 
                             <td class="whitespace-nowrap py-4">

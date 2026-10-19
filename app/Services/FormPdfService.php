@@ -44,6 +44,8 @@ class FormPdfService
             'footer' => $this->images->inlineForPdf($document['footer']),
             'page' => $page,
             'locale' => $locale,
+            // Replaced by a newer version: still printable, marked not valid.
+            'superseded' => $this->forms->isSuperseded($declaration),
         ])->setOptions([
             'isRemoteEnabled' => true,
             'allowedRemoteHosts' => ['fonts.googleapis.com', 'fonts.gstatic.com'],

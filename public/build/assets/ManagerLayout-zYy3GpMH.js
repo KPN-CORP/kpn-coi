@@ -1,0 +1,1 @@
+import{B as e,I as t,P as n,T as r,Y as i,y as a}from"./app-CsoWYadn.js";import{i as o,r as s}from"./navigation-B_-t2Xxp.js";var c=r({__name:`ManagerLayout`,setup(r){let c={name:`Metta Saputra`,employee_id:`KPN-01124040`,initials:`M`};return(r,l)=>(n(),a(o,{navigation:i(s),user:c},{default:e(()=>[t(r.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

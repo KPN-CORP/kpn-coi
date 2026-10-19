@@ -355,6 +355,14 @@ const formColumns = computed(() => [
     { label: t.value.forms.columnSignedAt, key: 'signed_at', class: '' },
 ])
 
+// Printed with a "not valid" watermark (FormPdfService).
+function downloadOldVersion(row: FormRow) {
+    window.open(
+        route('admin.forms.report.pdf', { declaration: row.superseded_declaration_id, locale: locale.value }),
+        '_blank',
+    )
+}
+
 function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
     window.open(
         route('admin.forms.report.pdf', { declaration: row.declaration_id, locale: language }),
@@ -914,6 +922,13 @@ async function pollExport(id: number, attempt = 0) {
 
                             <td class="py-4">
                                 <FormStatusBadge :status="row.status" />
+                                <div
+                                    v-if="row.resign_required"
+                                    class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700"
+                                >
+                                    <i class="fa-solid fa-rotate" />
+                                    {{ t.forms.resignRequired }}
+                                </div>
                             </td>
 
                             <td class="py-4 text-slate-600">
@@ -947,6 +962,18 @@ async function pollExport(id: number, attempt = 0) {
                                         EN
                                     </button>
                                 </div>
+
+                                <!-- The replaced signature, kept for the record -->
+                                <button
+                                    v-else-if="row.superseded_declaration_id"
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    :title="t.forms.oldVersionHint"
+                                    @click="downloadOldVersion(row)"
+                                >
+                                    <i class="fa-solid fa-clock-rotate-left" />
+                                    {{ t.forms.oldVersion }}
+                                </button>
 
                                 <span
                                     v-else

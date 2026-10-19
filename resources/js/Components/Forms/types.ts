@@ -75,7 +75,8 @@ export interface RenderedForm {
 }
 
 /** A row's status. 'pending' = not started. */
-export type FormStatus = 'signed' | 'draft' | 'pending' | 'no_template'
+// 'superseded' is display-only: a kept signature whose template was replaced.
+export type FormStatus = 'signed' | 'draft' | 'pending' | 'no_template' | 'superseded'
 
 /** Status filter values: a row status, or 'not_signed' (pending + draft). */
 export type FormStatusFilter = FormStatus | 'not_signed'
@@ -100,6 +101,10 @@ export interface FormRow {
     signed_name: string | null
     signed_at: string | null
     signed_locale: 'en' | 'id' | null
+    // Signed an earlier version that was replaced: owes a new signature.
+    resign_required: boolean
+    // That replaced signature, still downloadable (marked not valid).
+    superseded_declaration_id: number | null
 }
 
 export interface FormStats {

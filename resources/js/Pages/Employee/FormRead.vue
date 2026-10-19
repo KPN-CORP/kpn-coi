@@ -20,6 +20,8 @@ const props = defineProps<{
     formType: { code: string, name: { en: string, id: string } }
     document: ReadDocument
     draft: { agreed_at: string | null } | null
+    // An earlier version was signed and then replaced by this one.
+    resign: boolean
     fullName: string
     // The wording being read; the signature is refused if it changes.
     version: string
@@ -206,6 +208,14 @@ function saveDraft() {
             type="error"
             :message="page.props.flash?.error"
         />
+
+        <div
+            v-if="resign"
+            class="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
+        >
+            <i class="fa-solid fa-rotate mt-0.5" />
+            <span>{{ t.forms.resignBanner }}</span>
+        </div>
 
         <div
             v-if="!reachedEnd"

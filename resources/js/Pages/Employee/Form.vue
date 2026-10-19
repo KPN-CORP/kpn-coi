@@ -21,6 +21,8 @@ interface PendingItem {
     title: Localized
     draft_saved_at: string | null
     created_at: string | null
+    // Pending again: an earlier version was signed, then replaced.
+    resign: boolean
 }
 
 interface SignedForm extends RenderedForm {
@@ -30,6 +32,8 @@ interface SignedForm extends RenderedForm {
     signed_at: string | null
     created_at: string | null
     locale: 'en' | 'id'
+    // Kept, but its template was replaced by a newer version: not valid.
+    superseded: boolean
 }
 
 // One table row: a form still to sign (template) or a signed one.
@@ -74,7 +78,7 @@ const rows = computed<Row[]>(() => [
         key: `signed-${item.id}`,
         period: item.period,
         title: item.title,
-        status: 'signed' as FormStatus,
+        status: (item.superseded ? 'superseded' : 'signed') as FormStatus,
         date: item.signed_at,
         createdAt: item.created_at,
         signed: item,
@@ -105,7 +109,7 @@ const columns = computed<{ key: SortKey, label: string }[]>(() => [
 ])
 
 // Still to sign first when sorting by status.
-const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2 }
+const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2, superseded: 3 }
 
 const visibleRows = computed(() => {
     const value = (row: Row): number | string => {
@@ -232,9 +236,28 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                             v-for="row in visibleRows"
                             :key="row.key"
                             class="border-b border-slate-100 text-center"
+                            :class="{ 'bg-slate-50/70 text-slate-500': row.signed?.superseded }"
                         >
-                            <td class="py-4 text-left font-medium text-slate-800">
-                                {{ row.title[locale] ?? '-' }}
+                            <td class="py-4 text-left">
+                                <div
+                                    class="font-medium"
+                                    :class="row.signed?.superseded ? 'text-slate-500' : 'text-slate-800'"
+                                >
+                                    {{ row.title[locale] ?? '-' }}
+                                </div>
+                                <div
+                                    v-if="row.pending?.resign"
+                                    class="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700"
+                                >
+                                    <i class="fa-solid fa-rotate" />
+                                    {{ t.forms.resignRequired }}
+                                </div>
+                                <div
+                                    v-else-if="row.signed?.superseded"
+                                    class="mt-0.5 text-xs text-slate-400"
+                                >
+                                    {{ t.forms.supersededHint }}
+                                </div>
                             </td>
 
                             <td class="py-4 font-semibold">
@@ -336,6 +359,14 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                 </div>
 
                 <div class="overflow-y-auto">
+                    <div
+                        v-if="viewing.superseded"
+                        class="mx-6 mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                    >
+                        <i class="fa-solid fa-ban mt-0.5" />
+                        <span>{{ t.forms.supersededHint }}</span>
+                    </div>
+
                     <FormDocument
                         :page="viewing.page"
                         :content="viewing.content[locale]"

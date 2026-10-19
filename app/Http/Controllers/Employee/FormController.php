@@ -44,7 +44,24 @@ class FormController extends Controller
             ->draft()
             ->where('form_type_id', $formType->id)
             ->get()
-            ->keyBy('period');
+            ->keyBy('template_id');
+
+        // History follows every identity this person has held (rehires,
+        // non-employee -> employee), like the COI history does.
+        $signedRows = $this->scope
+            ->applyOwnership(FormDeclaration::query()->signed()->with('template'), $account)
+            ->where('form_type_id', $formType->id)
+            ->orderByDesc('period')
+            ->orderByDesc('signed_at')
+            ->get();
+
+        // Kept, but replaced by a newer version of the template.
+        $superseded = $this->forms->supersededIds($signedRows);
+
+        $resignPeriods = $signedRows
+            ->filter(fn (FormDeclaration $declaration) => isset($superseded[$declaration->id]))
+            ->pluck('period')
+            ->unique();
 
         $pending = $this->forms->pendingFor($account, $formType->id)
             ->map(fn (FormTemplate $template) => [
@@ -52,20 +69,15 @@ class FormController extends Controller
                 'period' => $template->period,
                 'publish_at' => $template->publish_at?->toIso8601String(),
                 'title' => ['en' => $template->title_en, 'id' => $template->title_id],
-                'draft_saved_at' => $drafts->get($template->period)?->agreed_at?->toIso8601String(),
+                'draft_saved_at' => $drafts->get($template->id)?->agreed_at?->toIso8601String(),
                 // When the draft row was first saved; nothing yet without one.
-                'created_at' => $drafts->get($template->period)?->created_at?->toIso8601String(),
+                'created_at' => $drafts->get($template->id)?->created_at?->toIso8601String(),
+                // Pending again: an earlier version was signed, then replaced.
+                'resign' => $resignPeriods->contains($template->period),
             ])
             ->values();
 
-        // History follows every identity this person has held (rehires,
-        // non-employee -> employee), like the COI history does.
-        $signed = $this->scope
-            ->applyOwnership(FormDeclaration::query()->signed()->with('template'), $account)
-            ->where('form_type_id', $formType->id)
-            ->orderByDesc('period')
-            ->orderByDesc('signed_at')
-            ->get()
+        $signed = $signedRows
             ->map(fn (FormDeclaration $declaration) => [
                 'id' => $declaration->id,
                 'period' => $declaration->period,
@@ -74,6 +86,7 @@ class FormController extends Controller
                 // The row's first save: the draft, or the signature itself.
                 'created_at' => $declaration->created_at?->toIso8601String(),
                 'locale' => $declaration->locale,
+                'superseded' => isset($superseded[$declaration->id]),
                 // From the values snapshotted at signing, not today's profile.
                 ...$this->forms->renderBilingual($declaration->template, $this->forms->signedValues($declaration)),
             ])
@@ -118,6 +131,8 @@ class FormController extends Controller
                 ),
             ],
             'draft' => $draft ? ['agreed_at' => $draft->agreed_at?->toIso8601String()] : null,
+            // An earlier version was signed and then replaced by this one.
+            'resign' => $this->forms->mustSignAgain($account, $applicable),
             'version' => self::version($template),
             'fullName' => $this->variables->fullNameFor($account),
         ]);

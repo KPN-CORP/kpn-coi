@@ -17,6 +17,19 @@ declare(strict_types=1);
 
 return [
 
+    /*
+    | Accounts allowed to grant/revoke the Master Settings permissions
+    | (form_master.*: templates and form types) in Role Management, by email.
+    | Comma-separated in .env, e.g.
+    |   FORM_MASTER_ADMIN_EMAILS=hc.admin@kpn-corp.com,it.admin@kpn-corp.com
+    | Empty = nobody can change them from the screen (existing grants stay).
+    | See App\Services\FormMasterAccess.
+    */
+    'master_admin_emails' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('FORM_MASTER_ADMIN_EMAILS', ''))
+    ))),
+
     'variables' => [
         'employee_name' => ['en' => 'Full Name', 'id' => 'Nama Lengkap'],
         'employee_id' => ['en' => 'Employee ID', 'id' => 'ID Karyawan'],

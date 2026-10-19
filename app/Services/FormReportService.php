@@ -217,15 +217,26 @@ class FormReportService
         $titles = FormTemplate::withTrashed()
             ->where('form_type_id', $formTypeId)
             ->where('period', $period)
-            ->get(['id', 'title_en', 'title_id'])
+            ->get(['id', 'title_en', 'title_id', 'is_active', 'deleted_at'])
             ->keyBy('id');
 
-        // Only what a row shows -- never the `variables` snapshot.
+        // Only what a row shows -- never the `variables` snapshot. A person
+        // can hold several rows in a period: one per template version.
         $declarations = FormDeclaration::query()
             ->where('form_type_id', $formTypeId)
             ->where('period', $period)
             ->get(['id', 'type', 'user_id', 'status', 'template_id', 'signed_name', 'signed_at', 'agreed_at', 'locale'])
-            ->keyBy(fn (FormDeclaration $declaration) => $declaration->type.'-'.$declaration->user_id);
+            ->groupBy(fn (FormDeclaration $declaration) => $declaration->type.'-'.$declaration->user_id);
+
+        // Same rule as FormDeclarationService::isSuperseded(): a row stops
+        // counting once its template is switched off and another applies.
+        $replaced = function (FormDeclaration $declaration, ?FormTemplate $applicable) use ($titles): bool {
+            $template = $titles->get($declaration->template_id);
+
+            $stillOn = $template && $template->is_active && ! $template->trashed();
+
+            return $applicable !== null && $applicable->id !== $declaration->template_id && ! $stillOn;
+        };
 
         $companyNames = Companies::query()
             ->whereNotNull('contribution_level_code')
@@ -236,11 +247,9 @@ class FormReportService
         $templateFor = [];
 
         $row = function (string $type, int $userId, object $person, ?string $workLocation) use (
-            $period, $declarations, $available, $titles, $companyNames, &$templateFor
+            $period, $declarations, $available, $titles, $companyNames, $replaced, &$templateFor
         ): array {
             $unit = $person->group_company ?: null;
-
-            $declaration = $declarations->get($type.'-'.$userId);
 
             // array_key_exists, not ??=: "no template" (null) is a valid answer
             // worth caching too.
@@ -248,9 +257,30 @@ class FormReportService
                 $templateFor[(string) $unit] = $this->templates->resolve($available, $unit);
             }
 
+            $applicable = $templateFor[(string) $unit];
+
+            $mine = $declarations->get($type.'-'.$userId) ?? collect();
+
+            // Rows on the template that applies now come first.
+            $valid = $mine
+                ->reject(fn (FormDeclaration $declaration) => $replaced($declaration, $applicable))
+                ->sortByDesc(fn (FormDeclaration $declaration) => $declaration->template_id === $applicable?->id);
+
+            $declaration = $valid->firstWhere('status', FormDeclaration::STATUS_SIGNED)
+                ?? $valid->firstWhere('status', FormDeclaration::STATUS_DRAFT);
+
+            // Signed an older version that has since been replaced: they owe a
+            // new signature, and the old one is kept for the record.
+            $supersededSignature = $declaration?->isSigned()
+                ? null
+                : $mine
+                    ->filter(fn (FormDeclaration $old) => $old->isSigned() && $replaced($old, $applicable))
+                    ->sortByDesc('signed_at')
+                    ->first();
+
             $template = $declaration
                 ? $titles->get($declaration->template_id)
-                : $templateFor[(string) $unit];
+                : $applicable;
 
             return [
                 'key' => $type.'-'.$userId.'-'.$period,
@@ -281,6 +311,9 @@ class FormReportService
                 'signed_at' => $declaration?->signed_at?->toIso8601String(),
                 'agreed_at' => $declaration?->agreed_at?->toIso8601String(),
                 'signed_locale' => $declaration?->locale,
+                'resign_required' => $supersededSignature !== null,
+                // The replaced signature's document, still downloadable.
+                'superseded_declaration_id' => $supersededSignature?->id,
             ];
         };
 

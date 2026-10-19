@@ -143,10 +143,39 @@
             font-size: 22pt;
             line-height: 1.2;
         }
+
+        /* A replaced version: a watermark on every page (fixed elements
+           repeat in dompdf) plus a notice above the content. */
+        #superseded-watermark {
+            position: fixed;
+            top: 40%;
+            left: -10%;
+            right: -10%;
+            text-align: center;
+            font-family: "DejaVu Sans", sans-serif;
+            font-size: 64pt;
+            font-weight: bold;
+            color: #dc2626;
+            opacity: 0.15;
+            transform: rotate(-35deg);
+        }
+
+        .superseded-notice {
+            margin-bottom: 12px;
+            padding: 6px 10px;
+            border: 1px solid #dc2626;
+            color: #b91c1c;
+            font-family: "DejaVu Sans", sans-serif;
+            font-size: 8pt;
+        }
     </style>
 </head>
 <body>
     {{-- Fixed elements must come before the body to repeat on every page. --}}
+    @if ($superseded)
+        <div id="superseded-watermark">{{ $locale === 'id' ? 'TIDAK BERLAKU' : 'NOT VALID' }}</div>
+    @endif
+
     @if (filled(strip_tags($header, '<img>')))
         <div id="form-header" class="content">{!! $header !!}</div>
     @endif
@@ -159,6 +188,14 @@
          where the author can format it. $title only names the PDF file. --}}
     {{-- Sanitised on save (FormHtmlSanitizer) and variables escaped on
          render (FormVariableService), so it is printed unescaped. --}}
+    @if ($superseded)
+        <div class="superseded-notice">
+            {{ $locale === 'id'
+                ? 'Dokumen ini tidak berlaku: template telah dinonaktifkan dan digantikan oleh versi yang lebih baru.'
+                : 'This document is no longer valid: its template was deactivated and replaced by a newer version.' }}
+        </div>
+    @endif
+
     <div class="content">{!! $content !!}</div>
 
     {{-- Nothing is printed beyond the template: no signature block (the

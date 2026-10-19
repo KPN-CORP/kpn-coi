@@ -4,6 +4,7 @@ import { getAttributes as attributesOf, isActive as activeIn } from '@tiptap/cor
 import { computed, ref } from 'vue'
 import Swal from 'sweetalert2'
 import ToolbarMenu from './ToolbarMenu.vue'
+import VariablePicker from './VariablePicker.vue'
 import { useLocale } from '@/Composables/useLocale'
 import type { FontOptions, FormVariable } from './types'
 
@@ -120,8 +121,6 @@ const currentAlignIcon = () =>
     alignments.value.find(align => isActive({ textAlign: align.key }))?.icon ?? 'fa-solid fa-align-left'
 
 // --- Insert: variable, table, image, line, tab -------------------------------
-
-const token = (key: string) => `{{${key}}}`
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
@@ -527,7 +526,7 @@ async function setRowHeight() {
                 <ToolbarMenu
                     :title="t.forms.insertVariable"
                     align="right"
-                    width="w-64"
+                    width="w-72"
                 >
                     <template #button>
                         <span class="flex items-center gap-1.5 rounded bg-primary px-2 py-1 text-xs font-medium text-white">
@@ -536,18 +535,10 @@ async function setRowHeight() {
                         </span>
                     </template>
                     <template #default="{ close }">
-                        <div class="max-h-72 overflow-y-auto">
-                            <button
-                                v-for="variable in variables"
-                                :key="variable.key"
-                                type="button"
-                                class="form-menu-item flex-col !items-start !gap-0"
-                                @mousedown.prevent @click="run(c => c.insertFormVariable(variable.key)); close()"
-                            >
-                                <span class="text-sm text-slate-700">{{ variable.label[locale] }}</span>
-                                <span class="font-mono text-[11px] text-slate-400">{{ token(variable.key) }}</span>
-                            </button>
-                        </div>
+                        <VariablePicker
+                            :variables="variables"
+                            @pick="key => { run(c => c.insertFormVariable(key)); close() }"
+                        />
                     </template>
                 </ToolbarMenu>
             </div>

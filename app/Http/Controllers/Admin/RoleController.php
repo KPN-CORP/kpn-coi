@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\FormMasterAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -91,12 +92,17 @@ class RoleController extends Controller
                     ->orderBy('name')
                     ->get(),
 
-                'availablePermissions' => Permission::query()
-                    ->orderBy('name')
-                    ->get([
-                        'id',
-                        'name',
-                    ]),
+                // Master Settings is only offered to the accounts listed in
+                // FORM_MASTER_ADMIN_EMAILS (FormMasterAccess).
+                'availablePermissions' => FormMasterAccess::visiblePermissions(
+                    $request->user(),
+                    Permission::query()
+                        ->orderBy('name')
+                        ->get([
+                            'id',
+                            'name',
+                        ])
+                ),
 
                 // Restrictions are matched against the people tables, so every
                 // option below must carry the value those tables actually
@@ -217,7 +223,7 @@ class RoleController extends Controller
         ]);
 
         $role->syncPermissions(
-            $validated['permissions'] ?? []
+            FormMasterAccess::permissionsToSave($request->user(), $validated['permissions'] ?? [], [])
         );
 
         return back()->with(
@@ -275,7 +281,11 @@ class RoleController extends Controller
         ]);
 
         $role->syncPermissions(
-            $validated['permissions'] ?? []
+            FormMasterAccess::permissionsToSave(
+                $request->user(),
+                $validated['permissions'] ?? [],
+                $role->permissions()->pluck('name')->all()
+            )
         );
 
         return back()->with(
