@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 
 class PermissionSeeder extends Seeder
@@ -51,36 +51,31 @@ class PermissionSeeder extends Seeder
             ]);
         }
 
-        $superAdmin = Role::firstOrCreate([
-            'name' => 'Super Admin',
-        ]);
+        // Looked up by name only, so a role whose scope was changed later is
+        // found instead of duplicated. New roles start unrestricted: the
+        // deployed roles.restrictions column is NOT NULL.
+        // App\Models\Role, not Spatie's: it casts restrictions to JSON.
+        $role = function (string $name, string $scope): Role {
+            $role = Role::query()->firstOrNew(['name' => $name, 'guard_name' => 'web']);
 
-        $superAdmin->update([
-            'data_scope' => 'all',
-        ]);
+            if (! $role->exists) {
+                $role->forceFill(['data_scope' => $scope, 'restrictions' => []])->save();
+            }
+
+            return $role;
+        };
+
+        $superAdmin = $role('Super Admin', 'all');
+
+        $superAdmin->forceFill(['data_scope' => 'all'])->save();
 
         $superAdmin->syncPermissions(
             Permission::all()
         );
 
-        Role::firstOrCreate([
-            'name' => 'COI Admin',
-            'data_scope' => 'all',
-        ]);
-
-        Role::firstOrCreate([
-            'name' => 'BU Admin',
-            'data_scope' => 'business_unit',
-        ]);
-
-        Role::firstOrCreate([
-            'name' => 'Manager',
-            'data_scope' => 'direct_reportee',
-        ]);
-
-        Role::firstOrCreate([
-            'name' => 'Employee',
-            'data_scope' => 'self',
-        ]);
+        $role('COI Admin', 'all');
+        $role('BU Admin', 'business_unit');
+        $role('Manager', 'direct_reportee');
+        $role('Employee', 'self');
     }
 }

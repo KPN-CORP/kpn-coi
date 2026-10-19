@@ -134,4 +134,24 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Super Admin seeding (Database\Seeders\SuperAdminSeeder)
+    |--------------------------------------------------------------------------
+    |
+    | Employee accounts (kpncorp users, by email, comma-separated) to give the
+    | Super Admin role, e.g. on a fresh stage database. With a password set,
+    | it becomes their email/password login; leave it empty to keep SSO only.
+    | Read through config so the seeder still works with config cached.
+    |
+    */
+
+    'super_admin' => [
+        'emails' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('SUPER_ADMIN_EMAILS', ''))
+        ))),
+        'password' => env('SUPER_ADMIN_PASSWORD'),
+    ],
+
 ];
