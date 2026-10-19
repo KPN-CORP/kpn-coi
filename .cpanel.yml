@@ -1,7 +1,12 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/hcispanel/kpn-coi
+    # Production and staging are separate cPanel clones of this repo; the branch
+    # each one has checked out decides where it deploys: main -> production,
+    # anything else -> staging.
+    - export DEPLOYBRANCH=$(git rev-parse --abbrev-ref HEAD)
+    - 'if [ "$DEPLOYBRANCH" = "main" ]; then export DEPLOYPATH=/home/hcispanel/kpn-coi; else export DEPLOYPATH=/home/hcispanel/kpn-coi-stage; fi'
+    - echo "Deploying branch $DEPLOYBRANCH to $DEPLOYPATH"
 
     # Copy essential Laravel application directories to deployment path
     - /bin/cp -r app bootstrap config database routes resources $DEPLOYPATH
