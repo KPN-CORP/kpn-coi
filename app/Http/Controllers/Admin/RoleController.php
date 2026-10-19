@@ -38,9 +38,21 @@ class RoleController extends Controller
             'per_page' => (int) $request->input('per_page', 10),
         ];
 
+        // Counted from the model_has_roles pivot alone, on the app connection.
+        // withCount('users') would join kpncorp.users into the same query --
+        // a cross-database join, which fails wherever the app's database
+        // account cannot read the HRIS database (e.g. stage).
         $roles = Role::query()
+            ->select('roles.*')
+            ->selectSub(
+                DB::connection('mysql')
+                    ->table('model_has_roles')
+                    ->selectRaw('count(*)')
+                    ->whereColumn('model_has_roles.role_id', 'roles.id')
+                    ->where('model_has_roles.model_type', User::class),
+                'users_count'
+            )
             ->with('permissions')
-            ->withCount('users')
             ->when(
                 $filters['search'],
                 fn ($query, $search) => $query->where('name', 'like', "%{$search}%")
