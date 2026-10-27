@@ -1,0 +1,1 @@
+import{E as e,F as t,L as n,V as r,X as i,y as a}from"./app-Bdsko_-c.js";import{i as o,n as s}from"./navigation-BfHrCxLx.js";var c=e({__name:`EmployeeLayout`,setup(e){let c={name:`Metta Saputra`,employee_id:`KPN-01124040`,initials:`M`};return(e,l)=>(t(),a(o,{navigation:i(s),user:c},{default:r(()=>[n(e.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

@@ -8,7 +8,7 @@ import type { Localized } from '@/Components/Forms/types'
 import { formatDateTime } from '@/Utils/date'
 import { useLocale } from '@/Composables/useLocale'
 import { Head, Link, usePage } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Flash } from '@/Config/inertia'
 
 interface CommitmentForm {
@@ -46,7 +46,29 @@ const { t, locale } = useLocale()
 
 const page = usePage<{ flash: Flash }>()
 
-const allDone = computed(() => props.coi.status === 'done' && props.forms.every(form => form.status === 'signed'))
+// COI (if not submitted) plus every form row still to sign.
+const pendingCount = computed(() =>
+    (props.coi.status === 'done' ? 0 : 1) + props.forms.filter(form => form.status !== 'signed').length,
+)
+
+const allDone = computed(() => pendingCount.value === 0)
+
+const pendingMessage = computed(() => t.value.commitment.pendingWarning
+    .replace(':count', String(pendingCount.value))
+    .replace(':tasks', pendingCount.value === 1 ? t.value.commitment.taskOne : t.value.commitment.taskMany))
+
+// The all-done note is only a confirmation: it fades out after a few
+// seconds. The pending warning stays.
+const showAllDone = ref(true)
+let hideTimer: ReturnType<typeof setTimeout> | undefined
+
+onMounted(() => {
+    hideTimer = setTimeout(() => {
+        showAllDone.value = false
+    }, 5000)
+})
+
+onBeforeUnmount(() => clearTimeout(hideTimer))
 
 // The COI row uses the same badge colours as the form rows.
 const coiBadge = computed(() => {
@@ -82,22 +104,27 @@ const coiBadge = computed(() => {
             :message="page.props.flash?.error"
         />
 
-        <div
-            v-if="allDone"
-            class="mb-6 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700"
+        <Transition
+            leave-active-class="transition-opacity duration-500"
+            leave-to-class="opacity-0"
         >
-            <i class="fa-solid fa-circle-check" />
+            <div
+                v-if="allDone && showAllDone"
+                class="mb-6 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700"
+            >
+                <i class="fa-solid fa-circle-check" />
 
-            <span>{{ t.commitment.allDone }}</span>
-        </div>
+                <span>{{ t.commitment.allDone }}</span>
+            </div>
+        </Transition>
 
         <div
-            v-else
+            v-if="!allDone"
             class="mb-6 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
         >
             <i class="fa-solid fa-triangle-exclamation" />
 
-            <span>{{ t.commitment.pendingWarning }}</span>
+            <span>{{ pendingMessage }}</span>
         </div>
 
         <Card>
