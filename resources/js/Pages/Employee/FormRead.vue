@@ -9,6 +9,7 @@ import type { RenderedForm } from '@/Components/Forms/types'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import Swal from 'sweetalert2'
 
 interface ReadDocument extends RenderedForm {
     id: number
@@ -124,7 +125,31 @@ function saveDraft() {
         route('employee.forms.draft', props.document.id),
         { locale: locale.value, agree: true },
         {
-            preserveScroll: true,
+            // Not preserved: the page goes back to its top after saving.
+            preserveScroll: false,
+            onSuccess: () => {
+                // The controller answers a refused draft with an error flash
+                // on the same redirect, so only a success flash means saved.
+                if (!page.props.flash?.success) {
+                    window.scrollTo({ top: 0, behavior: 'instant' })
+
+                    return
+                }
+
+                // Back to the very top, where the draft badge now shows. Done
+                // behind the pop-up, and without handing focus back to the
+                // draft button on close, which would scroll down to it again.
+                window.scrollTo({ top: 0, behavior: 'instant' })
+
+                Swal.fire({
+                    icon: 'success',
+                    title: t.value.declaration.draftSaved,
+                    text: page.props.flash.success,
+                    confirmButtonColor: '#ab2f2b',
+                    returnFocus: false,
+                    didClose: () => window.scrollTo({ top: 0, behavior: 'instant' }),
+                })
+            },
             onFinish: () => {
                 savingDraft.value = false
             },
