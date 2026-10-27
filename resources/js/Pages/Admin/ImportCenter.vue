@@ -168,7 +168,7 @@ async function submit() {
             :description="t.importCenter.description"
         />
 
-        <div class="mx-auto max-w-4xl space-y-4">
+        <div class="space-y-4">
             <!-- Outcome of the last upload -->
             <div
                 v-if="lastImport"

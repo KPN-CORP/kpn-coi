@@ -1,0 +1,1 @@
+import{E as e,F as t,L as n,V as r,X as i,y as a}from"./app-BYHwJSk2.js";import{i as o,r as s}from"./navigation-CbLpLTy6.js";var c=e({__name:`ManagerLayout`,setup(e){let c={name:`Metta Saputra`,employee_id:`KPN-01124040`,initials:`M`};return(e,l)=>(t(),a(o,{navigation:i(s),user:c},{default:r(()=>[n(e.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};
