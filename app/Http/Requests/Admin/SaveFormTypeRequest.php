@@ -39,7 +39,6 @@ class SaveFormTypeRequest extends FormRequest
             'description_id' => ['nullable', 'string', 'max:1000'],
             'icon' => ['required', 'in:'.implode(',', self::ICONS)],
             'is_active' => ['boolean'],
-            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
         ];
     }
 

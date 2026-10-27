@@ -1,1 +1,0 @@
-import{E as e,F as t,L as n,V as r,X as i,y as a}from"./app-Bdsko_-c.js";import{i as o,t as s}from"./navigation-BfHrCxLx.js";var c=e({__name:`AdminLayout`,setup(e){let c={name:`Commitment Corner Admin`,employee_id:`ADM-00001`,initials:`CA`};return(e,l)=>(t(),a(o,{navigation:i(s),user:c},{default:r(()=>[n(e.$slots,`default`)]),_:3},8,[`navigation`]))}});export{c as t};

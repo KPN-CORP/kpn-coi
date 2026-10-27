@@ -10,6 +10,7 @@ use App\Models\AppSetting;
 use App\Models\FormType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -51,15 +52,37 @@ class FormTypeController extends Controller
     }
 
     /**
-     * Move Conflict of Interest in the employee menu, among the form types.
+     * The whole employee menu order at once -- Conflict of Interest ("coi")
+     * and every form type, top to bottom -- renumbered 1..n so no two
+     * entries ever share a position. A list that misses or repeats an entry
+     * (e.g. a type created in another tab meanwhile) is refused, not guessed.
      */
-    public function updateCoiOrder(Request $request): RedirectResponse
+    public function reorder(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'sort_order' => ['required', 'integer', 'min:0', 'max:999'],
+            'order' => ['required', 'array'],
+            'order.*' => ['required', 'string', 'distinct'],
         ]);
 
-        AppSetting::put(AppSetting::COI_MENU_ORDER, (string) $data['sort_order']);
+        $expected = FormType::query()->pluck('id')->map(fn (int $id) => (string) $id)->push('coi');
+
+        $order = collect($data['order'])->map(fn ($entry) => (string) $entry);
+
+        if ($order->count() !== $expected->count() || $order->diff($expected)->isNotEmpty()) {
+            return back()->with('error', 'The list changed meanwhile. Reload the page and try again.');
+        }
+
+        DB::transaction(function () use ($order) {
+            foreach ($order->values() as $index => $entry) {
+                $position = $index + 1;
+
+                if ($entry === 'coi') {
+                    AppSetting::put(AppSetting::COI_MENU_ORDER, (string) $position);
+                } else {
+                    FormType::query()->whereKey((int) $entry)->update(['sort_order' => $position]);
+                }
+            }
+        });
 
         return back()->with('success', 'Menu order updated.');
     }
@@ -69,6 +92,8 @@ class FormTypeController extends Controller
         $formType = FormType::create([
             ...$this->attributes($request),
             'code' => $this->uniqueCode($request->string('name_en')->toString()),
+            // New types go to the end of the menu; move them from the list.
+            'sort_order' => max((int) FormType::withTrashed()->max('sort_order'), AppSetting::coiMenuOrder()) + 1,
         ]);
 
         // So Role Management can grant its dashboard/report right away.
@@ -118,7 +143,6 @@ class FormTypeController extends Controller
             'description_id' => $request->input('description_id') ?: null,
             'icon' => $request->input('icon'),
             'is_active' => $request->boolean('is_active'),
-            'sort_order' => (int) $request->input('sort_order', 0),
         ];
     }
 

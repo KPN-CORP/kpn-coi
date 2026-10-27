@@ -46,45 +46,48 @@ const BLANK = {
     description_id: '',
     icon: 'fa-solid fa-file-signature',
     is_active: true,
-    sort_order: 0,
 }
 
 const form = useForm({ ...BLANK })
 
 
 // Conflict of Interest is not a form type, but shares their menu order: it is
-// listed here (read-only apart from its order) so the menu can be arranged in
-// one place. Equal orders keep COI first, as in the menu.
+// listed here (read-only apart from its position) so the menu can be arranged
+// in one place. The list is in menu order -- equal orders (from before the
+// renumbering) keep COI first, then by name, as useNavigation does.
 type ListRow = { coi: true, sort_order: number } | (FormTypeRow & { coi?: false })
 
 const rows = computed<ListRow[]>(() => [
     { coi: true as const, sort_order: props.coiSortOrder },
     ...props.formTypes,
-].sort((a, b) => a.sort_order - b.sort_order))
+].sort((a, b) => a.sort_order - b.sort_order
+    || Number(!a.coi) - Number(!b.coi)
+    || (a.coi || b.coi ? 0 : a.name_en.localeCompare(b.name_en))))
 
-async function editCoiOrder() {
-    const result = await Swal.fire({
-        title: t.value.forms.coiOrderTitle,
-        text: t.value.forms.coiOrderText,
-        input: 'number',
-        inputValue: String(props.coiSortOrder),
-        inputAttributes: { min: '0', max: '999', step: '1' },
-        showCancelButton: true,
-        confirmButtonText: t.value.common.save,
-        cancelButtonText: t.value.common.cancel,
-        confirmButtonColor: '#ab2f2b',
-        inputValidator: (value: string) => {
-            const order = Number(value)
+const rowKey = (row: ListRow) => (row.coi ? 'coi' : String(row.id))
 
-            return value === '' || !Number.isInteger(order) || order < 0 || order > 999
-                ? t.value.forms.coiOrderInvalid
-                : null
+const reordering = ref(false)
+
+// Swap a row with its neighbour and save the whole list; the server numbers
+// it 1..n, so positions can never collide.
+function move(index: number, step: -1 | 1) {
+    const target = index + step
+
+    if (reordering.value || target < 0 || target >= rows.value.length) {
+        return
+    }
+
+    const order = rows.value.map(rowKey)
+    ;[order[index], order[target]] = [order[target], order[index]]
+
+    reordering.value = true
+
+    router.put(route('admin.master.form-types.order'), { order }, {
+        preserveScroll: true,
+        onFinish: () => {
+            reordering.value = false
         },
     })
-
-    if (result.isConfirmed) {
-        router.put(route('admin.master.form-types.coi-order'), { sort_order: Number(result.value) }, { preserveScroll: true })
-    }
 }
 
 function openCreate() {
@@ -105,7 +108,6 @@ function openEdit(type: FormTypeRow) {
     form.description_id = type.description_id ?? ''
     form.icon = type.icon
     form.is_active = type.is_active
-    form.sort_order = type.sort_order
     showModal.value = true
 }
 
@@ -190,8 +192,8 @@ async function destroy(type: FormTypeRow) {
 
                     <tbody>
                         <template
-                            v-for="type in rows"
-                            :key="type.coi ? 'coi' : type.id"
+                            v-for="(type, index) in rows"
+                            :key="rowKey(type)"
                         >
                         <!-- Conflict of Interest: built in, only its order can change -->
                         <tr
@@ -215,7 +217,33 @@ async function destroy(type: FormTypeRow) {
                                 </div>
                             </td>
                             <td class="py-4 font-mono text-xs text-slate-400">coi</td>
-                            <td class="py-4 font-semibold">{{ type.sort_order }}</td>
+                            <td class="py-4">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span class="w-6 font-semibold">{{ index + 1 }}</span>
+                                    <template v-if="can('form_master.update')">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm px-2"
+                                            :disabled="index === 0 || reordering"
+                                            :aria-label="t.forms.moveUp"
+                                            :title="t.forms.moveUp"
+                                            @click="move(index, -1)"
+                                        >
+                                            <i class="fa-solid fa-arrow-up" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm px-2"
+                                            :disabled="index === rows.length - 1 || reordering"
+                                            :aria-label="t.forms.moveDown"
+                                            :title="t.forms.moveDown"
+                                            @click="move(index, 1)"
+                                        >
+                                            <i class="fa-solid fa-arrow-down" />
+                                        </button>
+                                    </template>
+                                </div>
+                            </td>
                             <td class="py-4">
                                 <span class="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
                                     {{ t.forms.active }}
@@ -223,17 +251,7 @@ async function destroy(type: FormTypeRow) {
                             </td>
                             <td class="py-4 text-slate-400">-</td>
                             <td class="py-4 text-slate-400">-</td>
-                            <td class="py-4">
-                                <button
-                                    v-if="can('form_master.update')"
-                                    type="button"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    @click="editCoiOrder"
-                                >
-                                    <i class="fa-solid fa-arrow-down-1-9" />
-                                    {{ t.forms.editOrder }}
-                                </button>
-                            </td>
+                            <td class="py-4 text-slate-400">-</td>
                         </tr>
 
                         <tr
@@ -257,7 +275,33 @@ async function destroy(type: FormTypeRow) {
                                 </div>
                             </td>
                             <td class="py-4 font-mono text-xs text-slate-600">{{ type.code }}</td>
-                            <td class="py-4">{{ type.sort_order }}</td>
+                            <td class="py-4">
+                                <div class="flex items-center justify-center gap-1">
+                                    <span class="w-6 font-semibold">{{ index + 1 }}</span>
+                                    <template v-if="can('form_master.update')">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm px-2"
+                                            :disabled="index === 0 || reordering"
+                                            :aria-label="t.forms.moveUp"
+                                            :title="t.forms.moveUp"
+                                            @click="move(index, -1)"
+                                        >
+                                            <i class="fa-solid fa-arrow-up" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-secondary btn-sm px-2"
+                                            :disabled="index === rows.length - 1 || reordering"
+                                            :aria-label="t.forms.moveDown"
+                                            :title="t.forms.moveDown"
+                                            @click="move(index, 1)"
+                                        >
+                                            <i class="fa-solid fa-arrow-down" />
+                                        </button>
+                                    </template>
+                                </div>
+                            </td>
                             <td class="py-4">
                                 <span
                                     class="inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold"
@@ -402,17 +446,6 @@ async function destroy(type: FormTypeRow) {
                                 <i :class="icon" />
                             </button>
                         </div>
-                    </div>
-
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-slate-700">{{ t.forms.sortOrder }}</label>
-                        <input
-                            v-model.number="form.sort_order"
-                            type="number"
-                            min="0"
-                            max="999"
-                            class="rounded-md border border-border px-3 py-2 text-sm"
-                        >
                     </div>
 
                     <div

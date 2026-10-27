@@ -1,1 +1,0 @@
-import{M as e,tt as t}from"./app-Bdsko_-c.js";import{t as n}from"./debounce-HaXaZ3eP.js";var r=t(n(),1);function i(e){return Object.fromEntries(Object.entries(e).filter(([,e])=>e!==``&&e!=null))}function a(t,n=400){let i=(0,r.default)(t,n);return e(()=>i.cancel()),i}export{a as n,i as t};

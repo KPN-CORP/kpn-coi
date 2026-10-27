@@ -338,10 +338,10 @@ Route::middleware(['auth:web'])->prefix('admin')
             ->middleware('permission:form_master.create')
             ->name('form-types.store');
 
-        // Conflict of Interest's place in the employee menu, among the form types.
-        Route::put('/form-types/coi-order', [FormTypeController::class, 'updateCoiOrder'])
+        // The employee menu order: Conflict of Interest and every form type.
+        Route::put('/form-types/order', [FormTypeController::class, 'reorder'])
             ->middleware('permission:form_master.update')
-            ->name('form-types.coi-order');
+            ->name('form-types.order');
 
         Route::put('/form-types/{formType:id}', [FormTypeController::class, 'update'])
             ->middleware('permission:form_master.update')
