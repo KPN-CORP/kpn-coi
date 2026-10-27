@@ -20,9 +20,6 @@ const badge = computed(() => {
         case 'pending':
             return { label: t.value.forms.statusNotStarted, classes: 'bg-red-50 text-red-700 border-red-200' }
 
-        case 'superseded':
-            return { label: t.value.forms.statusSuperseded, classes: 'bg-slate-100 text-slate-500 border-slate-300 line-through' }
-
         default:
             return { label: t.value.forms.statusNoTemplate, classes: 'bg-slate-50 text-slate-500 border-slate-200' }
     }

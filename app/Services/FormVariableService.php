@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
+use App\Support\FormPeriod;
 use Illuminate\Support\Carbon;
 
 /**
@@ -34,6 +35,16 @@ class FormVariableService
      * app itself runs in UTC.
      */
     public const DISPLAY_TIMEZONE = 'Asia/Jakarta';
+
+    /**
+     * Paging variables have no value of their own: they print as empty spans
+     * that the PDF fills with CSS page counters (page, pages) on each page,
+     * and the screen with an estimate (FormDocument).
+     */
+    public const PAGING = [
+        'page_number' => 'form-page-number',
+        'page_count' => 'form-page-count',
+    ];
 
     /**
      * Date variables: kept ISO in values/snapshots and written out in the
@@ -157,6 +168,8 @@ class FormVariableService
 
             $display[$key] = match (true) {
                 $key === self::SIGNATURE => $this->signatureHtml($values, $locale),
+                isset(self::PAGING[$key]) => '<span class="'.self::PAGING[$key].'"></span>',
+                $key === 'period' && FormPeriod::isValid($value) => e(FormPeriod::label((int) $value, $locale)),
                 $key === 'sign_date' && filled($value) => e($this->dateTime((string) $value, $locale)),
                 in_array($key, self::LOCALIZED_DATES, true) && filled($value) => e($this->date((string) $value, $locale)),
                 default => e(filled($value) ? (string) $value : '-'),

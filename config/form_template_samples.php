@@ -61,8 +61,14 @@ return [
         'title_id' => 'Pakta Integritas',
         'header_en' => '<p><img src="/forms/images/sample-kpncorp-logo.jpg" width="218" alt="KPN Corp"></p>',
         'header_id' => '<p><img src="/forms/images/sample-kpncorp-logo.jpg" width="218" alt="KPN Corp"></p>',
-        'footer_en' => '<p>Form Number: 017.FORM.CHC.X.2026</p>',
-        'footer_id' => '<p>Nomor Form: 017.FORM.CHC.X.2026</p>',
+        'footer_en' => '<table data-borderless="true"><tbody><tr>'
+            .'<td><p>Form Number: 017.FORM.CHC.X.2026</p></td>'
+            .'<td><p style="text-align: right">Page '.$v('page_number').' of '.$v('page_count').'</p></td>'
+            .'</tr></tbody></table>',
+        'footer_id' => '<table data-borderless="true"><tbody><tr>'
+            .'<td><p>Nomor Form: 017.FORM.CHC.X.2026</p></td>'
+            .'<td><p style="text-align: right">Halaman '.$v('page_number').' dari '.$v('page_count').'</p></td>'
+            .'</tr></tbody></table>',
         'paper_size' => 'a4',
         'orientation' => 'portrait',
         'margin_top' => 27,

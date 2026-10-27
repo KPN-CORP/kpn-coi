@@ -50,27 +50,59 @@ function fit() {
     zoom.value = Math.min(1, available / (props.page.width * MM_TO_PX))
 }
 
+// --- Page count for {{page_count}} --------------------------------------------
+// The PDF counts real pages; on screen the body is one continuous page, so
+// estimate how many sheets it fills from its height against the space
+// between the top and bottom margins.
+const body = ref<HTMLElement | null>(null)
+const pageCount = ref(1)
+
+function countPages() {
+    if (!body.value || reflow.value) {
+        return
+    }
+
+    const usable = (props.page.height - props.page.margin_top - props.page.margin_bottom) * MM_TO_PX
+
+    // offsetHeight is in the page's own (unzoomed) pixels, like `usable`.
+    pageCount.value = usable > 0 ? Math.max(1, Math.ceil(body.value.offsetHeight / usable)) : 1
+}
+
 onMounted(() => {
     fit()
-    observer = new ResizeObserver(fit)
+    observer = new ResizeObserver(() => {
+        fit()
+        countPages()
+    })
 
     if (frame.value) {
         observer.observe(frame.value)
     }
+
+    if (body.value) {
+        observer.observe(body.value)
+    }
+
+    countPages()
 })
 
 onBeforeUnmount(() => observer?.disconnect())
+
+watch(() => [props.content, props.page.height, props.page.margin_top, props.page.margin_bottom], () => nextTick(countPages))
 
 watch(() => [props.page.width, props.page.orientation], () => nextTick(fit))
 
 const paperStyle = computed(() => reflow.value
     ? {
+        '--form-page-count': `'${pageCount.value}'`,
         fontFamily: props.page.font_css,
         fontSize: `${props.page.font_size}pt`,
         lineHeight: String(props.page.line_height),
         padding: '1.25rem 1rem',
     }
     : {
+        // Read by .form-page-count in coi.css.
+        '--form-page-count': `'${pageCount.value}'`,
         zoom: String(zoom.value),
         fontFamily: props.page.font_css,
         fontSize: `${props.page.font_size}pt`,
@@ -101,6 +133,7 @@ const paperStyle = computed(() => reflow.value
             />
 
             <div
+                ref="body"
                 class="form-content"
                 v-html="content"
             />

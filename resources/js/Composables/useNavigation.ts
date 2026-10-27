@@ -8,6 +8,8 @@ export interface NavigationForm {
     name: { en: string, id: string }
     icon: string
     pending: number
+    // Menu position, shared with Conflict of Interest's (navigation.coi_sort_order).
+    sort_order: number
 }
 
 export interface NavigationItem {
@@ -36,7 +38,16 @@ export function useNavigation() {
         const can = (permission: string) =>
             permissions.includes(permission)
 
-        const items: NavigationItem[] = []
+        const forms = (navigation.forms ?? []) as NavigationForm[]
+
+        // First item: everything still to fill in or sign, in one list.
+        const items: NavigationItem[] = [{
+            section: t.value.nav.myAccount,
+            label: t.value.nav.myCommitment,
+            icon: 'fa-solid fa-list-check',
+            route: 'employee.commitments',
+            badge: forms.reduce((total, form) => total + form.pending, 0),
+        }]
 
         // The COI declaration, shaped like the form type items below: a link to
         // the person's own history, or for a manager a dropdown that adds
@@ -48,7 +59,11 @@ export function useNavigation() {
             route: 'employee.history',
         }
 
-        items.push(navigation.is_manager
+        // COI and the form types are ordered together by their menu order
+        // (Master Settings -> Form Type); on a tie COI comes first, as before.
+        const ordered: { order: number, item: NavigationItem }[] = []
+
+        ordered.push({ order: Number(navigation.coi_sort_order ?? 0), item: navigation.is_manager
             ? {
                 ...coi,
                 children: [
@@ -61,12 +76,12 @@ export function useNavigation() {
                     },
                 ],
             }
-            : coi)
+            : coi })
 
         // One item per active form type (Master Settings -> Form Type). A
         // manager gets it as a dropdown: their own declaration, and the same
         // form for the people reporting to them.
-        for (const form of (navigation.forms ?? []) as NavigationForm[]) {
+        for (const form of forms) {
             const own: NavigationItem = {
                 section: t.value.nav.myAccount,
                 label: form.name[locale.value],
@@ -76,7 +91,7 @@ export function useNavigation() {
                 badge: form.pending,
             }
 
-            items.push(navigation.is_manager
+            ordered.push({ order: Number(form.sort_order ?? 0), item: navigation.is_manager
                 ? {
                     ...own,
                     children: [
@@ -90,11 +105,20 @@ export function useNavigation() {
                         },
                     ],
                 }
-                : own)
+                : own })
         }
 
+        // Array.prototype.sort is stable, so equal orders keep COI first and
+        // form types in their server order (sort_order, then name).
+        ordered
+            .sort((a, b) => a.order - b.order)
+            .forEach(entry => items.push(entry.item))
+
         // One dashboard for COI and every form type (its Form filter).
-        if (can('dashboard.view') || can('form_dashboard.view')) {
+        // A form type's dashboard and report are granted per type.
+        const anyFormType = permissions.some((permission: string) => permission.startsWith('form_type.'))
+
+        if (can('dashboard.view') || anyFormType) {
             items.push({
                 section: t.value.nav.administration,
                 label: t.value.nav.dashboard,
@@ -104,7 +128,7 @@ export function useNavigation() {
         }
 
         // One report for COI and every form type (its Form filter).
-        if (can('report.view') || can('form_report.view')) {
+        if (can('report.view') || anyFormType) {
             items.push({
                 section: t.value.nav.administration,
                 label: t.value.nav.reports,
@@ -119,6 +143,15 @@ export function useNavigation() {
                 label: t.value.nav.credentials,
                 icon: 'fa-solid fa-users-gear',
                 route: 'admin.credentials',
+            })
+        }
+
+        if (can('import.view')) {
+            items.push({
+                section: t.value.nav.administration,
+                label: t.value.nav.importCenter,
+                icon: 'fa-solid fa-file-import',
+                route: 'admin.import-center.index',
             })
         }
 

@@ -9,11 +9,12 @@ import { ref, computed, watch } from 'vue'
 import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
-import { formatDateTime } from '@/Utils/date'
+import { formatDateTime, formatPeriod, periodMonth, periodYear } from '@/Utils/date'
 import debounce from 'lodash/debounce'
 import { useLocale } from '@/Composables/useLocale'
 import { usePermission } from '@/Composables/usePermission'
 import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
+import Modal from '@/Components/UI/Modal.vue'
 import type { FormRow } from '@/Components/Forms/types'
 
 const { t, locale } = useLocale()
@@ -320,7 +321,7 @@ function onBusinessUnitChange() {
 // Submission on that keeps each person's newest signature.
 const periodOptions = computed(() => [
     ...(isForm.value ? [{ value: 'all', label: t.value.teamHistory.allPeriods }] : []),
-    ...props.periods.map(period => ({ value: period, label: String(period) })),
+    ...props.periods.map(period => ({ value: period, label: formatPeriod(period, locale.value) })),
 ])
 
 const typeOptions = computed(() => [
@@ -348,17 +349,23 @@ const statusOptions = computed(() => (isForm.value
 // The form type table: same look as the COI one, columns of a signature.
 const formColumns = computed(() => [
     { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
-    { label: t.value.common.period, key: 'period', class: '' },
+    { label: t.value.forms.periodYear, key: 'period', class: '' },
+    { label: t.value.forms.periodMonth, key: '', class: '' },
     { label: t.value.report.columnType, key: 'type', class: '' },
     { label: t.value.report.columnFormStatus, key: 'status', class: '' },
     { label: t.value.dashboard.form, key: '', class: '' },
     { label: t.value.forms.columnSignedAt, key: 'signed_at', class: '' },
 ])
 
-// Printed with a "not valid" watermark (FormPdfService).
-function downloadOldVersion(row: FormRow) {
+// A person who re-signed after the template was replaced holds several
+// signatures in one period; admins can download each of them.
+const versionsRow = ref<FormRow | null>(null)
+
+const hasOtherVersions = (row: FormRow) => row.signed_versions.some(version => !version.current)
+
+function downloadVersion(id: number, language: 'id' | 'en') {
     window.open(
-        route('admin.forms.report.pdf', { declaration: row.superseded_declaration_id, locale: locale.value }),
+        route('admin.forms.report.pdf', { declaration: id, locale: language }),
         '_blank',
     )
 }
@@ -372,7 +379,18 @@ function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
 
 // Status values differ between COI and form types, and so do the sortable
 // columns: a form switch starts from a clean status and sort.
+// The server picks the period when none is sent (a form type's latest
+// month); show what it picked rather than an empty select.
+watch(() => props.filters.period, (period) => {
+    if (period !== undefined && period !== null && period !== '') {
+        filter.period = period
+    }
+})
+
 function onFormChanged() {
+    // COI periods are years, form periods months: let the server pick the
+    // new form's default period.
+    filter.period = ''
     filter.status = ''
     filter.declaration_status = ''
     filter.sort = ''
@@ -456,7 +474,8 @@ const hasAnyFilter = computed(() => activeChips.value.length > 0 || filter.searc
 // Clear every filter back to its default (current period, no status/search,
 // latest-submission on) in one click. Form, sort and page size are kept.
 function resetFilters() {
-    filter.period = new Date().getFullYear()
+    // A form type opens on its own default (latest month with a template).
+    filter.period = isForm.value ? '' : new Date().getFullYear()
     filter.type = ''
     filter.business_unit = ''
     filter.contribution_level = ''
@@ -497,7 +516,7 @@ function csrfToken(): string {
     )
 }
 
-const canExport = computed(() => !isForm.value || can('form_report.export'))
+const canExport = computed(() => !isForm.value || can(`form_type.${props.form}`))
 
 async function exportExcel() {
     if (exportState.value === 'generating') {
@@ -906,7 +925,11 @@ async function pollExport(id: number, attempt = 0) {
                             </td>
 
                             <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ row.period }}
+                                {{ periodYear(row.period) }}
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap text-slate-600">
+                                {{ periodMonth(row.period, locale) }}
                             </td>
 
                             <td class="py-4">
@@ -941,39 +964,41 @@ async function pollExport(id: number, attempt = 0) {
 
                             <td class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]">
                                 <div
-                                    v-if="row.declaration_id"
+                                    v-if="row.declaration_id || hasOtherVersions(row)"
                                     class="flex items-center justify-center gap-2"
                                 >
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadFormPdf(row, 'id')"
-                                    >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        ID
-                                    </button>
+                                    <template v-if="row.declaration_id">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadFormPdf(row, 'id')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            ID
+                                        </button>
 
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary-custom btn-sm"
+                                            @click="downloadFormPdf(row, 'en')"
+                                        >
+                                            <i class="fa-solid fa-file-pdf" />
+                                            EN
+                                        </button>
+                                    </template>
+
+                                    <!-- Signatures on replaced versions, kept for the record -->
                                     <button
+                                        v-if="hasOtherVersions(row)"
                                         type="button"
-                                        class="btn btn-outline-primary-custom btn-sm"
-                                        @click="downloadFormPdf(row, 'en')"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        :title="t.forms.versionsHint"
+                                        @click="versionsRow = row"
                                     >
-                                        <i class="fa-solid fa-file-pdf" />
-                                        EN
+                                        <i class="fa-solid fa-clock-rotate-left" />
+                                        {{ t.forms.versions }} ({{ row.signed_versions.length }})
                                     </button>
                                 </div>
-
-                                <!-- The replaced signature, kept for the record -->
-                                <button
-                                    v-else-if="row.superseded_declaration_id"
-                                    type="button"
-                                    class="btn btn-outline-secondary btn-sm"
-                                    :title="t.forms.oldVersionHint"
-                                    @click="downloadOldVersion(row)"
-                                >
-                                    <i class="fa-solid fa-clock-rotate-left" />
-                                    {{ t.forms.oldVersion }}
-                                </button>
 
                                 <span
                                     v-else
@@ -1325,6 +1350,81 @@ async function pollExport(id: number, attempt = 0) {
             />
         </Card>
     </AdminLayout>
+    <!-- Every signed version of one person in one period -->
+    <Modal
+        :show="versionsRow !== null"
+        max-width="max-w-2xl"
+        @close="versionsRow = null"
+    >
+        <template v-if="versionsRow">
+            <div class="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">
+                        {{ t.forms.versionsTitle }}
+                    </h3>
+                    <p class="text-sm text-slate-500">
+                        {{ versionsRow.name }} &middot; {{ versionsRow.employee_id || '-' }} &middot; {{ t.common.period }} {{ formatPeriod(versionsRow.period, locale) }}
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    class="text-slate-400 hover:text-primary"
+                    :aria-label="t.common.close"
+                    @click="versionsRow = null"
+                >
+                    <i class="fa-solid fa-xmark text-lg" />
+                </button>
+            </div>
+
+            <ul class="divide-y divide-slate-100">
+                <li
+                    v-for="(version, index) in versionsRow.signed_versions"
+                    :key="version.id"
+                    class="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-xs font-semibold text-slate-400">#{{ versionsRow.signed_versions.length - index }}</span>
+                            <span class="truncate font-medium text-slate-800">{{ version.template_title?.[locale] ?? '-' }}</span>
+                            <span
+                                class="rounded-full border px-2 py-0.5 text-xs font-semibold"
+                                :class="version.current
+                                    ? 'border-green-200 bg-green-50 text-green-700'
+                                    : 'border-slate-200 bg-slate-50 text-slate-500'"
+                            >
+                                {{ version.current ? t.forms.versionCurrent : t.forms.versionReplaced }}
+                            </span>
+                        </div>
+                        <div class="mt-0.5 text-sm text-slate-500">
+                            {{ t.forms.columnSignedAt }}: {{ version.signed_at ? formatDateTime(version.signed_at) : '-' }}
+                        </div>
+                    </div>
+
+                    <div class="flex shrink-0 gap-2">
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary-custom btn-sm"
+                            @click="downloadVersion(version.id, 'id')"
+                        >
+                            <i class="fa-solid fa-file-pdf" />
+                            ID
+                        </button>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary-custom btn-sm"
+                            @click="downloadVersion(version.id, 'en')"
+                        >
+                            <i class="fa-solid fa-file-pdf" />
+                            EN
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </template>
+    </Modal>
+
     <DeclarationViewModal
         v-if="selectedDeclaration"
         :show="showReviewModal"

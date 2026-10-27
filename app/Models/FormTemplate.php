@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,7 +31,7 @@ class FormTemplate extends Model
      * six longText body columns. Load the full row only to render one.
      */
     public const SUMMARY_COLUMNS = [
-        'id', 'form_type_id', 'period', 'title_en', 'title_id',
+        'id', 'form_type_id', 'period', 'period_year', 'period_month', 'title_en', 'title_id',
         'business_units', 'publish_at', 'is_active', 'updated_at',
     ];
 
@@ -40,7 +41,8 @@ class FormTemplate extends Model
 
     protected $fillable = [
         'form_type_id',
-        'period',
+        'period_year',
+        'period_month',
         'title_en',
         'title_id',
         'content_en',
@@ -66,7 +68,8 @@ class FormTemplate extends Model
     ];
 
     protected $casts = [
-        'period' => 'integer',
+        'period_year' => 'integer',
+        'period_month' => 'integer',
         'business_units' => 'array',
         'publish_at' => 'datetime',
         'is_active' => 'boolean',
@@ -77,6 +80,24 @@ class FormTemplate extends Model
         'font_size' => 'float',
         'line_height' => 'float',
     ];
+
+    /**
+     * YYYYMM. Computed by the database from period_year and period_month
+     * (never written); worked out here too for a model not saved yet, such
+     * as the template editor's preview.
+     */
+    protected function period(): Attribute
+    {
+        return Attribute::get(function ($value, array $attributes) {
+            if ($value !== null) {
+                return (int) $value;
+            }
+
+            return isset($attributes['period_year'], $attributes['period_month'])
+                ? (int) $attributes['period_year'] * 100 + (int) $attributes['period_month']
+                : null;
+        });
+    }
 
     public function formType(): BelongsTo
     {

@@ -67,7 +67,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         return redirect()->route(
-                'employee.history'
+                'employee.commitments'
             );
     }
 

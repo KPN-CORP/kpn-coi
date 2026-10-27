@@ -8,7 +8,7 @@ import { useLocale } from '@/Composables/useLocale'
 import { usePermission } from '@/Composables/usePermission'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import Swal from 'sweetalert2'
 
 interface FormTypeRow {
@@ -25,9 +25,11 @@ interface FormTypeRow {
     declarations_count: number
 }
 
-defineProps<{
+const props = defineProps<{
     formTypes: FormTypeRow[]
     icons: string[]
+    // Conflict of Interest's place in the employee menu, among the form types.
+    coiSortOrder: number
 }>()
 
 const { t, locale } = useLocale()
@@ -48,6 +50,42 @@ const BLANK = {
 }
 
 const form = useForm({ ...BLANK })
+
+
+// Conflict of Interest is not a form type, but shares their menu order: it is
+// listed here (read-only apart from its order) so the menu can be arranged in
+// one place. Equal orders keep COI first, as in the menu.
+type ListRow = { coi: true, sort_order: number } | (FormTypeRow & { coi?: false })
+
+const rows = computed<ListRow[]>(() => [
+    { coi: true as const, sort_order: props.coiSortOrder },
+    ...props.formTypes,
+].sort((a, b) => a.sort_order - b.sort_order))
+
+async function editCoiOrder() {
+    const result = await Swal.fire({
+        title: t.value.forms.coiOrderTitle,
+        text: t.value.forms.coiOrderText,
+        input: 'number',
+        inputValue: String(props.coiSortOrder),
+        inputAttributes: { min: '0', max: '999', step: '1' },
+        showCancelButton: true,
+        confirmButtonText: t.value.common.save,
+        cancelButtonText: t.value.common.cancel,
+        confirmButtonColor: '#ab2f2b',
+        inputValidator: (value: string) => {
+            const order = Number(value)
+
+            return value === '' || !Number.isInteger(order) || order < 0 || order > 999
+                ? t.value.forms.coiOrderInvalid
+                : null
+        },
+    })
+
+    if (result.isConfirmed) {
+        router.put(route('admin.master.form-types.coi-order'), { sort_order: Number(result.value) }, { preserveScroll: true })
+    }
+}
 
 function openCreate() {
     editing.value = null
@@ -151,9 +189,55 @@ async function destroy(type: FormTypeRow) {
                     </thead>
 
                     <tbody>
+                        <template
+                            v-for="type in rows"
+                            :key="type.coi ? 'coi' : type.id"
+                        >
+                        <!-- Conflict of Interest: built in, only its order can change -->
                         <tr
-                            v-for="type in formTypes"
-                            :key="type.id"
+                            v-if="type.coi"
+                            class="border-b border-slate-100 bg-slate-50/60 text-center"
+                        >
+                            <td class="py-4 text-left">
+                                <div class="flex items-center gap-3">
+                                    <i class="fa-solid fa-scale-balanced w-5 text-center text-primary" />
+                                    <div>
+                                        <div class="flex items-center gap-2 font-medium text-slate-800">
+                                            {{ t.nav.conflictOfInterest }}
+                                            <span class="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                                                {{ t.forms.builtIn }}
+                                            </span>
+                                        </div>
+                                        <div class="text-xs text-slate-400">
+                                            {{ t.forms.coiBuiltInHint }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-4 font-mono text-xs text-slate-400">coi</td>
+                            <td class="py-4 font-semibold">{{ type.sort_order }}</td>
+                            <td class="py-4">
+                                <span class="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                    {{ t.forms.active }}
+                                </span>
+                            </td>
+                            <td class="py-4 text-slate-400">-</td>
+                            <td class="py-4 text-slate-400">-</td>
+                            <td class="py-4">
+                                <button
+                                    v-if="can('form_master.update')"
+                                    type="button"
+                                    class="btn btn-outline-secondary btn-sm"
+                                    @click="editCoiOrder"
+                                >
+                                    <i class="fa-solid fa-arrow-down-1-9" />
+                                    {{ t.forms.editOrder }}
+                                </button>
+                            </td>
+                        </tr>
+
+                        <tr
+                            v-else
                             class="border-b border-slate-100 text-center"
                         >
                             <td class="py-4 text-left">
@@ -217,6 +301,7 @@ async function destroy(type: FormTypeRow) {
                                 </div>
                             </td>
                         </tr>
+                        </template>
 
                         <tr v-if="!formTypes.length">
                             <td

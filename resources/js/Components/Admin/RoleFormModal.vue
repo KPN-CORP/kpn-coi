@@ -7,7 +7,7 @@ import Card from '@/Components/UI/Card.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
 import { useLocale } from '@/Composables/useLocale'
 
-const { t } = useLocale()
+const { t, locale } = useLocale()
 
 interface Role {
     id?: number
@@ -30,6 +30,12 @@ const props = defineProps<{
     permissions: {
         id: number
         name: string
+    }[]
+
+    // Each form type is its own module (permission form_type.{code}).
+    formTypes?: {
+        code: string
+        name: { en: string, id: string }
     }[]
 
     workAreas: {
@@ -106,10 +112,18 @@ const MODULE_ORDER = [
     'credential',
     'role',
     'declaration',
-    'form_dashboard',
+    'import',
     'form_master',
-    'form_report',
 ] as const
+
+// Per-form-type permissions: one module each, after the fixed ones, named
+// after the form ("Integrity Pact"); it opens that form's dashboard, report,
+// Excel export and PDFs.
+const FORM_TYPE_PREFIX = 'form_type.'
+
+const moduleOf = (permission: string) => permission.startsWith(FORM_TYPE_PREFIX)
+    ? permission
+    : permission.split('.')[0]
 
 function moduleLabel(module: string): string {
     switch (module) {
@@ -128,33 +142,39 @@ function moduleLabel(module: string): string {
         case 'declaration':
             return t.value.roleForm.moduleDeclarations
 
-        case 'form_dashboard':
-            return t.value.roleForm.moduleFormDashboard
+        case 'import':
+            return t.value.roleForm.moduleImportCenter
 
         case 'form_master':
             return t.value.roleForm.moduleFormMaster
 
-        case 'form_report':
-            return t.value.roleForm.moduleFormReport
+        default: {
+            const code = module.slice(FORM_TYPE_PREFIX.length)
+            const formType = props.formTypes?.find(type => type.code === code)
 
-        default:
-            return module
+            return module.startsWith(FORM_TYPE_PREFIX)
+                ? `${formType?.name[locale.value] ?? code} — ${t.value.roleForm.moduleFormTypeAccess}`
+                : module
+        }
     }
 }
 
 const moduleGroups = computed(() => {
     const byModule = props.permissions.reduce(
         (groups, permission) => {
-            const [module] = permission.name.split('.')
-
-            ;(groups[module] ??= []).push(permission.name)
+            ;(groups[moduleOf(permission.name)] ??= []).push(permission.name)
 
             return groups
         },
         {} as Record<string, string[]>,
     )
 
-    return MODULE_ORDER
+    // Form types in their menu order (the order of the formTypes prop).
+    const formTypeModules = (props.formTypes ?? [])
+        .map(type => FORM_TYPE_PREFIX + type.code)
+        .filter(module => byModule[module]?.length)
+
+    return [...MODULE_ORDER, ...formTypeModules]
         .filter(module => byModule[module]?.length)
         .map(module => ({
             key: module,

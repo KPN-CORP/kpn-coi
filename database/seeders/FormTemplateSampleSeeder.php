@@ -22,7 +22,8 @@ class FormTemplateSampleSeeder extends Seeder
 {
     public function run(FormHtmlSanitizer $sanitizer): void
     {
-        $period = (int) now()->year;
+        $year = (int) now()->year;
+        $month = (int) now()->month;
 
         foreach (config('form_template_samples', []) as $sample) {
             $formType = FormType::query()->where('code', $sample['form_type'] ?? '')->first();
@@ -34,7 +35,7 @@ class FormTemplateSampleSeeder extends Seeder
             }
 
             FormTemplate::query()->firstOrCreate(
-                ['form_type_id' => $formType->id, 'period' => $period, 'title_en' => $sample['title_en']],
+                ['form_type_id' => $formType->id, 'period_year' => $year, 'period_month' => $month, 'title_en' => $sample['title_en']],
                 [
                     'title_id' => $sample['title_id'],
                     'content_en' => $sanitizer->clean($sample['content_en']),

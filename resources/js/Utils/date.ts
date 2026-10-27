@@ -94,3 +94,39 @@ export function formatDateTime(
 
     return `${asDate(date)}, ${time}`
 }
+
+/**
+ * A period for display. Form periods are months stored as YYYYMM (202610 ->
+ * "October 2026" / "Oktober 2026"); COI periods are plain years and pass
+ * through unchanged, as does anything else ('all', '').
+ */
+export function formatPeriod(period: number | string | null | undefined, locale: 'en' | 'id' = 'en'): string {
+    const value = Number(period)
+
+    if (!Number.isInteger(value) || value < 100000) {
+        return period == null ? '' : String(period)
+    }
+
+    const year = Math.floor(value / 100)
+    const month = value % 100
+
+    if (month < 1 || month > 12) {
+        return String(period)
+    }
+
+    return new Date(year, month - 1, 1).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-GB', { month: 'long', year: 'numeric' })
+}
+
+/** The year of a YYYYMM form period (202610 -> 2026). */
+export function periodYear(period: number | string): number {
+    return Math.floor(Number(period) / 100)
+}
+
+/** The month name of a YYYYMM form period (202610 -> "October" / "Oktober"). */
+export function periodMonth(period: number | string, locale: 'en' | 'id' = 'en'): string {
+    const month = Number(period) % 100
+
+    return month >= 1 && month <= 12
+        ? new Date(2000, month - 1, 1).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-GB', { month: 'long' })
+        : '-'
+}

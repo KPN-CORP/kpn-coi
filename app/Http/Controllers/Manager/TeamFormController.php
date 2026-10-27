@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\FormType;
 use App\Services\FormReportService;
+use App\Support\FormPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
@@ -29,11 +30,12 @@ class TeamFormController extends Controller
     {
         abort_unless($formType->is_active, 404);
 
-        $periods = $this->report->periods($formType->id);
-
-        // "all" lists every period; otherwise one period, this year by default.
+        // The `period` filter is a year (every month with a template in it),
+        // or "all" for every year.
         $allPeriods = $request->input('period') === 'all';
-        $period = ! $allPeriods && $request->filled('period') ? (int) $request->period : (int) now()->year;
+        $year = ! $allPeriods && $request->filled('period')
+            ? FormPeriod::yearFrom($request->period)
+            : $this->report->defaultYear($formType->id);
 
         // On by default, like the COI Team History toggle.
         $latestSubmission = $request->boolean('latest_submission', true);
@@ -67,7 +69,7 @@ class TeamFormController extends Controller
             null,
         ];
 
-        $rows = $this->report->buildRowsAcross($formType->id, $allPeriods ? $periods : [$period], $people);
+        $rows = $this->report->buildRowsAcross($formType->id, $this->report->monthsIn($formType->id, $allPeriods ? null : $year), $people);
 
         $status = FormReportService::statusFilter($request->status);
         $rows = $this->report->filterStatus($rows, $status);
@@ -101,7 +103,7 @@ class TeamFormController extends Controller
             ),
             'filters' => [
                 'form_type' => $formType->id,
-                'period' => $allPeriods ? 'all' : $period,
+                'period' => $allPeriods ? 'all' : $year,
                 'search' => $search,
                 'status' => $status,
                 'business_unit' => $request->business_unit,
@@ -112,7 +114,7 @@ class TeamFormController extends Controller
             'formType' => $formType->summary(),
             // Switching type on the page moves to that type's team URL.
             'formTypes' => array_values(array_filter(FormType::options(), fn (array $type) => $type['is_active'])),
-            'periods' => $periods,
+            'periods' => $this->report->years($formType->id),
             'businessUnitOptions' => (clone $team)
                 ->whereNotNull('group_company')
                 ->distinct()

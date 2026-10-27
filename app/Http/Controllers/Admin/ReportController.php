@@ -32,7 +32,7 @@ class ReportController extends Controller
      */
     public function index(Request $request, FormSelectionService $forms): Response
     {
-        $formOptions = $forms->options(Auth::user(), 'report.view', 'form_report.view');
+        $formOptions = $forms->options(Auth::user(), 'report.view');
 
         $formType = $forms->selected($request, $formOptions);
 
@@ -153,7 +153,7 @@ class ReportController extends Controller
         $report = app(FormReportService::class);
         $scope = app(DataScopeService::class);
 
-        $period = FormReportController::period($request);
+        $period = FormReportController::period($request, $formType->id);
         $latestSubmission = FormReportController::latestSubmission($request);
 
         $filters = FormReportController::filters($request);
@@ -190,7 +190,8 @@ class ReportController extends Controller
             ],
             'businessUnitOptions' => $scope->businessUnitOptions(Auth::user()),
             'contributionLevelOptions' => $scope->contributionLevelOptions(Auth::user()),
-            'periods' => $report->periods($formType->id),
+            // Form reports filter by year.
+            'periods' => $report->years($formType->id),
             ...$formProps,
         ]);
     }

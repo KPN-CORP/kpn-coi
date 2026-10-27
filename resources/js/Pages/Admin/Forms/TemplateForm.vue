@@ -6,6 +6,7 @@ import Modal from '@/Components/UI/Modal.vue'
 import DocumentEditor from '@/Components/Forms/DocumentEditor.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { useLocale } from '@/Composables/useLocale'
+import { formatPeriod } from '@/Utils/date'
 import { usePermission } from '@/Composables/usePermission'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import FormTypeSelect from '@/Components/Forms/FormTypeSelect.vue'
@@ -13,13 +14,15 @@ import type { FontOptions, FormSample, FormTypeOption, FormVariable, PageLayout 
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import Swal from 'sweetalert2'
 
 interface TemplateData {
     id: number
     form_type_id: number
     period: number
+    period_year: number
+    period_month: number
     title_en: string
     title_id: string
     content_en: string
@@ -53,6 +56,8 @@ const props = defineProps<{
     // Each variable as display HTML per language, formatted by the server
     // (FormVariableService::displayValues), signature included.
     previewValues: Record<Language, Record<string, string>>
+    // YYYYMM a new template starts on (the current month).
+    defaultPeriod: number
     samples: FormSample[]
     formTypes: FormTypeOption[]
     defaultFormType: number | null
@@ -75,6 +80,94 @@ function openPreview() {
     showPreview.value = true
 }
 
+// --- PDF preview -------------------------------------------------------------
+// The screen view is one continuous page; the PDF view asks the server to
+// print the template being edited (unsaved changes included, nothing stored)
+// so the admin sees the real pages, header/footer and page numbers on each.
+
+type PreviewMode = 'pdf' | 'screen'
+
+const previewMode = ref<PreviewMode>('pdf')
+const pdfUrl = ref<string | null>(null)
+const pdfLoading = ref(false)
+const pdfError = ref<string | null>(null)
+let pdfRequest = 0
+
+function clearPdf() {
+    if (pdfUrl.value) {
+        URL.revokeObjectURL(pdfUrl.value)
+    }
+
+    pdfUrl.value = null
+}
+
+async function loadPdf() {
+    const request = ++pdfRequest
+
+    pdfLoading.value = true
+    pdfError.value = null
+
+    try {
+        const response = await fetch(route('admin.master.templates.preview-pdf'), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                // Validation errors come back as JSON; success is the PDF.
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+            },
+            body: JSON.stringify({ ...form.data(), locale: previewLanguage.value }),
+        })
+
+        if (!response.ok) {
+            const body = await response.json().catch(() => null)
+
+            throw new Error(body?.message ?? t.value.forms.pdfPreviewFailed)
+        }
+
+        const blob = await response.blob()
+
+        // A newer request (language switched meanwhile) wins.
+        if (request !== pdfRequest) {
+            return
+        }
+
+        clearPdf()
+        pdfUrl.value = URL.createObjectURL(blob)
+    } catch (error) {
+        if (request === pdfRequest) {
+            pdfError.value = error instanceof Error ? error.message : t.value.forms.pdfPreviewFailed
+        }
+    } finally {
+        if (request === pdfRequest) {
+            pdfLoading.value = false
+        }
+    }
+}
+
+watch([showPreview, previewMode, previewLanguage], ([open, mode]) => {
+    if (open && mode === 'pdf') {
+        loadPdf()
+    }
+
+    if (!open) {
+        pdfRequest++
+        clearPdf()
+    }
+})
+
+onBeforeUnmount(clearPdf)
+
+// The period is a year and a month, saved as two columns.
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, index) => ({
+    value: index + 1,
+    label: new Date(2000, index, 1).toLocaleDateString(locale.value === 'id' ? 'id-ID' : 'en-GB', { month: 'long' }),
+})))
+
+// YYYYMM, for display and the preview's {{period}}.
+const formPeriod = computed(() => Number(form.period_year) * 100 + Number(form.period_month))
+
 function defaultPublishAt(): string {
     const now = new Date()
     const pad = (value: number) => String(value).padStart(2, '0')
@@ -84,7 +177,8 @@ function defaultPublishAt(): string {
 
 const form = useForm({
     form_type_id: props.template?.form_type_id ?? props.defaultFormType ?? props.formTypes[0]?.id ?? null,
-    period: props.template?.period ?? new Date().getFullYear(),
+    period_year: props.template?.period_year ?? Math.floor(props.defaultPeriod / 100),
+    period_month: props.template?.period_month ?? props.defaultPeriod % 100,
     title_en: props.template?.title_en ?? '',
     title_id: props.template?.title_id ?? '',
     content_en: props.template?.content_en ?? '',
@@ -180,7 +274,7 @@ const escapeHtml = (value: string) => value
 // signers get. Only the admin's own input is shown here; what employees see is
 // sanitised and rendered on the server.
 function renderPreview(html: string, lang: Language): string {
-    const values: Record<string, string> = { ...props.previewValues[lang], period: escapeHtml(String(form.period)) }
+    const values: Record<string, string> = { ...props.previewValues[lang], period: escapeHtml(formatPeriod(formPeriod.value, lang)) }
 
     // The chip styling is editor-only; the server strips it on save.
     return html.replaceAll(' class="form-variable"', '').replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (match, key: string) => values[key] ?? match)
@@ -495,11 +589,12 @@ function duplicate() {
                             </p>
                         </div>
 
+                        <!-- Period: year and month, stored as two columns -->
                         <div class="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
                             <div>
-                                <label class="form-side-label">{{ t.forms.formPeriod }}</label>
+                                <label class="form-side-label">{{ t.forms.periodYear }}</label>
                                 <input
-                                    v-model.number="form.period"
+                                    v-model.number="form.period_year"
                                     type="number"
                                     min="2000"
                                     max="2100"
@@ -508,20 +603,36 @@ function duplicate() {
                                 >
                             </div>
                             <div>
-                                <label class="form-side-label">{{ t.forms.formPublishAt }}</label>
-                                <input
-                                    v-model="form.publish_at"
-                                    type="datetime-local"
-                                    class="form-side-input"
+                                <label class="form-side-label">{{ t.forms.periodMonth }}</label>
+                                <SearchableSelect
+                                    v-model="form.period_month"
+                                    :options="monthOptions"
+                                    class="w-full"
                                     :disabled="readOnly"
-                                >
+                                />
                             </div>
                         </div>
                         <p
-                            v-if="form.errors.period || form.errors.publish_at"
+                            v-if="form.errors.period_year || form.errors.period_month"
                             class="form-side-error"
                         >
-                            {{ form.errors.period ?? form.errors.publish_at }}
+                            {{ form.errors.period_year ?? form.errors.period_month }}
+                        </p>
+
+                        <div>
+                            <label class="form-side-label">{{ t.forms.formPublishAt }}</label>
+                            <input
+                                v-model="form.publish_at"
+                                type="datetime-local"
+                                class="form-side-input"
+                                :disabled="readOnly"
+                            >
+                        </div>
+                        <p
+                            v-if="form.errors.publish_at"
+                            class="form-side-error"
+                        >
+                            {{ form.errors.publish_at }}
                         </p>
 
                         <div>
@@ -756,6 +867,26 @@ function duplicate() {
                 </div>
 
                 <div class="flex items-center gap-3">
+                    <!-- PDF: the real pages; Screen: the quick continuous view -->
+                    <div
+                        class="inline-flex rounded-md border border-border p-0.5"
+                        role="group"
+                        :aria-label="t.forms.previewMode"
+                    >
+                        <button
+                            v-for="mode in (['pdf', 'screen'] as const)"
+                            :key="mode"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-semibold"
+                            :class="previewMode === mode ? 'bg-primary text-white' : 'text-slate-600'"
+                            :aria-pressed="previewMode === mode"
+                            @click="previewMode = mode"
+                        >
+                            <i :class="mode === 'pdf' ? 'fa-solid fa-file-pdf' : 'fa-solid fa-desktop'" />
+                            {{ mode === 'pdf' ? t.forms.previewPdf : t.forms.previewScreen }}
+                        </button>
+                    </div>
+
                     <div class="inline-flex rounded-md border border-border p-0.5">
                         <button
                             v-for="tab in tabs"
@@ -779,7 +910,47 @@ function duplicate() {
                 </div>
             </div>
 
-            <div class="overflow-y-auto">
+            <!-- PDF pages, as printed -->
+            <div
+                v-if="previewMode === 'pdf'"
+                class="relative h-[75vh] bg-slate-100"
+            >
+                <iframe
+                    v-if="pdfUrl"
+                    :src="pdfUrl"
+                    class="h-full w-full"
+                    :title="t.forms.previewPdf"
+                />
+
+                <div
+                    v-if="pdfLoading"
+                    class="absolute inset-0 flex items-center justify-center gap-2 bg-white/70 text-sm text-slate-600"
+                >
+                    <i class="fa-solid fa-circle-notch fa-spin" />
+                    {{ t.forms.pdfPreviewLoading }}
+                </div>
+
+                <div
+                    v-else-if="pdfError"
+                    class="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center text-sm text-red-700"
+                >
+                    <i class="fa-solid fa-triangle-exclamation text-2xl" />
+                    <p>{{ pdfError }}</p>
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        @click="loadPdf"
+                    >
+                        <i class="fa-solid fa-rotate" />
+                        {{ t.forms.pdfPreviewRetry }}
+                    </button>
+                </div>
+            </div>
+
+            <div
+                v-else
+                class="overflow-y-auto"
+            >
                 <FormDocument
                     :page="pageLayout"
                     :content="preview.content"

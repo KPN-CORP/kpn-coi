@@ -6,7 +6,7 @@ import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime } from '@/Utils/date'
+import { formatDateTime, formatPeriod, periodMonth, periodYear } from '@/Utils/date'
 import type { Paginated, FormRow, FormStatusFilter } from '@/Components/Forms/types'
 import { Head, router } from '@inertiajs/vue3'
 import { computed, reactive } from 'vue'
@@ -64,7 +64,7 @@ const onSearch = useDebounced(() => applyFilter())
 
 const periodOptions = computed(() => [
     { value: 'all', label: t.value.teamHistory.allPeriods },
-    ...props.periods.map(period => ({ value: period, label: String(period) })),
+    ...props.periods.map(period => ({ value: period, label: formatPeriod(period, locale.value) })),
 ])
 
 const businessUnitOptions = computed(() => [
@@ -81,7 +81,8 @@ const statusOptions = computed(() => [
 ])
 
 const columns = computed<{ key: SortKey | null, label: string }[]>(() => [
-    { key: 'period', label: t.value.common.period },
+    { key: 'period', label: t.value.forms.periodYear },
+    { key: null, label: t.value.forms.periodMonth },
     { key: 'name', label: t.value.common.name },
     { key: null, label: t.value.teamHistory.columnDesignation },
     { key: 'level', label: t.value.teamHistory.columnLevel },
@@ -241,8 +242,12 @@ function sortIcon(key: SortKey) {
                             :key="row.key"
                             class="border-b border-slate-100"
                         >
-                            <td class="py-4">
-                                {{ row.period }}
+                            <td class="py-4 font-semibold">
+                                {{ periodYear(row.period) }}
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap">
+                                {{ periodMonth(row.period, locale) }}
                             </td>
 
                             <td class="py-4">

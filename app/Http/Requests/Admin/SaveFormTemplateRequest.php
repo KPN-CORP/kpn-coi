@@ -6,6 +6,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\FormTemplate;
 use App\Services\FormTemplateService;
+use App\Support\FormPeriod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -27,7 +28,9 @@ class SaveFormTemplateRequest extends FormRequest
                 'integer',
                 Rule::exists('form_types', 'id')->whereNull('deleted_at'),
             ],
-            'period' => ['required', 'integer', 'min:2000', 'max:2100'],
+            // The month the form is for, as two columns.
+            'period_year' => FormPeriod::yearRules(),
+            'period_month' => FormPeriod::monthRules(),
             'title_en' => ['required', 'string', 'max:255'],
             'title_id' => ['required', 'string', 'max:255'],
             'content_en' => ['required', 'string', 'max:500000'],
@@ -113,7 +116,7 @@ class SaveFormTemplateRequest extends FormRequest
 
                 $conflicts = app(FormTemplateService::class)->conflicts(
                     (int) $this->input('form_type_id'),
-                    (int) $this->input('period'),
+                    FormPeriod::make((int) $this->input('period_year'), (int) $this->input('period_month')),
                     array_values(array_unique($this->input('business_units') ?? [])),
                     $template instanceof FormTemplate ? $template->id : null,
                 );

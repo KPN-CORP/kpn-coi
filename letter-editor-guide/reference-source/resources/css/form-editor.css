@@ -1,0 +1,184 @@
+/* ------------------------------------------------------------------
+ * Form document -- shared by the template editor and every
+ * place a form is read (employee sign page, history, admin preview), so
+ * the admin edits exactly what the signer sees. Tailwind preflight strips
+ * list markers and heading sizes; this puts them back inside the document
+ * only. Keep in step with resources/views/pdf/form_declaration.blade.php.
+ * ------------------------------------------------------------------ */
+.form-content {
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: #1e293b;
+    overflow-wrap: anywhere;
+}
+
+.form-content > * + * { margin-top: 0.6rem; }
+/* An empty paragraph is a blank line the author typed; give it a line's
+   height (the server does the same for the PDF, see keepBlankLines). */
+.form-content p:empty::before { content: '\00a0'; }
+/* em: relative to the document's base size, as in the PDF. */
+.form-content h1 { font-size: 1.4em; font-weight: 700; }
+.form-content h2 { font-size: 1.2em; font-weight: 700; }
+.form-content h3 { font-size: 1.1em; font-weight: 700; }
+.form-content h4 { font-size: 1em; font-weight: 700; }
+.form-content ul { list-style: disc; padding-left: 1.5rem; }
+.form-content ol { list-style: decimal; padding-left: 1.5rem; }
+.form-content ol ol { list-style-type: lower-alpha; }
+.form-content ol ol ol { list-style-type: lower-roman; }
+.form-content img { display: inline-block; max-width: 100%; height: auto; }
+.form-content li + li { margin-top: 0.25rem; }
+.form-content li p { margin: 0; }
+.form-content blockquote { border-left: 3px solid #cbd5e1; padding-left: 0.75rem; color: #475569; }
+.form-content hr { border: 0; border-top: 1px solid #cbd5e1; margin: 1rem 0; }
+/* Auto layout, like the PDF (dompdf ignores cell widths under fixed). */
+.form-content table { width: 100%; border-collapse: collapse; }
+.form-content td,
+.form-content th { border: 1px solid #cbd5e1; padding: 0.35rem 0.5rem; vertical-align: top; }
+.form-content th { background: #f1f5f9; font-weight: 600; text-align: left; }
+.form-content td p,
+.form-content th p { margin: 0; }
+
+.form-content .form-variable {
+    display: inline-block;
+    border-radius: 4px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #ab2f2b;
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 0 0.3rem;
+    white-space: nowrap;
+}
+
+.form-content .ProseMirror-selectednode.form-variable { outline: 2px solid #ab2f2b; }
+
+/* {{signature}} -- the COI declaration's signature look; mirrored in
+   resources/views/pdf/form_declaration.blade.php. */
+.form-content .form-signature-name {
+    font-family: 'Ephesis', cursive;
+    font-size: 22pt;
+    line-height: 1.2;
+}
+
+/* Before signing: where the signature will go. */
+.form-content .form-signature-placeholder {
+    display: inline-block;
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 0.85em;
+    font-style: italic;
+    padding: 0.75rem 1rem;
+}
+.ProseMirror.form-content { outline: none; }
+.ProseMirror .selectedCell { background: #fee2e2; }
+
+/* Where a template's default font is applied (editor, paper view), the
+   document text takes it instead of the screen default above. */
+.form-font-inherit .form-content { font-family: inherit; font-size: inherit; line-height: inherit; color: inherit; }
+.form-content sub,
+.form-content sup { font-size: 0.75em; }
+
+/* Tab key gap -- same 12.7mm as the PDF view. */
+.form-content span[data-tab] { display: inline-block; width: 12.7mm; }
+
+/* Borderless tables (label/value blocks); the editor keeps a faint guide so
+   cells can still be found and clicked. */
+.form-content table[data-borderless] td,
+.form-content table[data-borderless] th { border-color: transparent; background: transparent; }
+.ProseMirror table[data-borderless] td,
+.ProseMirror table[data-borderless] th { border: 1px dashed #e2e8f0; }
+
+/* Column resizing in the editor (Tiptap columnResizing). */
+.ProseMirror .tableWrapper { overflow-x: auto; }
+.ProseMirror td,
+.ProseMirror th { position: relative; }
+.ProseMirror .column-resize-handle { position: absolute; top: 0; right: -2px; bottom: -2px; width: 4px; background: #ab2f2b; pointer-events: none; }
+.ProseMirror.resize-cursor, .ProseMirror .resize-cursor { cursor: col-resize; }
+.ProseMirror [data-resize-handle] { width: 10px; height: 10px; border-radius: 2px; background: #ab2f2b; opacity: 0; z-index: 1; }
+.ProseMirror [data-resize-handle="bottom-right"] { cursor: nwse-resize; }
+.ProseMirror [data-resize-handle="bottom-left"] { cursor: nesw-resize; }
+.ProseMirror [data-resize-container]:hover [data-resize-handle],
+.ProseMirror .ProseMirror-selectednode [data-resize-handle] { opacity: 1; }
+.ProseMirror .ProseMirror-selectednode img,
+.ProseMirror img.ProseMirror-selectednode { outline: 2px solid #ab2f2b; }
+
+/* --- Template editor chrome: toolbar, menus, page zones ------------------ */
+.form-tb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    min-width: 2rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: #475569;
+    transition: background-color 0.15s, color 0.15s;
+}
+.form-tb-btn:hover { background: #f1f5f9; color: #ab2f2b; }
+.form-tb-btn.is-active { background: #fef2f2; color: #ab2f2b; }
+.form-tb-btn:disabled { opacity: 0.5; }
+.form-tb-sep { width: 1px; height: 1.25rem; margin: 0 0.25rem; background: #e2e8f0; }
+
+.form-menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.375rem;
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    font-size: 0.875rem;
+    color: #334155;
+}
+.form-menu-item:hover { background: #fef2f2; }
+.form-menu-item.is-active { color: #ab2f2b; font-weight: 600; }
+
+/* A part of the page (header/body/footer): outlined on hover, red when it
+   is the part the toolbar is acting on. Labels sit on the outline. */
+.form-zone {
+    position: relative;
+    border: 1px dashed transparent;
+    border-radius: 3px;
+    cursor: text;
+}
+.form-zone:hover { border-color: #cbd5e1; }
+.form-zone.is-active { border-color: #f1a5a2; }
+/* Keyboard focus: a clear ring (the editor itself has no outline). */
+.form-zone:focus-within { border-color: #ab2f2b; box-shadow: 0 0 0 2px rgb(171 47 43 / 0.15); }
+.form-zone-label {
+    position: absolute;
+    top: -0.55rem;
+    left: 0.5rem;
+    padding: 0 0.3rem;
+    background: #fff;
+    font: 600 10px/1.1 Figtree, ui-sans-serif, sans-serif;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+.form-zone:hover .form-zone-label,
+.form-zone.is-active .form-zone-label { opacity: 1; }
+.form-zone.is-active .form-zone-label { color: #ab2f2b; }
+.form-zone .ProseMirror { min-height: 1.6em; padding: 0.15rem 0.25rem; }
+.form-zone-body .ProseMirror { min-height: 120mm; }
+
+/* Template editor settings sidebar. */
+.form-side-card { border: 1px solid #e2e8f0; border-radius: 0.5rem; background: #fff; padding: 1rem; box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
+.form-side-title { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #334155; }
+.form-side-title i { color: #ab2f2b; }
+.form-side-label { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; font-weight: 600; color: #475569; }
+.form-side-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.4rem 0.6rem; font-size: 0.875rem; }
+.form-side-hint { margin-top: 0.25rem; font-size: 0.7rem; color: #64748b; }
+.form-side-error { margin-top: 0.25rem; font-size: 0.75rem; color: #dc2626; }
+
+/* Phone reading mode of FormDocument: the page's fixed widths would push the
+   text off screen, so tables and images give way to the screen width. */
+.form-reflow table { width: 100% !important; min-width: 0 !important; }
+.form-reflow td,
+.form-reflow th { width: auto !important; }
+.form-reflow img { max-width: 100%; height: auto; }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AppSetting;
 use App\Models\Employee;
 use App\Models\FormType;
 use App\Services\FormDeclarationService;
@@ -56,6 +57,10 @@ class HandleInertiaRequests extends Middleware
                 // Master Settings menu: listed accounts only, see
                 // FormMasterAccess (the permission is checked client-side too).
                 'form_master' => FormMasterAccess::isListed($request->user()),
+
+                // Conflict of Interest's place among the form types in the
+                // employee menu (Master Settings -> Form Type).
+                'coi_sort_order' => fn () => AppSetting::coiMenuOrder(),
 
                 // One employee menu item per active form type, each with the
                 // number of forms waiting for this account's signature.

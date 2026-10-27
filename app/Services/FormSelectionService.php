@@ -19,26 +19,27 @@ class FormSelectionService
     public const COI = 'coi';
 
     /**
-     * What the filter offers. Someone holding neither permission keeps COI,
-     * as these pages offered before forms were merged in (their routes have
+     * What the filter offers: COI for holders of $coiPermission, and each form
+     * type whose own permission (FormType::permissionName(), set per type in
+     * Role Management) the user holds. Someone holding none keeps COI, as
+     * these pages offered before forms were merged in (their routes have
      * never been permission-gated themselves).
      *
      * @return list<array{value: string, label: array{en: string, id: string}}>
      */
-    public function options(?User $user, string $coiPermission, string $formPermission): array
+    public function options(?User $user, string $coiPermission): array
     {
+        $types = collect(FormType::options())
+            ->filter(fn (array $type) => $user?->can(FormType::PERMISSION_PREFIX.$type['code']) ?? false);
+
         $options = [];
 
-        $canForms = $user?->can($formPermission) ?? false;
-
-        if (($user?->can($coiPermission) ?? false) || ! $canForms) {
+        if (($user?->can($coiPermission) ?? false) || $types->isEmpty()) {
             $options[] = ['value' => self::COI, 'label' => self::coiName()];
         }
 
-        if ($canForms) {
-            foreach (FormType::options() as $type) {
-                $options[] = ['value' => $type['code'], 'label' => $type['name']];
-            }
+        foreach ($types as $type) {
+            $options[] = ['value' => $type['code'], 'label' => $type['name']];
         }
 
         return $options;

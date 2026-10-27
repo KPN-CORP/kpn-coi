@@ -108,9 +108,21 @@ class FormTemplateService
     {
         $template ??= new FormTemplate(['created_by' => $editor->id]);
 
-        $template->fill([
+        $this->fill($template, $data, $editor)->save();
+
+        return $template;
+    }
+
+    /**
+     * The editor's input on a template, cleaned exactly as saving cleans it,
+     * without saving -- also what the PDF preview prints from.
+     */
+    public function fill(FormTemplate $template, array $data, User $editor): FormTemplate
+    {
+        return $template->fill([
             'form_type_id' => (int) $data['form_type_id'],
-            'period' => (int) $data['period'],
+            'period_year' => (int) $data['period_year'],
+            'period_month' => (int) $data['period_month'],
             'title_en' => trim($data['title_en']),
             'title_id' => trim($data['title_id']),
             'content_en' => $this->sanitizer->clean($data['content_en']),
@@ -132,9 +144,7 @@ class FormTemplateService
             'publish_at' => $data['publish_at'],
             'is_active' => (bool) ($data['is_active'] ?? false),
             'updated_by' => $editor->id,
-        ])->save();
-
-        return $template;
+        ]);
     }
 
     /**

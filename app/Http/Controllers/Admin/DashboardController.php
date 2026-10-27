@@ -69,7 +69,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        $options = $this->forms->options($user, 'dashboard.view', 'form_dashboard.view');
+        $options = $this->forms->options($user, 'dashboard.view');
 
         $formType = $this->forms->selected($request, $options);
 

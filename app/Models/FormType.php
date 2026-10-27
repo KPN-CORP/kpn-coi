@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * A kind of form people sign (Pakta Integritas, ...). Each active type gets
@@ -113,6 +115,36 @@ class FormType extends Model
     /**
      * @return array{id: int, code: string, name: array{en: string, id: string}, description: array{en: ?string, id: ?string}, icon: string}
      */
+    /**
+     * Each form type is its own permission in Role Management: holding it
+     * opens that form's dashboard, report, Excel export and PDFs. Named by
+     * the code (fixed at creation) under its own prefix, so a type coded
+     * "master" can never collide with the form_master.* permissions.
+     */
+    public const PERMISSION_PREFIX = 'form_type.';
+
+    public function permissionName(): string
+    {
+        return self::PERMISSION_PREFIX.$this->code;
+    }
+
+    /**
+     * Create this type's permission if missing; Super Admin holds every
+     * permission (see PermissionSeeder).
+     */
+    public function ensurePermission(): void
+    {
+        $permission = Permission::findOrCreate($this->permissionName(), 'web');
+
+        Role::query()
+            ->where('name', 'Super Admin')
+            ->where('guard_name', 'web')
+            ->first()
+            ?->givePermissionTo($permission);
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
     public function summary(): array
     {
         return [
@@ -121,6 +153,8 @@ class FormType extends Model
             'name' => ['en' => $this->name_en, 'id' => $this->name_id],
             'description' => ['en' => $this->description_en, 'id' => $this->description_id],
             'icon' => $this->icon,
+            // Menu position, shared with Conflict of Interest's (AppSetting).
+            'sort_order' => $this->sort_order,
         ];
     }
 }

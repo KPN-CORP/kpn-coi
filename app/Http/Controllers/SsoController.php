@@ -13,7 +13,7 @@ class SsoController extends Controller
 {
     public function dbauth(Request $request)
     {
-        return $this->handleDbauth($request, route('employee.history', absolute: false), 'kpncoi');
+        return $this->handleDbauth($request, route('employee.commitments', absolute: false), 'kpncoi');
     }
 
     private function handleDbauth(Request $request, $redirectRoute, $sessionValue)

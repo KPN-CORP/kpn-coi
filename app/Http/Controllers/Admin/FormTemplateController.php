@@ -9,13 +9,17 @@ use App\Http\Requests\Admin\SaveFormTemplateRequest;
 use App\Models\FormTemplate;
 use App\Models\FormType;
 use App\Models\User;
+use App\Services\FormPdfService;
 use App\Services\FormTemplateService;
 use App\Services\FormVariableService;
+use App\Support\FormPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class FormTemplateController extends Controller
 {
@@ -178,7 +182,8 @@ class FormTemplateController extends Controller
     {
         abort_unless($this->templates->canManage($template, $request->user()), 403);
 
-        $copy = $template->replicate(['created_by', 'updated_by']);
+        // `period` is computed by the database from year and month.
+        $copy = $template->replicate(['created_by', 'updated_by', 'period']);
         $copy->is_active = false;
         $copy->title_en = mb_substr($template->title_en.' (Copy)', 0, 255);
         $copy->title_id = mb_substr($template->title_id.' (Salinan)', 0, 255);
@@ -253,7 +258,9 @@ class FormTemplateController extends Controller
             // The admin's own data, already formatted per language by the
             // same code signers get, so the preview reads like a real signed
             // form -- signature included.
-            'previewValues' => $this->previewValues($user, (int) ($template?->period ?? now()->year)),
+            'previewValues' => $this->previewValues($user, (int) ($template?->period ?? FormPeriod::current())),
+            // A new template starts on the current month.
+            'defaultPeriod' => FormPeriod::current(),
         ]);
     }
 
@@ -262,15 +269,73 @@ class FormTemplateController extends Controller
      */
     private function previewValues(User $user, int $period): array
     {
-        $values = [
-            ...$this->variables->resolve($user, $period),
-            'signed_name' => $this->variables->fullNameFor($user),
-        ];
+        $values = $this->sampleValues($user, $period);
 
         return [
             'en' => $this->variables->displayValues($values, 'en'),
             'id' => $this->variables->displayValues($values, 'id'),
         ];
+    }
+
+    /**
+     * The admin's own data and name as the signer, so a preview reads like a
+     * real signed form.
+     *
+     * @return array<string, string|null>
+     */
+    private function sampleValues(User $user, int $period): array
+    {
+        return [
+            ...$this->variables->resolve($user, $period),
+            'signed_name' => $this->variables->fullNameFor($user),
+        ];
+    }
+
+    /**
+     * The template being edited -- unsaved changes included -- as the real
+     * PDF, page by page. Nothing is stored; the HTML is cleaned exactly as
+     * saving cleans it (FormTemplateService::fill).
+     */
+    public function previewPdf(Request $request, FormPdfService $pdf): SymfonyResponse
+    {
+        $data = $request->validate([
+            'locale' => ['required', Rule::in(['en', 'id'])],
+            'period_year' => FormPeriod::yearRules(),
+            'period_month' => FormPeriod::monthRules(),
+            'title_en' => ['nullable', 'string', 'max:255'],
+            'title_id' => ['nullable', 'string', 'max:255'],
+            'content_en' => ['nullable', 'string', 'max:500000'],
+            'content_id' => ['nullable', 'string', 'max:500000'],
+            'header_en' => ['nullable', 'string', 'max:100000'],
+            'header_id' => ['nullable', 'string', 'max:100000'],
+            'footer_en' => ['nullable', 'string', 'max:100000'],
+            'footer_id' => ['nullable', 'string', 'max:100000'],
+            'paper_size' => ['required', Rule::in(array_keys(FormTemplate::PAPER_SIZES))],
+            'orientation' => ['required', Rule::in(['portrait', 'landscape'])],
+            'margin_top' => ['required', 'numeric', 'min:5', 'max:80'],
+            'margin_bottom' => ['required', 'numeric', 'min:5', 'max:80'],
+            'margin_left' => ['required', 'numeric', 'min:5', 'max:60'],
+            'margin_right' => ['required', 'numeric', 'min:5', 'max:60'],
+            'font_family' => ['required', Rule::in(array_keys(config('forms.fonts')))],
+            'font_size' => ['required', 'numeric', Rule::in(config('forms.font_sizes'))],
+            'line_height' => ['required', 'numeric', Rule::in(config('forms.line_heights'))],
+        ]);
+
+        $template = $this->templates->fill(new FormTemplate, [
+            ...$data,
+            'form_type_id' => 0,
+            'title_en' => $data['title_en'] ?? '',
+            'title_id' => $data['title_id'] ?? '',
+            'content_en' => $data['content_en'] ?? '',
+            'content_id' => $data['content_id'] ?? '',
+            'publish_at' => now(),
+        ], $request->user());
+
+        return $pdf->preview(
+            $template,
+            $this->sampleValues($request->user(), $template->period),
+            $data['locale']
+        );
     }
 
     private function summary(FormTemplate $template): array
@@ -285,6 +350,8 @@ class FormTemplateController extends Controller
                 ? ['en' => $template->formType->name_en, 'id' => $template->formType->name_id]
                 : null,
             'period' => $template->period,
+            'period_year' => $template->period_year,
+            'period_month' => $template->period_month,
             'title_en' => $template->title_en,
             'title_id' => $template->title_id,
             'business_units' => $template->business_units ?? [],

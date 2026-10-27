@@ -9,7 +9,6 @@ use App\Models\FormTemplate;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +16,14 @@ use Illuminate\Support\Facades\DB;
 /**
  * The signer's side of forms: what is waiting to be signed, and signing it.
  *
- * A person holds one valid signature per form type per period. A signed
- * template is locked, so changing its wording means duplicating it and
- * switching the copy on instead: the old signatures are kept but become
- * *superseded* (isSuperseded()) and their signers are asked to sign again.
+ * Each period (a month, App\Support\FormPeriod) a person must sign the form
+ * once; after that they may sign again at any time ("Add / Update"). Every
+ * signature is its own row and the person's *newest* one is their valid
+ * declaration -- the older ones are kept as *superseded* (isSuperseded()).
+ *
+ * A signed template is locked, so changing its wording means duplicating it
+ * and switching the copy on instead: signatures on the old version are then
+ * superseded too and their signers are asked to sign again.
  */
 class FormDeclarationService
 {
@@ -88,28 +91,56 @@ class FormDeclarationService
     }
 
     /**
-     * Ids of the given declarations that are superseded: their template was
-     * switched off and another template now applies to the signer (by the
-     * business unit they signed under) for the same form type and period.
+     * Ids of the given (signed) declarations that are superseded -- not the
+     * signer's valid declaration for that form type and period, which is
+     * their newest signature on a template that has not been replaced.
      *
-     * Switching a template off with nothing replacing it (e.g. at the end of
-     * a period) leaves its signatures valid -- only a newer version that
-     * people must sign again invalidates the old ones.
+     * A template counts as replaced when it was switched off and another
+     * template now applies to the signer (by the business unit they signed
+     * under). Switching one off with nothing replacing it (e.g. at the end
+     * of a period) leaves its signatures valid.
      *
-     * @param  iterable<FormDeclaration>  $declarations  with `template` loaded
+     * @param  iterable<FormDeclaration>  $declarations
      * @return array<int, true> keyed by declaration id
      */
     public function supersededIds(iterable $declarations): array
     {
-        $available = [];
-        $superseded = [];
+        $declarations = collect($declarations)->filter(fn (FormDeclaration $declaration) => $declaration->isSigned());
 
-        foreach ($declarations as $declaration) {
+        if ($declarations->isEmpty()) {
+            return [];
+        }
+
+        $group = fn (FormDeclaration $declaration) => implode('-', [
+            $declaration->user_id, $declaration->type, $declaration->form_type_id, $declaration->period,
+        ]);
+
+        // Every signature of the same signers, forms and periods, newest first.
+        $signatures = FormDeclaration::query()
+            ->signed()
+            ->with(['template' => fn ($query) => $query->select(['id', 'is_active', 'deleted_at'])])
+            ->where(function (Builder $query) use ($declarations, $group) {
+                foreach ($declarations->unique($group) as $declaration) {
+                    $query->orWhere(fn (Builder $one) => $one
+                        ->where('user_id', $declaration->user_id)
+                        ->where('type', $declaration->type)
+                        ->where('form_type_id', $declaration->form_type_id)
+                        ->where('period', $declaration->period));
+                }
+            })
+            ->orderByDesc('signed_at')
+            ->orderByDesc('id')
+            ->get(['id', 'user_id', 'type', 'form_type_id', 'period', 'template_id', 'business_unit', 'status', 'signed_at'])
+            ->groupBy($group);
+
+        $available = [];
+
+        $replaced = function (FormDeclaration $declaration) use (&$available): bool {
             $template = $declaration->template;
 
-            // Still switched on: valid, whatever else applies.
+            // Still switched on: never replaced, whatever else applies.
             if ($template && $template->is_active && ! $template->trashed()) {
-                continue;
+                return false;
             }
 
             $key = $declaration->form_type_id.'-'.$declaration->period;
@@ -121,14 +152,17 @@ class FormDeclarationService
                 ->where('period', $declaration->period)
                 ->get();
 
-            $applicable = $this->templates->resolve($available[$key], $declaration->business_unit);
+            return self::replacedBy($declaration, $this->templates->resolve($available[$key], $declaration->business_unit));
+        };
 
-            if (self::replacedBy($declaration, $applicable)) {
-                $superseded[$declaration->id] = true;
-            }
-        }
+        $current = $signatures->map(
+            fn (Collection $rows) => $rows->first(fn (FormDeclaration $row) => ! $replaced($row))?->id
+        );
 
-        return $superseded;
+        return $declarations
+            ->reject(fn (FormDeclaration $declaration) => $current->get($group($declaration)) === $declaration->id)
+            ->mapWithKeys(fn (FormDeclaration $declaration) => [$declaration->id => true])
+            ->all();
     }
 
     public function isSuperseded(FormDeclaration $declaration): bool
@@ -191,29 +225,63 @@ class FormDeclarationService
     }
 
     /**
-     * "I have read and agree" without signing yet. Kept on the same row the
-     * signature will use, keyed like it (one per template).
+     * The template this account may read and sign for $template's form type
+     * and period -- the one that applies to them now -- whether or not they
+     * signed it already: signing again adds an updated declaration.
+     */
+    public function signable(User|NonEmployeeUser $account, FormTemplate $template): ?FormTemplate
+    {
+        return $this->templates
+            ->applicableAcrossPeriods($this->variables->businessUnitFor($account), $template->form_type_id)
+            ->firstWhere('id', $template->id);
+    }
+
+    /**
+     * What "Add / Update" opens: the template that applies to this account in
+     * the latest period that has one.
+     */
+    public function updateTarget(User|NonEmployeeUser $account, int $formTypeId): ?FormTemplate
+    {
+        return $this->templates
+            ->applicableAcrossPeriods($this->variables->businessUnitFor($account), $formTypeId)
+            ->sortByDesc('period')
+            ->first();
+    }
+
+    /**
+     * Whether this account already holds a valid signature for the template's
+     * period -- signing now adds an update rather than the first declaration.
+     */
+    public function hasSigned(User|NonEmployeeUser $account, FormTemplate $template): bool
+    {
+        return ! $this->pendingFor($account, $template->form_type_id)->contains('id', $template->id);
+    }
+
+    /**
+     * "I have read and agree" without signing yet. One draft per template per
+     * account; signing turns it into the signature.
      */
     public function saveDraft(User|NonEmployeeUser $account, FormTemplate $template, string $locale): FormDeclaration
     {
-        return $this->onceOnly($account, $template, function (FormDeclaration $declaration) use ($account, $locale) {
-            // Never downgrade: a draft request that lost a race with Sign
-            // (two tabs, a retry) leaves the signature as it is.
-            if ($declaration->isSigned()) {
-                return $declaration;
-            }
+        return $this->locked($template, function () use ($account, $template, $locale) {
+            $draft = $this->draftFor($account, $template) ?? $this->newRow($account, $template);
 
-            $declaration->fill([
+            $draft->fill([
                 'status' => FormDeclaration::STATUS_DRAFT,
                 'locale' => $locale,
                 'agreed_at' => now(),
                 'business_unit' => $this->variables->businessUnitFor($account),
             ])->save();
 
-            return $declaration;
+            return $draft;
         });
     }
 
+    /**
+     * A new signature -- the person's first for the period, or an update.
+     * Every call adds a row (turning the draft into it, if there is one);
+     * the newest is the valid declaration.
+     */
     public function sign(
         User|NonEmployeeUser $account,
         FormTemplate $template,
@@ -221,15 +289,24 @@ class FormDeclarationService
         string $locale,
         Request $request
     ): FormDeclaration {
-        return $this->onceOnly($account, $template, function (FormDeclaration $declaration) use ($account, $template, $signedName, $locale, $request) {
-            // A second click / retry: the first one already signed.
-            if ($declaration->isSigned()) {
-                return $declaration;
+        return $this->locked($template, function () use ($account, $template, $signedName, $locale, $request) {
+            // A double click or retry of the same submit: keep the signature
+            // just made instead of adding an identical one.
+            $justSigned = $this->ownDeclarations($account)
+                ->signed()
+                ->where('template_id', $template->id)
+                ->where('signed_at', '>=', now()->subSeconds(self::DUPLICATE_WINDOW_SECONDS))
+                ->latest('signed_at')
+                ->first();
+
+            if ($justSigned) {
+                return $justSigned;
             }
 
             $signedAt = now();
 
-            // Turns an existing draft into the signature, or creates it.
+            $declaration = $this->draftFor($account, $template) ?? $this->newRow($account, $template);
+
             $declaration->fill([
                 'status' => FormDeclaration::STATUS_SIGNED,
                 'business_unit' => $this->variables->businessUnitFor($account),
@@ -246,53 +323,36 @@ class FormDeclarationService
         });
     }
 
+    /** Two submits of one template this close together are the same submit. */
+    private const DUPLICATE_WINDOW_SECONDS = 10;
+
     /**
-     * Run a change to this account's single row for the template, serialised
-     * against concurrent requests:
+     * Run a change for a template with its row locked: signing and drafting
+     * are serialised per template, and an admin edit/delete of the wording
+     * (FormTemplateController, which takes the same lock) cannot slip in
+     * between "still unsigned, editable" and a signature.
      *
-     * - the template row is locked, so an admin edit/delete of the wording
-     *   (FormTemplateController, which takes the same lock) cannot slip in
-     *   between "still unsigned, editable" and the signature;
-     * - the declaration row is locked when it exists; when it does not, two
-     *   requests can both try to insert it, and the loser re-reads the
-     *   winner's row instead of failing on the unique key.
-     *
-     * @param  callable(FormDeclaration): FormDeclaration  $change
+     * @param  callable(): FormDeclaration  $change
      */
-    private function onceOnly(User|NonEmployeeUser $account, FormTemplate $template, callable $change): FormDeclaration
+    private function locked(FormTemplate $template, callable $change): FormDeclaration
     {
-        $key = $this->rowKey($account, $template);
+        return DB::transaction(function () use ($template, $change) {
+            FormTemplate::query()->whereKey($template->id)->lockForUpdate()->first();
 
-        try {
-            return DB::transaction(function () use ($template, $key, $change) {
-                FormTemplate::query()->whereKey($template->id)->lockForUpdate()->first();
-
-                $declaration = FormDeclaration::query()->where($key)->lockForUpdate()->first()
-                    ?? new FormDeclaration([
-                        ...$key,
-                        'form_type_id' => $template->form_type_id,
-                        'period' => $template->period,
-                    ]);
-
-                return $change($declaration);
-            });
-        } catch (UniqueConstraintViolationException) {
-            return DB::transaction(function () use ($key, $change) {
-                return $change(FormDeclaration::query()->where($key)->lockForUpdate()->firstOrFail());
-            });
-        }
+            return $change();
+        });
     }
 
-    /**
-     * @return array{template_id: int, user_id: int, type: string}
-     */
-    private function rowKey(User|NonEmployeeUser $account, FormTemplate $template): array
+    private function newRow(User|NonEmployeeUser $account, FormTemplate $template): FormDeclaration
     {
-        return [
+        return new FormDeclaration([
             'template_id' => $template->id,
+            'form_type_id' => $template->form_type_id,
+            'period_year' => $template->period_year,
+            'period_month' => $template->period_month,
             'user_id' => $account->id,
             'type' => self::typeOf($account),
-        ];
+        ]);
     }
 
     /**

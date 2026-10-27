@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,12 @@ class FormDeclaration extends Model
     public const STATUS_DRAFT = 'draft';
 
     public const STATUS_SIGNED = 'signed';
+
+    /** Signed in the app (the column default). */
+    public const SOURCE_APP = 'app';
+
+    /** Loaded from a spreadsheet in the Import Center. */
+    public const SOURCE_IMPORT = 'import';
 
     /**
      * A row is a draft unless signing says otherwise. The column's database
@@ -37,7 +44,8 @@ class FormDeclaration extends Model
         'template_id',
         'user_id',
         'type',
-        'period',
+        'period_year',
+        'period_month',
         'business_unit',
         'status',
         'locale',
@@ -47,14 +55,35 @@ class FormDeclaration extends Model
         'signed_at',
         'ip_address',
         'user_agent',
+        'source',
+        'imported_by',
     ];
 
     protected $casts = [
-        'period' => 'integer',
+        'period_year' => 'integer',
+        'period_month' => 'integer',
         'variables' => 'array',
         'signed_at' => 'datetime',
         'agreed_at' => 'datetime',
     ];
+
+    /**
+     * YYYYMM. Computed by the database from period_year and period_month
+     * (never written); worked out here too for a model not saved yet, such
+     * as the template editor's preview.
+     */
+    protected function period(): Attribute
+    {
+        return Attribute::get(function ($value, array $attributes) {
+            if ($value !== null) {
+                return (int) $value;
+            }
+
+            return isset($attributes['period_year'], $attributes['period_month'])
+                ? (int) $attributes['period_year'] * 100 + (int) $attributes['period_month']
+                : null;
+        });
+    }
 
     /**
      * Only real signatures. A draft is a person's bookmark ("I have read and

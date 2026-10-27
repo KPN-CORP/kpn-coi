@@ -7,8 +7,10 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\FormReportController;
 use App\Http\Controllers\Admin\FormTemplateController;
 use App\Http\Controllers\Admin\FormTypeController;
+use App\Http\Controllers\Admin\ImportCenterController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Employee\CommitmentController;
 use App\Http\Controllers\Employee\DeclarationController;
 use App\Http\Controllers\Employee\DeclarationAttachmentController;
 use App\Http\Controllers\Employee\FormController;
@@ -29,6 +31,9 @@ Route::middleware(['auth:web,non_employee'])->prefix('employee')
     ->group(function () {
 
         Route::get( '/', HistoryController::class )->name('history');
+
+        // Everything still to fill in or sign: COI plus every form type.
+        Route::get('/commitments', CommitmentController::class)->name('commitments');
 
         Route::get(
             '/declaration',
@@ -234,22 +239,47 @@ Route::middleware(['auth:web'])->prefix('admin')
         [CredentialController::class, 'downloadTemplate']
     )->name('credentials.template');
 
+    // Import Center: bulk loads from spreadsheets. A form import also needs
+    // that form type's own permission, checked in the controller.
+    Route::prefix('import-center')->name('import-center.')->group(function () {
+
+        Route::get('/', [ImportCenterController::class, 'index'])
+            ->middleware('permission:import.view')
+            ->name('index');
+
+        // History: the uploaded file and its per-row result report.
+        Route::get('/history/{importLog}/file', [ImportCenterController::class, 'file'])
+            ->middleware('permission:import.view')
+            ->name('history.file');
+
+        Route::get('/history/{importLog}/report', [ImportCenterController::class, 'report'])
+            ->middleware('permission:import.view')
+            ->name('history.report');
+
+        Route::get('/forms/{formType}/template', [ImportCenterController::class, 'template'])
+            ->middleware('permission:import.view')
+            ->name('forms.template');
+
+        Route::post('/forms/{formType}', [ImportCenterController::class, 'import'])
+            ->middleware('permission:import.create')
+            ->name('forms.import');
+    });
+
     // Forms: report and dashboard, one form type at a time.
     Route::prefix('forms')->name('forms.')->group(function () {
 
         // Merged into the main dashboard (its Form filter); kept for old links.
         Route::redirect('/dashboard', '/admin/dashboard')->name('dashboard');
 
+        // Access is per form type (FormType::permissionName()), checked in
+        // the controller -- it depends on which form is asked for.
         Route::get('/report', [FormReportController::class, 'index'])
-            ->middleware('permission:form_report.view')
             ->name('report');
 
         Route::get('/report/export', [FormReportController::class, 'export'])
-            ->middleware('permission:form_report.export')
             ->name('report.export');
 
         Route::get('/report/{declaration}/pdf', [FormReportController::class, 'pdf'])
-            ->middleware('permission:form_report.view')
             ->name('report.pdf');
     });
 
@@ -269,6 +299,11 @@ Route::middleware(['auth:web'])->prefix('admin')
         Route::post('/templates', [FormTemplateController::class, 'store'])
             ->middleware('permission:form_master.create')
             ->name('templates.store');
+
+        // The editor's unsaved template as the real PDF (nothing stored).
+        Route::post('/templates/preview-pdf', [FormTemplateController::class, 'previewPdf'])
+            ->middleware('permission:form_master.view')
+            ->name('templates.preview-pdf');
 
         Route::get('/templates/{template}/edit', [FormTemplateController::class, 'edit'])
             ->middleware('permission:form_master.view')
@@ -303,6 +338,11 @@ Route::middleware(['auth:web'])->prefix('admin')
             ->middleware('permission:form_master.create')
             ->name('form-types.store');
 
+        // Conflict of Interest's place in the employee menu, among the form types.
+        Route::put('/form-types/coi-order', [FormTypeController::class, 'updateCoiOrder'])
+            ->middleware('permission:form_master.update')
+            ->name('form-types.coi-order');
+
         Route::put('/form-types/{formType:id}', [FormTypeController::class, 'update'])
             ->middleware('permission:form_master.update')
             ->name('form-types.update');
@@ -316,7 +356,7 @@ Route::middleware(['auth:web'])->prefix('admin')
 Route::fallback(function () {
 
     if (Auth::check()) {
-        return redirect()->route('employee.history');
+        return redirect()->route('employee.commitments');
     }
 
     return redirect()->route('login');

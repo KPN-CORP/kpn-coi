@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\FormType;
 use App\Models\User;
+use App\Support\FormPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -32,14 +33,19 @@ class FormDashboardService
             default => 'employee',
         };
 
-        $period = $request->filled('period') ? (int) $request->period : (int) now()->year;
+        // A year: every month with a template in it, each person counted
+        // once by their newest signature or draft (as the report's Latest
+        // Submission).
+        $year = $request->filled('period')
+            ? FormPeriod::yearFrom($request->period)
+            : $this->report->defaultYear($formType->id);
 
         $businessUnit = $request->input('business_unit');
 
-        $rows = $this->report->adminRows($viewer, $formType->id, $period, [
+        $rows = $this->report->adminReportRows($viewer, $formType->id, $year, [
             'type' => $type,
             'business_unit' => $businessUnit,
-        ]);
+        ], true);
 
         $stats = $this->report->stats($rows);
 
@@ -54,12 +60,12 @@ class FormDashboardService
             ],
             'barChart' => $this->barChart($rows),
             'filters' => [
-                'period' => (string) $period,
+                'period' => (string) $year,
                 'business_unit' => $businessUnit,
                 'type' => $request->input('type'),
             ],
             'businessUnitOptions' => $this->dataScope->businessUnitOptions($viewer),
-            'periods' => $this->report->periods($formType->id),
+            'periods' => $this->report->years($formType->id),
         ];
     }
 

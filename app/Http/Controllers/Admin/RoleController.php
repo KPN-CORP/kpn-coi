@@ -7,6 +7,7 @@ use App\Http\Resources\RoleResource;
 use App\Models\BusinessUnit;
 use App\Models\Companies;
 use App\Models\Employee;
+use App\Models\FormType;
 use App\Models\NonEmployee;
 use App\Models\Role;
 use App\Models\User;
@@ -115,6 +116,12 @@ class RoleController extends Controller
                             'name',
                         ])
                 ),
+
+                // Each form type is its own permission module (form_type.{code}),
+                // named after the form in the role form.
+                'formTypes' => collect(FormType::options())
+                    ->map(fn (array $type) => ['code' => $type['code'], 'name' => $type['name']])
+                    ->values(),
 
                 // Restrictions are matched against the people tables, so every
                 // option below must carry the value those tables actually

@@ -921,6 +921,18 @@ select:focus {
     line-height: 1.2;
 }
 
+/* {{page_number}} / {{page_count}}: the screen shows one continuous page,
+   so page 1 and FormDocument's estimate of the total (--form-page-count). */
+.form-content .form-page-number::after,
+.form-document .form-page-number::after {
+    content: '1';
+}
+
+.form-content .form-page-count::after,
+.form-document .form-page-count::after {
+    content: var(--form-page-count, '1');
+}
+
 /* Before signing: where the signature will go. */
 .form-content .form-signature-placeholder {
     display: inline-block;

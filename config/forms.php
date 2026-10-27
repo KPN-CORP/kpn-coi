@@ -49,6 +49,11 @@ return [
         // The name the signer typed, in handwriting (as on the COI PDF). Only
         // the name: labels and the date are the template's own layout.
         'signature' => ['en' => 'Signature', 'id' => 'Tanda Tangan'],
+        // Paging: the PDF fills these in on every page (CSS page counters),
+        // so put them in the header or footer with your own wording, e.g.
+        // "Page {{page_number}} of {{page_count}}".
+        'page_number' => ['en' => 'Page Number', 'id' => 'Nomor Halaman'],
+        'page_count' => ['en' => 'Total Pages', 'id' => 'Jumlah Halaman'],
     ],
 
     /*

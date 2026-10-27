@@ -8,7 +8,7 @@ import FormDocument from '@/Components/Forms/FormDocument.vue'
 import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { FormStatus, Localized, RenderedForm } from '@/Components/Forms/types'
-import { formatDateTime } from '@/Utils/date'
+import { formatDateTime, periodMonth, periodYear } from '@/Utils/date'
 import { useLocale } from '@/Composables/useLocale'
 import { Head, Link, usePage } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
@@ -58,6 +58,9 @@ const props = defineProps<{
     }
     pending: PendingItem[]
     signed: SignedForm[]
+    // What "Add / Update" opens: the template that applies now. Signing it
+    // again adds a new declaration, which becomes the valid one.
+    updateTarget: { id: number, period: number } | null
 }>()
 
 const { t, locale } = useLocale()
@@ -78,7 +81,9 @@ const rows = computed<Row[]>(() => [
         key: `signed-${item.id}`,
         period: item.period,
         title: item.title,
-        status: (item.superseded ? 'superseded' : 'signed') as FormStatus,
+        // An older declaration (replaced by a newer one) is still a
+        // signature: shown as Signed, viewable, but without a PDF.
+        status: 'signed' as FormStatus,
         date: item.signed_at,
         createdAt: item.created_at,
         signed: item,
@@ -89,31 +94,35 @@ const rows = computed<Row[]>(() => [
 
 const period = ref('')
 
-const periods = computed(() => [...new Set(rows.value.map(row => row.period))].sort((a, b) => b - a))
+// The filter is by year, like the reports; rows keep their month.
+const periods = computed(() => [...new Set(rows.value.map(row => periodYear(row.period)))].sort((a, b) => b - a))
 
 const periodOptions = computed(() => [
     { value: '', label: t.value.history.allPeriods },
     ...periods.value.map(item => ({ value: String(item), label: String(item) })),
 ])
 
-type SortKey = 'period' | 'status' | 'date' | 'createdAt'
+type SortKey = 'period' | 'month' | 'status' | 'date' | 'createdAt'
 
 const sortKey = ref<SortKey>('period')
 const sortDir = ref<'asc' | 'desc'>('desc')
 
 const columns = computed<{ key: SortKey, label: string }[]>(() => [
-    { key: 'period', label: t.value.history.columnPeriod },
+    { key: 'period', label: t.value.forms.periodYear },
+    { key: 'month', label: t.value.forms.periodMonth },
     { key: 'status', label: t.value.history.columnFormStatus },
     { key: 'date', label: t.value.forms.columnSignedAt },
     { key: 'createdAt', label: t.value.history.columnCreatedDate },
 ])
 
 // Still to sign first when sorting by status.
-const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2, superseded: 3 }
+const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2 }
 
 const visibleRows = computed(() => {
     const value = (row: Row): number | string => {
         switch (sortKey.value) {
+            case 'month':
+                return row.period % 100
             case 'status':
                 return STATUS_ORDER[row.status] ?? 9
             case 'date':
@@ -128,7 +137,7 @@ const visibleRows = computed(() => {
     const direction = sortDir.value === 'asc' ? 1 : -1
 
     return rows.value
-        .filter(row => !period.value || row.period === Number(period.value))
+        .filter(row => !period.value || periodYear(row.period) === Number(period.value))
         .sort((a, b) => {
             const x = value(a)
             const y = value(b)
@@ -176,7 +185,20 @@ function downloadPdf(id: number, language: 'en' | 'id') {
         <PageHeader
             :title="formType.name[locale]"
             :description="formType.description[locale] ?? t.forms.description"
-        />
+        >
+            <template
+                v-if="updateTarget"
+                #actions
+            >
+                <Link
+                    :href="route('employee.forms.read', { formType: formType.code, template: updateTarget.id })"
+                    class="btn-primary-custom"
+                >
+                    <i class="fa-solid fa-pen-to-square" />
+                    {{ t.forms.addUpdate }} {{ formType.name[locale] }}
+                </Link>
+            </template>
+        </PageHeader>
 
         <FlashMessage
             type="success"
@@ -236,13 +258,9 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                             v-for="row in visibleRows"
                             :key="row.key"
                             class="border-b border-slate-100 text-center"
-                            :class="{ 'bg-slate-50/70 text-slate-500': row.signed?.superseded }"
                         >
                             <td class="py-4 text-left">
-                                <div
-                                    class="font-medium"
-                                    :class="row.signed?.superseded ? 'text-slate-500' : 'text-slate-800'"
-                                >
+                                <div class="font-medium text-slate-800">
                                     {{ row.title[locale] ?? '-' }}
                                 </div>
                                 <div
@@ -252,16 +270,14 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                                     <i class="fa-solid fa-rotate" />
                                     {{ t.forms.resignRequired }}
                                 </div>
-                                <div
-                                    v-else-if="row.signed?.superseded"
-                                    class="mt-0.5 text-xs text-slate-400"
-                                >
-                                    {{ t.forms.supersededHint }}
-                                </div>
                             </td>
 
                             <td class="py-4 font-semibold">
-                                {{ row.period }}
+                                {{ periodYear(row.period) }}
+                            </td>
+
+                            <td class="py-4 whitespace-nowrap">
+                                {{ periodMonth(row.period, locale) }}
                             </td>
 
                             <td class="py-4">
@@ -300,25 +316,29 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                                             {{ t.common.view }}
                                         </button>
 
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            :title="`PDF ${t.forms.indonesian}`"
-                                            @click="downloadPdf(row.signed.id, 'id')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            ID
-                                        </button>
+                                        <!-- A replaced version has no PDF for the signer
+                                             (admins keep it in the Form Report). -->
+                                        <template v-if="!row.signed.superseded">
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline-primary-custom btn-sm"
+                                                :title="`PDF ${t.forms.indonesian}`"
+                                                @click="downloadPdf(row.signed.id, 'id')"
+                                            >
+                                                <i class="fa-solid fa-file-pdf" />
+                                                ID
+                                            </button>
 
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            :title="`PDF ${t.forms.english}`"
-                                            @click="downloadPdf(row.signed.id, 'en')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            EN
-                                        </button>
+                                            <button
+                                                type="button"
+                                                class="btn btn-outline-primary-custom btn-sm"
+                                                :title="`PDF ${t.forms.english}`"
+                                                @click="downloadPdf(row.signed.id, 'en')"
+                                            >
+                                                <i class="fa-solid fa-file-pdf" />
+                                                EN
+                                            </button>
+                                        </template>
                                     </template>
                                 </div>
                             </td>
@@ -326,7 +346,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
 
                         <tr v-if="!visibleRows.length">
                             <td
-                                colspan="6"
+                                colspan="7"
                                 class="py-8 text-center text-slate-500"
                             >
                                 {{ t.history.noRecords }}
@@ -359,14 +379,6 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                 </div>
 
                 <div class="overflow-y-auto">
-                    <div
-                        v-if="viewing.superseded"
-                        class="mx-6 mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-                    >
-                        <i class="fa-solid fa-ban mt-0.5" />
-                        <span>{{ t.forms.supersededHint }}</span>
-                    </div>
-
                     <FormDocument
                         :page="viewing.page"
                         :content="viewing.content[locale]"

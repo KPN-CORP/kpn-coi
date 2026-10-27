@@ -58,6 +58,7 @@ const props = defineProps<{
     }[]
     roles: any[]
     availablePermissions: any[]
+    formTypes: { code: string, name: { en: string, id: string } }[]
 
     workAreas: {
         code: string
@@ -176,16 +177,17 @@ const MENU_MODULES = [
     'credential',
     'role',
     'declaration',
+    'import',
 ]
 
 function menuCount(role: any): number {
-    const modules = new Set(
-        (role.permissions ?? []).map(
-            (permission: string) => permission.split('.')[0],
-        ),
-    )
+    const permissions: string[] = role.permissions ?? []
+    const modules = new Set(permissions.map(permission => permission.split('.')[0]))
 
+    // Master Settings, and each form type (form_type.{code}) on its own.
     return MENU_MODULES.filter(module => modules.has(module)).length
+        + (modules.has('form_master') ? 1 : 0)
+        + permissions.filter(permission => permission.startsWith('form_type.')).length
 }
 </script>
 
@@ -334,6 +336,7 @@ function menuCount(role: any): number {
             :show="showModal"
             :role="selectedRole"
             :permissions="availablePermissions"
+            :form-types="formTypes"
             :work-areas="workAreas"
             :group-companies="groupCompanies"
             :contribution-levels="contributionLevels"

@@ -11,6 +11,7 @@ use App\Models\FormType;
 use App\Services\DataScopeService;
 use App\Services\FormPdfService;
 use App\Services\FormReportService;
+use App\Support\FormPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -41,8 +42,9 @@ class FormReportController extends Controller
         $formType = FormType::selectedOrDefault($request->input('form_type'));
 
         abort_unless($formType, 404);
+        abort_unless($request->user()?->can($formType->permissionName()), 403);
 
-        $period = self::period($request);
+        $period = self::period($request, $formType->id);
 
         $rows = $this->sorted(
             $this->report->adminReportRows(
@@ -55,7 +57,7 @@ class FormReportController extends Controller
             $request
         );
 
-        $label = $period ?? 'All Periods';
+        $label = $period ? (string) $period : 'All Periods';
 
         return Excel::download(
             new FormReportExport($rows, $formType->name_en, $label),
@@ -65,7 +67,12 @@ class FormReportController extends Controller
 
     public function pdf(Request $request, FormDeclaration $declaration, FormPdfService $pdf)
     {
-        abort_unless($this->report->canView($request->user(), $declaration), 403);
+        abort_unless(
+            $declaration->formType
+                && $request->user()?->can($declaration->formType->permissionName())
+                && $this->report->canView($request->user(), $declaration),
+            403
+        );
 
         return $pdf->download($declaration, $request->string('locale')->toString());
     }
@@ -73,15 +80,19 @@ class FormReportController extends Controller
     /**
      * The report period; null = "all" (every period). This year by default.
      */
-    public static function period(Request $request): ?int
+    /**
+     * The report year (the `period` filter is a year); null = every year.
+     * Defaults to the year of the latest started month with a template.
+     */
+    public static function period(Request $request, ?int $formTypeId = null): ?int
     {
         if ($request->input('period') === 'all') {
             return null;
         }
 
         return $request->filled('period')
-            ? (int) $request->period
-            : (int) now()->year;
+            ? FormPeriod::yearFrom($request->period)
+            : app(FormReportService::class)->defaultYear($formTypeId);
     }
 
     /**

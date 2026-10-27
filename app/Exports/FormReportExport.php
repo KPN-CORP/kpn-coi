@@ -6,6 +6,7 @@ namespace App\Exports;
 
 use App\Services\FormReportService;
 use App\Services\FormVariableService;
+use App\Support\FormPeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -60,7 +61,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
 
         foreach ($this->rows as $row) {
             $sheet[] = [
-                $row['period'],
+                FormPeriod::label((int) $row['period']),
                 $row['employee_id'] ?: '-',
                 $row['name'],
                 $row['type'] === 'employee' ? 'Employee' : 'Non Employee',

@@ -92,10 +92,15 @@ class FormController extends Controller
             ])
             ->values();
 
+        // "Add / Update": signing again is always possible; it opens the
+        // template that applies now (the latest period's).
+        $update = $this->forms->updateTarget($account, $formType->id);
+
         return Inertia::render('Employee/Form', [
             'formType' => $formType->summary(),
             'pending' => $pending,
             'signed' => $signed,
+            'updateTarget' => $update ? ['id' => $update->id, 'period' => $update->period] : null,
         ]);
     }
 
@@ -133,6 +138,9 @@ class FormController extends Controller
             'draft' => $draft ? ['agreed_at' => $draft->agreed_at?->toIso8601String()] : null,
             // An earlier version was signed and then replaced by this one.
             'resign' => $this->forms->mustSignAgain($account, $applicable),
+            // Already signed for this period: submitting adds an updated
+            // declaration, which then becomes the valid one.
+            'updating' => $this->forms->hasSigned($account, $applicable),
             'version' => self::version($template),
             'fullName' => $this->variables->fullNameFor($account),
         ]);
@@ -208,17 +216,21 @@ class FormController extends Controller
     {
         abort_unless($this->scope->owns($request->user(), $declaration), 403);
 
+        // A version replaced by a newer template is kept for the record and
+        // downloadable by admins (Form Report), not by the signer.
+        abort_if($this->forms->isSuperseded($declaration), 403);
+
         return $this->pdf->download($declaration, $request->string('locale')->toString());
     }
 
     /**
-     * The template, if it is live, meant for this person, and not yet signed --
-     * the id comes from the page, so it is re-resolved rather than trusted.
+     * The template, if it is live and the one that applies to this person --
+     * signed already or not, since signing again updates the declaration.
+     * The id comes from the page, so it is re-resolved rather than trusted.
      */
     private function applicable(User|NonEmployeeUser $account, FormTemplate $template): ?FormTemplate
     {
-        return $this->forms->pendingFor($account, $template->form_type_id)
-            ->firstWhere('id', $template->id);
+        return $this->forms->signable($account, $template);
     }
 
     /**
@@ -232,7 +244,7 @@ class FormController extends Controller
     private function unavailableMessage(): string
     {
         return request()->input('locale', app()->getLocale()) === 'id'
-            ? 'Form ini tidak tersedia atau sudah ditandatangani.'
-            : 'This form is not available or has already been signed.';
+            ? 'Form ini tidak tersedia.'
+            : 'This form is not available.';
     }
 }

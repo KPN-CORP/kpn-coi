@@ -13,6 +13,7 @@ import { useForm, router } from '@inertiajs/vue3'
 import type { Chart as ChartInstance } from 'chart.js'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
+import { formatPeriod } from '@/Utils/date'
 
 const { t, locale } = useLocale()
 
@@ -295,7 +296,7 @@ const barChartTitle = computed(() => (isForm.value
     ? t.value.dashboard.signedByBusinessUnit
     : t.value.dashboard.submissionsByBusinessUnit))
 
-const periodOptions = computed(() => props.periods.map(period => ({ value: period, label: String(period) })))
+const periodOptions = computed(() => props.periods.map(period => ({ value: period, label: formatPeriod(period, locale.value) })))
 
 const typeOptions = computed(() => [
     { value: 'all', label: t.value.report.allTypes },
@@ -314,6 +315,21 @@ const statusOptions = computed(() => [
     { value: 'pending', label: t.value.common.notSubmitted },
     { value: 'conflict', label: t.value.common.hasConflict },
 ])
+
+// The server picks the period when none is sent (a form type's latest
+// month); show what it picked rather than an empty select.
+watch(() => props.filters.period, (period) => {
+    if (period !== undefined && period !== null && period !== '') {
+        filter.period = period
+    }
+})
+
+// COI periods are years, form periods months: let the server pick the new
+// form's default period.
+function onFormChanged() {
+    filter.period = ''
+    applyFilter()
+}
 
 function applyFilter() {
     router.get(
@@ -589,7 +605,7 @@ watch(locale, () => {
                         v-model="filter.form"
                         :options="formSelectOptions"
                         class="w-56 max-w-full"
-                        @change="applyFilter"
+                        @change="onFormChanged"
                     />
                 </div>
 

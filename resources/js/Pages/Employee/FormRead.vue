@@ -4,7 +4,7 @@ import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import SignatureModal from '@/Components/Forms/SignatureModal.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime } from '@/Utils/date'
+import { formatDateTime, formatPeriod } from '@/Utils/date'
 import type { RenderedForm } from '@/Components/Forms/types'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
@@ -22,6 +22,8 @@ const props = defineProps<{
     draft: { agreed_at: string | null } | null
     // An earlier version was signed and then replaced by this one.
     resign: boolean
+    // Already signed for this period: submitting adds an updated declaration.
+    updating: boolean
     fullName: string
     // The wording being read; the signature is refused if it changes.
     version: string
@@ -35,7 +37,6 @@ const page = usePage<{ flash: Flash }>()
 // saved draft means it was already read and agreed to.
 
 const documentEl = ref<HTMLElement | null>(null)
-const actionBar = ref<HTMLElement | null>(null)
 const endMarker = ref<HTMLElement | null>(null)
 const progress = ref(0)
 const reachedEnd = ref(props.draft !== null)
@@ -46,8 +47,8 @@ function updateProgress() {
     }
 
     const box = documentEl.value.getBoundingClientRect()
-    // What has been visible above the fixed action bar.
-    const seen = window.innerHeight - (actionBar.value?.offsetHeight ?? 0) - box.top
+    // How much of the document has scrolled into view.
+    const seen = window.innerHeight - box.top
     progress.value = Math.max(0, Math.min(1, seen / box.height))
 
     if (progress.value >= 0.99) {
@@ -70,16 +71,12 @@ onMounted(() => {
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', updateProgress)
 
-    // The fixed action bar covers the bottom of the screen; the end only
-    // counts as read once it is visible above it.
-    const barHeight = actionBar.value?.offsetHeight ?? 0
-
     observer = new IntersectionObserver((entries) => {
         if (entries.some(entry => entry.isIntersecting)) {
             reachedEnd.value = true
             progress.value = 1
         }
-    }, { rootMargin: `0px 0px -${barHeight}px 0px` })
+    })
 
     if (endMarker.value) {
         observer.observe(endMarker.value)
@@ -104,6 +101,9 @@ function scrollToEnd() {
 const agreed = ref(props.draft !== null)
 const savingDraft = ref(false)
 const showSignature = ref(false)
+
+// The agreement names the form being signed ("... Pakta Integritas ini ...").
+const agreeText = computed(() => t.value.forms.agree.replace(':form', props.formType.name[locale.value]))
 
 const step = computed(() => (!reachedEnd.value ? 1 : !agreed.value ? 2 : 3))
 
@@ -162,7 +162,7 @@ function saveDraft() {
             <div>
                 <h1 class="text-xl font-bold text-slate-800 sm:text-2xl">{{ document.title[locale] }}</h1>
                 <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                    <span><i class="fa-regular fa-calendar mr-1" />{{ t.common.period }} {{ document.period }}</span>
+                    <span><i class="fa-regular fa-calendar mr-1" />{{ t.common.period }} {{ formatPeriod(document.period, locale) }}</span>
                     <span
                         v-if="draft"
                         class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"
@@ -218,6 +218,14 @@ function saveDraft() {
         </div>
 
         <div
+            v-else-if="updating"
+            class="mb-4 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800"
+        >
+            <i class="fa-solid fa-pen-to-square mt-0.5" />
+            <span>{{ t.forms.updateBanner }}</span>
+        </div>
+
+        <div
             v-if="!reachedEnd"
             class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800"
         >
@@ -225,10 +233,7 @@ function saveDraft() {
             <span>{{ t.forms.readHint }}</span>
         </div>
 
-        <div
-            ref="documentEl"
-            class="pb-40"
-        >
+        <div ref="documentEl">
             <FormDocument
                 :page="document.page"
                 :content="document.content[locale]"
@@ -246,14 +251,12 @@ function saveDraft() {
             </div>
         </div>
 
-        <!-- Actions, always in reach -->
-        <div
-            ref="actionBar"
-            class="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur lg:left-[260px]"
-        >
-            <div class="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between">
+        <!-- Agreement and actions: after the end of the document, so they
+             are reached only by reading through it. -->
+        <section class="mt-6 rounded-lg border border-border bg-white shadow-sm">
+            <div class="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
                 <label
-                    class="flex items-start gap-3"
+                    class="flex flex-1 items-start gap-3"
                     :class="reachedEnd ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'"
                 >
                     <input
@@ -263,7 +266,7 @@ function saveDraft() {
                         :disabled="!reachedEnd"
                     >
                     <span class="text-sm">
-                        <span class="font-semibold text-slate-800">{{ t.forms.agree }}</span>
+                        <span class="font-medium leading-relaxed text-slate-800">{{ agreeText }}</span>
                         <button
                             v-if="!reachedEnd"
                             type="button"
@@ -300,7 +303,7 @@ function saveDraft() {
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
 
         <SignatureModal
             :show="showSignature"

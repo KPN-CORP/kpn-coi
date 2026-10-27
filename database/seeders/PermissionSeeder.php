@@ -2,8 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\FormType;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 
 class PermissionSeeder extends Seeder
@@ -34,15 +36,13 @@ class PermissionSeeder extends Seeder
 
             'reminder.send',
 
-            'form_dashboard.view',
-
             'form_master.view',
             'form_master.create',
             'form_master.update',
             'form_master.delete',
 
-            'form_report.view',
-            'form_report.export',
+            'import.view',
+            'import.create',
         ];
 
         foreach ($permissions as $permission) {
@@ -68,6 +68,12 @@ class PermissionSeeder extends Seeder
         $superAdmin = $role('Super Admin', 'all');
 
         $superAdmin->forceFill(['data_scope' => 'all'])->save();
+
+        // Each form type is its own permission (its dashboard and report);
+        // created with the type, and here for any that exist already.
+        if (Schema::hasTable('form_types')) {
+            FormType::query()->get()->each(fn (FormType $type) => Permission::findOrCreate($type->permissionName(), 'web'));
+        }
 
         $superAdmin->syncPermissions(
             Permission::all()
