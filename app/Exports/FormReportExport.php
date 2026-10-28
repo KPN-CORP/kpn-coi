@@ -56,7 +56,6 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
             'Status',
             'Signed Name',
             'Signed At',
-            'Signed Language',
         ]];
 
         foreach ($this->rows as $row) {
@@ -75,7 +74,6 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
                 $row['signed_at']
                     ? Carbon::parse($row['signed_at'])->timezone(FormVariableService::DISPLAY_TIMEZONE)->format('d-m-Y H:i:s')
                     : '-',
-                $row['signed_locale'] ? strtoupper($row['signed_locale']) : '-',
             ];
         }
 
