@@ -9,6 +9,7 @@ use App\Models\FormTemplate;
 use App\Support\FormPeriod;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdf;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -74,6 +75,14 @@ class FormPdfService
             'footer' => $this->images->inlineForPdf($document['footer']),
         ];
 
+        // Fonts from @font-face (Ephesis, the Calibri stand-in) are cached in
+        // dompdf's font_dir before use; without the folder dompdf silently
+        // drops them and prints Helvetica. storage/ is not part of the deploy,
+        // so the folder is made here rather than shipped. The options below
+        // are merged with config/dompdf.php: replacing them would also drop
+        // its chroot, and dompdf would then refuse the bundled font files.
+        File::ensureDirectoryExists(config('dompdf.options.font_dir'));
+
         // dompdf cannot follow the session-protected image route, so images
         // are inlined. Remote fetching is on only for the signature's
         // handwriting font (Ephesis, as on the COI PDF), and only from
@@ -88,7 +97,9 @@ class FormPdfService
             'isRemoteEnabled' => true,
             'allowedRemoteHosts' => ['fonts.googleapis.com', 'fonts.gstatic.com'],
             'isHtml5ParserEnabled' => true,
-        ])->setPaper([0, 0, self::mmToPt($page['width']), self::mmToPt($page['height'])]);
+            // Embed only the glyphs used; whole TTFs add ~600 KB per style.
+            'isFontSubsettingEnabled' => true,
+        ], mergeWithDefaults: true)->setPaper([0, 0, self::mmToPt($page['width']), self::mmToPt($page['height'])]);
 
         $pdf = $make(null);
 

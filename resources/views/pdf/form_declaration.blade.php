@@ -17,6 +17,36 @@
 @endphp
 
     <style>
+        /* The "Calibri" template font, drawn with Carlito (metric-compatible;
+           the real Calibri may not be redistributed). Mirrors coi.css. */
+        @font-face {
+            font-family: 'Calibri';
+            src: url('{{ resource_path('fonts/Carlito-Regular.ttf') }}') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Calibri';
+            src: url('{{ resource_path('fonts/Carlito-Bold.ttf') }}') format('truetype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Calibri';
+            src: url('{{ resource_path('fonts/Carlito-Italic.ttf') }}') format('truetype');
+            font-weight: normal;
+            font-style: italic;
+        }
+
+        @font-face {
+            font-family: 'Calibri';
+            src: url('{{ resource_path('fonts/Carlito-BoldItalic.ttf') }}') format('truetype');
+            font-weight: bold;
+            font-style: italic;
+        }
+
         @page {
             margin: {{ $page['margin_top'] }}mm {{ $page['margin_right'] }}mm {{ $page['margin_bottom'] }}mm {{ $page['margin_left'] }}mm;
         }

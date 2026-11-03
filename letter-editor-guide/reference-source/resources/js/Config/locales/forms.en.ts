@@ -134,7 +134,7 @@
         draftSavedAt: 'Draft saved',
         statusDraft: 'Draft saved',
         statusNotStarted: 'Not started',
-        openToRead: 'Open & read',
+        openToRead: 'Sign',
         notSignedWarning: 'You have not signed this form yet, please sign immediately.',
         signTitle: 'Sign with your name',
         signIntro: 'Type your full name exactly as it appears below. This is your electronic signature.',

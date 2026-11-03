@@ -116,7 +116,67 @@ class FormHtmlSanitizer
             }
 
             $this->cleanAttributes($node, $tag);
+
+            if ($tag === 'li') {
+                $this->matchMarkerFont($node);
+            }
         }
+    }
+
+    /**
+     * The editor sets fonts on spans inside a list item, never on the <li>
+     * itself, so the "1." / "a." marker (drawn in the <li>'s font) fell back
+     * to the template default and looked different from its text, on screen
+     * and in the PDF. Give the <li> the font and size of its first text.
+     */
+    private function matchMarkerFont(DOMElement $item): void
+    {
+        $text = $this->firstText($item);
+
+        if (! $text) {
+            return;
+        }
+
+        $found = [];
+
+        for ($node = $text->parentNode; $node instanceof DOMElement && $node !== $item; $node = $node->parentNode) {
+            foreach (explode(';', $node->getAttribute('style')) as $declaration) {
+                [$property, $value] = array_map('trim', explode(':', $declaration, 2) + [1 => '']);
+
+                // Nearest wins; the values were already cleaned on the span.
+                if (in_array($property, ['font-family', 'font-size'], true) && $value !== '' && ! isset($found[$property])) {
+                    $found[$property] = $value;
+                }
+            }
+        }
+
+        if ($found === []) {
+            return;
+        }
+
+        $styles = array_map(fn ($property, $value) => "{$property}: {$value}", array_keys($found), $found);
+
+        $item->setAttribute('style', implode('; ', $styles));
+    }
+
+    /** The item's first non-blank text, not looking into nested lists. */
+    private function firstText(DOMNode $node): ?DOMNode
+    {
+        foreach ($node->childNodes as $child) {
+            if ($child->nodeType === XML_TEXT_NODE && trim($child->textContent) !== '') {
+                return $child;
+            }
+
+            if ($child instanceof DOMElement && ! in_array(strtolower($child->tagName), ['ul', 'ol'], true)) {
+                $text = $this->firstText($child);
+
+                if ($text) {
+                    return $text;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function cleanAttributes(DOMElement $element, string $tag): void

@@ -77,7 +77,6 @@ const statusOptions = computed(() => [
     { value: 'not_signed', label: t.value.forms.statusPending },
     { value: 'draft', label: t.value.forms.statusDraft },
     { value: 'signed', label: t.value.forms.statusSigned },
-    { value: 'no_template', label: t.value.forms.statusNoTemplate },
 ])
 
 const columns = computed<{ key: SortKey | null, label: string }[]>(() => [

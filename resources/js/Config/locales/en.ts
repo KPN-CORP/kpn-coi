@@ -117,10 +117,10 @@ export default {
 
     commitment: {
         title: 'My Commitment',
-        description: 'Everything you still need to fill in or sign.',
+        description: 'Commitments & completion status.',
         columnCommitment: 'Commitment',
         allDone: 'You are all caught up. There is nothing left to fill in or sign.',
-        pendingWarning: 'You have :count :tasks to sign or submit. Please complete them immediately.',
+        pendingWarning: 'You have :count pending :tasks to complete.',
         taskOne: 'task',
         taskMany: 'tasks',
         coiDescription: 'Annual conflict of interest declaration',
@@ -427,16 +427,15 @@ export default {
 
     forms: {
         // Employee
-        description: 'Read and sign the forms that apply to you.',
+        description: 'Your :form signing records.',
         // :form is the form type's name, e.g. "Integrity Pact".
-        agree: 'I have personally read and agree to this :form, and I am willing to be accountable for and to align my conduct throughout my employment with the policies and provisions applicable in the Company.',
+        agree: "I have personally read and agree to this :form, and I am willing to be accountable for my conduct throughout my employment and to align it with the Company's applicable policies and provisions.",
         typeNameLabel: 'Type your full name as your signature',
         caseHint: 'Uppercase and lowercase letters must match.',
         sign: 'Sign',
         signing: 'Signing...',
         confirmText: 'A signed document cannot be changed or withdrawn.',
         nameMismatch: 'The full name does not match.',
-        pendingBanner: 'You have a form waiting for your signature:',
 
         // Admin: templates
         templatesTitle: 'Templates',
@@ -570,8 +569,8 @@ export default {
         draftSavedAt: 'Draft saved',
         statusDraft: 'Draft saved',
         statusNotStarted: 'Not started',
-        openToRead: 'Open & read',
-        notSignedWarning: 'You have not signed this form yet, please sign immediately.',
+        openToRead: 'Sign',
+        notSignedWarning: 'You have not signed your :form.',
         signTitle: 'Sign with your name',
         signIntro: 'Type your full name exactly as it appears below. This is your electronic signature.',
         typeExactly: 'Your full name',

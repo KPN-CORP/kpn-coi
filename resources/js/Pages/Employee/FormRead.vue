@@ -4,7 +4,7 @@ import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import SignatureModal from '@/Components/Forms/SignatureModal.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime, formatPeriod } from '@/Utils/date'
+import { formatDateTime, periodYear } from '@/Utils/date'
 import type { RenderedForm } from '@/Components/Forms/types'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
@@ -32,6 +32,10 @@ const props = defineProps<{
 
 const { t, locale } = useLocale()
 const page = usePage<{ flash: Flash }>()
+
+// Opened from My Commitment (`?from=commitment`): the back link returns there
+// instead of to the form type's own page.
+const fromCommitment = new URLSearchParams(page.url.split('?')[1] ?? '').get('from') === 'commitment'
 
 // --- Reading progress ----------------------------------------------------------
 // The agreement unlocks once the end of the document has been on screen. A
@@ -159,7 +163,7 @@ function saveDraft() {
 </script>
 
 <template>
-    <Head :title="document.title[locale]" />
+    <Head :title="formType.name[locale]" />
 
     <EmployeeLayout>
         <!-- Reading progress, under the top bar -->
@@ -176,18 +180,18 @@ function saveDraft() {
         </div>
 
         <Link
-            :href="route('employee.forms.show', { formType: formType.code })"
+            :href="fromCommitment ? route('employee.commitments') : route('employee.forms.show', { formType: formType.code })"
             class="mb-3 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-primary"
         >
             <i class="fa-solid fa-arrow-left" />
-            {{ formType.name[locale] }}
+            {{ fromCommitment ? t.commitment.title : formType.name[locale] }}
         </Link>
 
         <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <h1 class="text-xl font-bold text-slate-800 sm:text-2xl">{{ document.title[locale] }}</h1>
+                <h1 class="text-xl font-bold text-slate-800 sm:text-2xl">{{ formType.name[locale] }}</h1>
                 <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                    <span><i class="fa-regular fa-calendar mr-1" />{{ t.common.period }} {{ formatPeriod(document.period, locale) }}</span>
+                    <span><i class="fa-regular fa-calendar mr-1" />{{ t.common.period }} {{ periodYear(document.period) }}</span>
                     <span
                         v-if="draft"
                         class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"

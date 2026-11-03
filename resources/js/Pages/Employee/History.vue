@@ -15,7 +15,6 @@ import { ref, computed } from 'vue'
 import type { Flash } from '@/Config/inertia'
 import Swal from 'sweetalert2'
 import { useLocale } from '@/Composables/useLocale'
-import type { NavigationForm } from '@/Composables/useNavigation'
 
 const { t, locale } = useLocale()
 
@@ -29,12 +28,6 @@ const page = usePage<{
 
 const coiQuestions = computed(
     () => page.props.coiQuestions
-)
-
-// Form types with something waiting for this person's signature.
-const pendingForms = computed(
-    () => ((page.props.navigation as { forms?: NavigationForm[] })?.forms ?? [])
-        .filter(form => form.pending > 0)
 )
 
 const currentYear = new Date().getFullYear()
@@ -320,26 +313,6 @@ function downloadAttachment(declaration: Declaration) {
             <span>
                 {{ t.history.notSubmittedWarning }}
             </span>
-        </div>
-        <div
-            v-if="pendingForms.length"
-            class="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800"
-        >
-            <i class="fa-solid fa-file-signature" />
-
-            <span>
-                {{ t.forms.pendingBanner }}
-            </span>
-
-            <Link
-                v-for="form in pendingForms"
-                :key="form.code"
-                :href="route('employee.forms.show', { formType: form.code })"
-                class="inline-flex items-center gap-1 rounded bg-white px-2 py-0.5 text-primary hover:underline"
-            >
-                {{ form.name[locale] }} ({{ form.pending }})
-                <i class="fa-solid fa-arrow-right text-xs" />
-            </Link>
         </div>
         <div class="mb-6 flex items-center gap-3">
             <SearchableSelect

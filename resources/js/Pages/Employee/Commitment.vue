@@ -256,13 +256,13 @@ const coiBadge = computed(() => {
 
                                     <Link
                                         v-else
-                                        :href="route('employee.forms.read', { formType: form.form_type.code, template: form.id })"
+                                        :href="route('employee.forms.read', { formType: form.form_type.code, template: form.id, from: 'commitment' })"
                                         class="btn btn-sm"
                                         :class="form.draft_saved_at
                                             ? 'bg-yellow-400 text-white hover:bg-yellow-500 hover:font-bold'
                                             : 'btn-primary-custom'"
                                     >
-                                        <i class="fa-solid fa-book-open" />
+                                        <i class="fa-solid fa-signature" />
                                         {{ form.draft_saved_at ? t.common.continue : t.forms.openToRead }}
                                     </Link>
                                 </div>

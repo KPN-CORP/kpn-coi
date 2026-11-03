@@ -184,7 +184,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
     <EmployeeLayout>
         <PageHeader
             :title="formType.name[locale]"
-            :description="formType.description[locale] ?? t.forms.description"
+            :description="formType.description[locale] || t.forms.description.replace(':form', formType.name[locale])"
         >
             <template
                 v-if="updateTarget"
@@ -216,7 +216,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
         >
             <i class="fa-solid fa-triangle-exclamation" />
 
-            <span>{{ t.forms.notSignedWarning }}</span>
+            <span>{{ t.forms.notSignedWarning.replace(':form', formType.name[locale]) }}</span>
         </div>
 
         <div class="mb-6 flex items-center gap-3">
@@ -233,7 +233,6 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th class="py-3">{{ t.forms.columnForm }}</th>
                             <th
                                 v-for="col in columns"
                                 :key="col.key"
@@ -259,19 +258,6 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                             :key="row.key"
                             class="border-b border-slate-100 text-center"
                         >
-                            <td class="py-4 text-left">
-                                <div class="font-medium text-slate-800">
-                                    {{ row.title[locale] ?? '-' }}
-                                </div>
-                                <div
-                                    v-if="row.pending?.resign"
-                                    class="mt-0.5 flex items-center gap-1 text-xs font-medium text-amber-700"
-                                >
-                                    <i class="fa-solid fa-rotate" />
-                                    {{ t.forms.resignRequired }}
-                                </div>
-                            </td>
-
                             <td class="py-4 font-semibold">
                                 {{ periodYear(row.period) }}
                             </td>
@@ -282,6 +268,13 @@ function downloadPdf(id: number, language: 'en' | 'id') {
 
                             <td class="py-4">
                                 <FormStatusBadge :status="row.status" />
+                                <div
+                                    v-if="row.pending?.resign"
+                                    class="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-amber-700"
+                                >
+                                    <i class="fa-solid fa-rotate" />
+                                    {{ t.forms.resignRequired }}
+                                </div>
                             </td>
 
                             <td class="py-4">
@@ -302,7 +295,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                                             ? 'bg-yellow-400 text-white hover:bg-yellow-500 hover:font-bold'
                                             : 'btn-primary-custom'"
                                     >
-                                        <i class="fa-solid fa-book-open" />
+                                        <i class="fa-solid fa-signature" />
                                         {{ row.pending.draft_saved_at ? t.common.continue : t.forms.openToRead }}
                                     </Link>
 
@@ -346,7 +339,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
 
                         <tr v-if="!visibleRows.length">
                             <td
-                                colspan="7"
+                                colspan="6"
                                 class="py-8 text-center text-slate-500"
                             >
                                 {{ t.history.noRecords }}

@@ -117,10 +117,10 @@ export default {
 
     commitment: {
         title: 'Komitmen Saya',
-        description: 'Semua yang masih perlu Anda isi atau tanda tangani.',
+        description: 'Daftar komitmen & status penyelesaian.',
         columnCommitment: 'Komitmen',
         allDone: 'Semua sudah selesai. Tidak ada lagi yang perlu diisi atau ditandatangani.',
-        pendingWarning: 'Anda memiliki :count :tasks yang perlu ditandatangani atau dikirim. Harap segera selesaikan.',
+        pendingWarning: 'Anda memiliki :count :tasks yang perlu diselesaikan.',
         taskOne: 'tugas',
         taskMany: 'tugas',
         coiDescription: 'Deklarasi konflik kepentingan tahunan',
@@ -427,7 +427,7 @@ export default {
 
     forms: {
         // Employee
-        description: 'Baca dan tanda tangani form yang berlaku untuk Anda.',
+        description: 'Riwayat penandatanganan :form Anda.',
         // :form adalah nama tipe form, mis. "Pakta Integritas".
         agree: 'Saya sendiri telah membaca dan menyetujui :form ini dan bersedia mempertanggungjawabkan dan menyelaraskan perilaku-perilaku saya selama bekerja dengan kebijakan dan ketentuan yang berlaku di Perusahaan.',
         typeNameLabel: 'Ketik nama lengkap Anda sebagai tanda tangan',
@@ -436,7 +436,6 @@ export default {
         signing: 'Menandatangani...',
         confirmText: 'Dokumen yang sudah ditandatangani tidak dapat diubah atau dibatalkan.',
         nameMismatch: 'Nama lengkap tidak sesuai.',
-        pendingBanner: 'Ada form yang menunggu tanda tangan Anda:',
 
         // Admin: templates
         templatesTitle: 'Template',
@@ -570,8 +569,8 @@ export default {
         draftSavedAt: 'Draf disimpan',
         statusDraft: 'Draf disimpan',
         statusNotStarted: 'Belum dimulai',
-        openToRead: 'Buka & baca',
-        notSignedWarning: 'Anda belum menandatangani form ini, silakan segera tandatangani.',
+        openToRead: 'Tanda Tangani',
+        notSignedWarning: 'Anda belum menandatangani :form.',
         signTitle: 'Tanda tangani dengan nama Anda',
         signIntro: 'Ketik nama lengkap Anda persis seperti di bawah ini. Ini adalah tanda tangan elektronik Anda.',
         typeExactly: 'Nama lengkap Anda',

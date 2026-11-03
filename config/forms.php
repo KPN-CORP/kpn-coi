@@ -60,8 +60,12 @@ return [
     | Fonts offered in the editor and as a template's default font. Only
     | families dompdf can actually draw are listed: its bundled DejaVu fonts
     | (full Unicode) and the PDF core fonts it maps Arial/Times/Courier onto.
-    | Anything else (Calibri, Georgia, ...) would silently fall back in the PDF
-    | and the signed document would no longer match the screen. `css` is the
+    | Calibri is the one extra: the PDF draws it with Carlito (bundled in
+    | resources/fonts, free and metric-compatible, so lines break the same) --
+    | the real Calibri may not be redistributed. Anything else (Georgia, ...)
+    | would silently fall back in the PDF and the signed document would no
+    | longer match the screen; a new one needs its TTF and @font-face in
+    | pdf/form_declaration.blade.php and coi.css. `css` is the
     | exact font-family value stored in the HTML; FormHtmlSanitizer accepts
     | only these.
     */
@@ -71,6 +75,7 @@ return [
         'times' => ['label' => 'Times New Roman', 'css' => "'Times New Roman', Times, serif"],
         'dejavu-serif' => ['label' => 'DejaVu Serif', 'css' => "'DejaVu Serif', Georgia, serif"],
         'courier' => ['label' => 'Courier New', 'css' => "'Courier New', Courier, monospace"],
+        'calibri' => ['label' => 'Calibri', 'css' => 'Calibri, Carlito, sans-serif'],
     ],
 
     // Point sizes offered for text and as a template's base size.

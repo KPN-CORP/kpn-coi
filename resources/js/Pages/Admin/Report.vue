@@ -337,7 +337,6 @@ const statusOptions = computed(() => (isForm.value
         { value: 'not_signed', label: t.value.forms.statusPending },
         { value: 'draft', label: t.value.forms.statusDraft },
         { value: 'pending', label: t.value.forms.statusNotStarted },
-        { value: 'no_template', label: t.value.forms.statusNoTemplate },
     ]
     : [
         { value: '', label: t.value.common.allStatus },

@@ -134,7 +134,7 @@
         draftSavedAt: 'Draf disimpan',
         statusDraft: 'Draf disimpan',
         statusNotStarted: 'Belum dimulai',
-        openToRead: 'Buka & baca',
+        openToRead: 'Tanda Tangani',
         notSignedWarning: 'Anda belum menandatangani form ini, silakan segera tandatangani.',
         signTitle: 'Tanda tangani dengan nama Anda',
         signIntro: 'Ketik nama lengkap Anda persis seperti di bawah ini. Ini adalah tanda tangan elektronik Anda.',
