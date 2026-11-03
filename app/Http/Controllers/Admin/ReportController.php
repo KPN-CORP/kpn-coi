@@ -14,6 +14,7 @@ use App\Services\DataScopeService;
 use App\Services\FormReportService;
 use App\Services\FormSelectionService;
 use App\Services\ReportService;
+use App\Support\EmployeeStatus;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -103,6 +104,7 @@ class ReportController extends Controller
             direction: $direction,
             declarationStatus: $declarationStatus,
             contributionLevel: $request->contribution_level,
+            employeeStatus: EmployeeStatus::from($request->employee_status),
         );
 
         return Inertia::render(
@@ -118,6 +120,7 @@ class ReportController extends Controller
                     'search' => $request->search,
                     'business_unit' => $request->business_unit,
                     'contribution_level' => $request->contribution_level,
+                    'employee_status' => EmployeeStatus::from($request->employee_status),
                     'declaration_question' => $detailQuestion,
                     'latest_submission' => $latestSubmission,
                     'per_page' => $perPage,
@@ -212,6 +215,7 @@ class ReportController extends Controller
                 'type' => $request->type,
                 'business_unit' => $request->business_unit,
                 'contribution_level' => $request->contribution_level,
+                'employee_status' => EmployeeStatus::from($request->employee_status),
                 'declaration_question' => $this->normalizeQuestionKey($request->declaration_question),
                 'locale' => $request->string('locale')->toString() === 'id' ? 'id' : 'en',
                 'search' => $request->search,

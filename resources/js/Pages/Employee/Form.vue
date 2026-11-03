@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import DocumentActions from '@/Components/UI/DocumentActions.vue'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import Modal from '@/Components/UI/Modal.vue'
@@ -156,16 +158,6 @@ function toggleSort(key: SortKey) {
     }
 }
 
-function sortIcon(key: SortKey) {
-    if (sortKey.value !== key) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return sortDir.value === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
-}
-
 // --- Actions ---------------------------------------------------------------
 
 const viewing = ref<SignedForm | null>(null)
@@ -233,21 +225,16 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th
+                            <SortableHeader
                                 v-for="col in columns"
                                 :key="col.key"
                                 class="py-3"
-                                :aria-sort="sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                            >
-                                <button
-                                    type="button"
-                                    class="inline-flex select-none items-center gap-1.5 whitespace-nowrap uppercase tracking-[inherit] [font:inherit] transition-colors hover:text-slate-700"
-                                    @click="toggleSort(col.key)"
-                                >
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </button>
-                            </th>
+                                :label="col.label"
+                                :column="col.key"
+                                :sort="sortKey"
+                                :direction="sortDir"
+                                @sort="column => toggleSort(column as SortKey)"
+                            />
                             <th class="py-3">{{ t.common.action }}</th>
                         </tr>
                     </thead>
@@ -299,40 +286,14 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                                         {{ row.pending.draft_saved_at ? t.common.continue : t.forms.openToRead }}
                                     </Link>
 
-                                    <template v-if="row.signed">
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-secondary btn-sm"
-                                            @click="viewing = row.signed"
-                                        >
-                                            <i class="fa-solid fa-eye" />
-                                            {{ t.common.view }}
-                                        </button>
-
-                                        <!-- A replaced version has no PDF for the signer
-                                             (admins keep it in the Form Report). -->
-                                        <template v-if="!row.signed.superseded">
-                                            <button
-                                                type="button"
-                                                class="btn btn-outline-primary-custom btn-sm"
-                                                :title="`PDF ${t.forms.indonesian}`"
-                                                @click="downloadPdf(row.signed.id, 'id')"
-                                            >
-                                                <i class="fa-solid fa-file-pdf" />
-                                                ID
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                class="btn btn-outline-primary-custom btn-sm"
-                                                :title="`PDF ${t.forms.english}`"
-                                                @click="downloadPdf(row.signed.id, 'en')"
-                                            >
-                                                <i class="fa-solid fa-file-pdf" />
-                                                EN
-                                            </button>
-                                        </template>
-                                    </template>
+                                    <!-- A replaced version has no PDF for the signer
+                                         (admins keep it in the Form Report). -->
+                                    <DocumentActions
+                                        v-if="row.signed"
+                                        :pdf="!row.signed.superseded"
+                                        @view="viewing = row.signed"
+                                        @download="language => downloadPdf(row.signed!.id, language)"
+                                    />
                                 </div>
                             </td>
                         </tr>
@@ -353,23 +314,10 @@ function downloadPdf(id: number, language: 'en' | 'id') {
         <Modal
             :show="viewing !== null"
             max-width="max-w-4xl"
+            :title="formType.name[locale]"
             @close="viewing = null"
         >
             <template v-if="viewing">
-                <div class="flex items-center justify-between border-b border-border px-6 py-4">
-                    <h3 class="text-lg font-bold">
-                        {{ viewing.title[locale] }}
-                    </h3>
-
-                    <button
-                        type="button"
-                        class="text-slate-400 hover:text-primary"
-                        :aria-label="t.common.close"
-                        @click="viewing = null"
-                    >
-                        <i class="fa-solid fa-xmark text-lg" />
-                    </button>
-                </div>
 
                 <div class="overflow-y-auto">
                     <FormDocument

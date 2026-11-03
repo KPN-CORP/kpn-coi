@@ -8,6 +8,7 @@ use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\NonEmployee;
 use App\Models\User;
+use App\Support\EmployeeStatus;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -30,7 +31,8 @@ class ReportService
         ?string $sort = null,
         string $direction = 'asc',
         ?string $declarationStatus = null,
-        ?string $contributionLevel = null
+        ?string $contributionLevel = null,
+        ?string $employeeStatus = null
     ): LengthAwarePaginator {
         $records = $this->buildRecords(
             period: $period,
@@ -42,6 +44,7 @@ class ReportService
             declarationStatus: $declarationStatus,
             contributionLevel: $contributionLevel,
             user: $user,
+            employeeStatus: $employeeStatus,
         );
 
         if ($sort) {
@@ -83,7 +86,8 @@ class ReportService
         ?User $user = null,
         bool $latestSubmission = false,
         ?string $declarationStatus = null,
-        ?string $contributionLevel = null
+        ?string $contributionLevel = null,
+        ?string $employeeStatus = null
     ): Collection {
         return $this->buildRecords(
             period: $period,
@@ -95,6 +99,7 @@ class ReportService
             declarationStatus: $declarationStatus,
             contributionLevel: $contributionLevel,
             user: $user,
+            employeeStatus: $employeeStatus,
         );
     }
 
@@ -107,7 +112,8 @@ class ReportService
         bool $latestSubmission,
         ?string $declarationStatus = null,
         ?string $contributionLevel = null,
-        ?User $user = null
+        ?User $user = null,
+        ?string $employeeStatus = null
     ): Collection {
         $employees = $type === 'non_employee'
             ? collect()
@@ -118,7 +124,8 @@ class ReportService
                 $status,
                 $declarationStatus,
                 $contributionLevel,
-                $user
+                $user,
+                $employeeStatus
             );
 
         $nonEmployees = $type === 'employee'
@@ -127,7 +134,8 @@ class ReportService
                 $period,
                 $businessUnit,
                 $contributionLevel,
-                $user
+                $user,
+                $employeeStatus
             );
 
         $records = $employees
@@ -242,7 +250,8 @@ class ReportService
         ?string $status = null,
         ?string $declarationStatus = null,
         ?string $contributionLevel = null,
-        ?User $user = null
+        ?User $user = null,
+        ?string $employeeStatus = null
     ): Collection {
 
         // Preload declarations for the period once (small dataset) so that
@@ -352,7 +361,7 @@ class ReportService
                     ->whereNull('date_of_joining')
                     ->orWhereYear('date_of_joining', '<=', $period)
             )
-            ->whereNull('deleted_at')
+            ->tap(fn ($query) => EmployeeStatus::apply($query, $employeeStatus))
             ->get()
             ->flatMap(function ($employee) use ($period, $contributionNames) {
 
@@ -453,11 +462,13 @@ class ReportService
         int $period,
         ?string $businessUnit = null,
         ?string $contributionLevel = null,
-        ?User $user = null
+        ?User $user = null,
+        ?string $employeeStatus = null
     ): Collection {
 
         return NonEmployee::query()
             ->tap(fn ($query) => $this->dataScopeService->applyToPeople($query, $user))
+            ->tap(fn ($query) => EmployeeStatus::apply($query, $employeeStatus))
             // non_employees carries group_company too, so the business unit
             // filter has to run here as well -- narrowing only the employee
             // side would leave every non-employee row in the result. Match the

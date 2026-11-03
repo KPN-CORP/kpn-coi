@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Pill, { type PillTone } from '@/Components/UI/Pill.vue'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
@@ -71,16 +72,16 @@ onMounted(() => {
 onBeforeUnmount(() => clearTimeout(hideTimer))
 
 // The COI row uses the same badge colours as the form rows.
-const coiBadge = computed(() => {
+const coiBadge = computed((): { label: string, tone: PillTone } => {
     switch (props.coi.status) {
         case 'done':
-            return { label: t.value.commitment.statusSubmitted, classes: 'bg-green-50 text-green-700 border-green-200' }
+            return { label: t.value.commitment.statusSubmitted, tone: 'success' }
 
         case 'draft':
-            return { label: t.value.forms.statusDraft, classes: 'bg-amber-50 text-amber-700 border-amber-200' }
+            return { label: t.value.forms.statusDraft, tone: 'warning' }
 
         default:
-            return { label: t.value.commitment.statusNotSubmitted, classes: 'bg-red-50 text-red-700 border-red-200' }
+            return { label: t.value.commitment.statusNotSubmitted, tone: 'danger' }
     }
 })
 </script>
@@ -166,12 +167,9 @@ const coiBadge = computed(() => {
                             </td>
 
                             <td class="py-4">
-                                <span
-                                    class="inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                                    :class="coiBadge.classes"
-                                >
+                                <Pill :tone="coiBadge.tone">
                                     {{ coiBadge.label }}
-                                </span>
+                                </Pill>
                             </td>
 
                             <td class="py-4">

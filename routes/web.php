@@ -18,7 +18,6 @@ use App\Http\Controllers\Employee\HistoryController;
 use App\Http\Controllers\FormImageController;
 use App\Http\Controllers\Manager\TeamFormController;
 use App\Http\Controllers\Manager\TeamHistoryController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SsoController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -281,6 +280,9 @@ Route::middleware(['auth:web'])->prefix('admin')
 
         Route::get('/report/{declaration}/pdf', [FormReportController::class, 'pdf'])
             ->name('report.pdf');
+
+        Route::get('/report/{declaration}/document', [FormReportController::class, 'document'])
+            ->name('report.document');
     });
 
     // Master Settings: form templates and form types.

@@ -7,7 +7,7 @@ import { formatDateTime } from '@/Utils/date'
 import { computed, ref } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 import { usePermission } from '@/Composables/usePermission'
 
@@ -86,7 +86,7 @@ function pick(file: File | null | undefined) {
     }
 
     if (!['xlsx', 'xls'].includes(file.name.split('.').pop()?.toLowerCase() ?? '')) {
-        Swal.fire({ icon: 'warning', text: t.value.uploadModal.onlyExcel, confirmButtonColor: '#ab2f2b' })
+        Swal.fire({ icon: 'warning', text: t.value.uploadModal.onlyExcel })
 
         return
     }
@@ -144,7 +144,6 @@ async function submit() {
         showCancelButton: true,
         confirmButtonText: t.value.importCenter.importButton,
         cancelButtonText: t.value.common.cancel,
-        confirmButtonColor: '#ab2f2b',
     })
 
     if (!confirmed.isConfirmed) {

@@ -1,21 +1,19 @@
 <script setup lang="ts">
+import FormReportTable from '@/Components/Report/FormReportTable.vue'
+import CoiReportTable from '@/Components/Report/CoiReportTable.vue'
+import { DEFAULT_EMPLOYEE_STATUS, useEmployeeStatusOptions } from '@/Composables/useEmployeeStatus'
+import { csrfToken } from '@/Utils/http'
+import { toggleSort as toggleSortState } from '@/Composables/useSort'
 import PageHeader from '@/Components/UI/PageHeader.vue'
-import Card from '@/Components/UI/Card.vue'
-import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
 import { route } from 'ziggy-js'
 import { ref, computed, watch } from 'vue'
-import DeclarationViewModal from '@/Components/Declaration/DeclarationViewModal.vue'
-import Pagination from '@/Components/UI/Pagination.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
-import { formatDateTime, formatPeriod, periodMonth, periodYear } from '@/Utils/date'
+import { formatPeriod } from '@/Utils/date'
 import debounce from 'lodash/debounce'
 import { useLocale } from '@/Composables/useLocale'
 import { usePermission } from '@/Composables/usePermission'
-import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
-import Modal from '@/Components/UI/Modal.vue'
-import type { FormRow } from '@/Components/Forms/types'
 
 const { t, locale } = useLocale()
 const { can } = usePermission()
@@ -25,27 +23,6 @@ const page = usePage()
 const coiQuestions = computed(
     () => page.props.coiQuestions
 )
-
-interface Declaration {
-    id: number
-    row_id: string
-    period: number
-    type: 'employee' | 'non_employee'
-
-    name: string
-    employee_id: string
-    contribution_level?: string | null
-
-    status: string
-    declaration_status: string
-    submitted_at: string | null
-
-    has_conflict: boolean
-    has_attachment: boolean
-
-    declaration?: any | null
-    group_company?: string | null
-}
 
 const props = defineProps<{
     // COI rows, or FormRow for a form type (formKind === 'form').
@@ -72,6 +49,7 @@ const props = defineProps<{
         search?: string
         business_unit?: string
         contribution_level?: string
+        employee_status?: string
         declaration_question?: string
         latest_submission?: boolean
         per_page?: number
@@ -94,7 +72,6 @@ const formSelectOptions = computed(() => props.formOptions.map(option => ({
     label: option.label[locale.value],
 })))
 
-
 const filter = useForm({
     form: props.form,
     period: props.filters.period ?? new Date().getFullYear(),
@@ -104,6 +81,9 @@ const filter = useForm({
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
     contribution_level: props.filters.contribution_level ?? '',
+    // Active by default (the server's default too): people who have left
+    // only show when asked for.
+    employee_status: props.filters.employee_status ?? DEFAULT_EMPLOYEE_STATUS,
     declaration_question: props.filters.declaration_question ?? '',
     latest_submission: props.filters.latest_submission ?? true,
     per_page: props.filters.per_page ?? 20,
@@ -111,97 +91,16 @@ const filter = useForm({
     direction: props.filters.direction ?? 'asc'
 })
 
-const sortableColumns = computed(() => [
-    { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
-    { label: t.value.common.period, key: 'period', class: '' },
-    { label: t.value.report.columnType, key: 'type', class: '' },
-    { label: t.value.report.columnFormStatus, key: 'status', class: '' },
-    { label: t.value.report.columnDeclarationStatus, key: 'has_conflict', class: 'min-w-64' },
-    { label: t.value.report.columnSubmittedAt, key: 'submitted_at', class: '' },
-])
-
 function toggleSort(column: string) {
-    if (filter.sort === column) {
-        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
-    } else {
-        filter.sort = column
-        filter.direction = 'asc'
-    }
+    toggleSortState(filter, column)
 
     applyFilter()
-}
-
-function sortIcon(column: string) {
-    if (filter.sort !== column) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return filter.direction === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
 }
 
 // 2025 is a historical import with no per-question breakdown: the Q1..Qn
 // columns collapse into a single conflict mark, and the row's document is
 // opened directly instead of the review modal.
 const isLegacyReport = computed(() => !isForm.value && Number(filter.period) === 2025)
-
-function openAttachment(declaration: Declaration) {
-    if (!declaration.declaration?.id) {
-        return
-    }
-
-    window.open(
-        route('admin.report.declaration.attachment', declaration.declaration.id),
-        '_blank',
-    )
-}
-
-const showReviewModal = ref(false)
-
-const selectedDeclaration = ref<any | null>(null)
-
-function openReview(
-    declaration: Declaration,
-) {
-    if (
-        !declaration.declaration?.responses
-    ) {
-        return
-    }
-
-    selectedDeclaration.value = {
-        ...declaration.declaration,
-
-        questions:
-            declaration.declaration.responses.map(
-                (response: any) => ({
-                    key: response.question_key,
-
-                    answer:
-                        response.response_value?.answer,
-
-                    details:
-                        response.response_value?.details ?? [],
-
-                    title:
-                        getQuestionTitle(
-                            response.question_key,
-                        ),
-                }),
-            ),
-    }
-
-    showReviewModal.value = true
-}
-
-function getQuestionTitle(key: string) {
-    const question = coiQuestions.value.find(
-        (q: any) => q.key === key,
-    )
-
-    return question?.title?.[locale.value] ?? key
-}
 
 // Options for the export-only "Question Detail" filter: pick a question to
 // expand its per-answer details as extra columns in the Excel export. Titles
@@ -226,40 +125,6 @@ const questionDetailOptions = computed(() => [
 function onQuestionDetailSelected(value: string | number | null) {
     filter.declaration_question = value == null ? '' : String(value)
     applyFilter()
-}
-
-function downloadPdf(
-    declarationId: number,
-    locale: 'id' | 'en',
-) {
-    window.open(
-        route('admin.report.declaration.pdf', {
-            declaration: declarationId,
-            locale,
-        }),
-        '_blank',
-    )
-}
-
-// Per-question mark for the report table (mirrors the Excel export):
-// true  -> answered "Yes" for that question
-// false -> answered "No"
-// null  -> no submission for this row
-function questionAnswered(
-    declaration: Declaration,
-    key: string,
-): boolean | null {
-    const responses = declaration.declaration?.responses
-
-    if (!responses) {
-        return null
-    }
-
-    const response = responses.find(
-        (r: any) => r.question_key === key,
-    )
-
-    return response?.response_value?.answer === true
 }
 
 // "KPN Corporation" is the group head: as a business-unit filter it means the
@@ -324,6 +189,8 @@ const periodOptions = computed(() => [
     ...props.periods.map(period => ({ value: period, label: formatPeriod(period, locale.value) })),
 ])
 
+const employeeStatusOptions = useEmployeeStatusOptions()
+
 const typeOptions = computed(() => [
     { value: '', label: t.value.report.allTypes },
     { value: 'employee', label: t.value.common.employee },
@@ -344,37 +211,6 @@ const statusOptions = computed(() => (isForm.value
         { value: 'draft', label: t.value.status.draft },
         { value: 'pending', label: t.value.common.notSubmitted },
     ]))
-
-// The form type table: same look as the COI one, columns of a signature.
-const formColumns = computed(() => [
-    { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
-    { label: t.value.forms.periodYear, key: 'period', class: '' },
-    { label: t.value.forms.periodMonth, key: '', class: '' },
-    { label: t.value.report.columnType, key: 'type', class: '' },
-    { label: t.value.report.columnFormStatus, key: 'status', class: '' },
-    { label: t.value.dashboard.form, key: '', class: '' },
-    { label: t.value.forms.columnSignedAt, key: 'signed_at', class: '' },
-])
-
-// A person who re-signed after the template was replaced holds several
-// signatures in one period; admins can download each of them.
-const versionsRow = ref<FormRow | null>(null)
-
-const hasOtherVersions = (row: FormRow) => row.signed_versions.some(version => !version.current)
-
-function downloadVersion(id: number, language: 'id' | 'en') {
-    window.open(
-        route('admin.forms.report.pdf', { declaration: id, locale: language }),
-        '_blank',
-    )
-}
-
-function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
-    window.open(
-        route('admin.forms.report.pdf', { declaration: row.declaration_id, locale: language }),
-        '_blank',
-    )
-}
 
 // Status values differ between COI and form types, and so do the sortable
 // columns: a form switch starts from a clean status and sort.
@@ -419,7 +255,7 @@ function applyFilter() {
 // Form, period, search and Latest Submission stay in view; the rest sit in a
 // collapsible panel and show as removable chips while set.
 
-type ChipKey = 'type' | 'business_unit' | 'contribution_level' | 'status' | 'declaration_status' | 'declaration_question'
+type ChipKey = 'type' | 'business_unit' | 'contribution_level' | 'employee_status' | 'status' | 'declaration_status' | 'declaration_question'
 
 const labelOf = (options: { value: string | number, label: string }[], value: unknown) =>
     options.find(option => option.value === value)?.label ?? String(value)
@@ -437,6 +273,11 @@ const activeChips = computed(() => {
 
     if (filter.contribution_level) {
         chips.push({ key: 'contribution_level', label: t.value.report.columnContributionLevel, value: labelOf(contributionLevelSelectOptions.value, filter.contribution_level) })
+    }
+
+    // A chip only when it differs from the default (active).
+    if (filter.employee_status !== DEFAULT_EMPLOYEE_STATUS) {
+        chips.push({ key: 'employee_status', label: t.value.common.employeeStatus, value: labelOf(employeeStatusOptions.value, filter.employee_status) })
     }
 
     if (filter.status) {
@@ -458,7 +299,7 @@ const activeChips = computed(() => {
 const showFilterPanel = ref(activeChips.value.length > 0)
 
 function removeChip(key: ChipKey) {
-    filter[key] = ''
+    filter[key] = key === 'employee_status' ? DEFAULT_EMPLOYEE_STATUS : ''
 
     // A company only makes sense inside its business unit.
     if (key === 'business_unit') {
@@ -478,6 +319,7 @@ function resetFilters() {
     filter.type = ''
     filter.business_unit = ''
     filter.contribution_level = ''
+    filter.employee_status = DEFAULT_EMPLOYEE_STATUS
     filter.declaration_question = ''
     filter.status = ''
     filter.declaration_status = ''
@@ -507,13 +349,6 @@ watch(
 
 const exportState = ref<'idle' | 'generating'>('idle')
 
-function csrfToken(): string {
-    return (
-        document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content') ?? ''
-    )
-}
 
 const canExport = computed(() => !isForm.value || can(`form_type.${props.form}`))
 
@@ -530,6 +365,7 @@ async function exportExcel() {
             type: filter.type,
             business_unit: filter.business_unit,
             contribution_level: filter.contribution_level,
+            employee_status: filter.employee_status,
             search: filter.search,
             status: filter.status,
             latest_submission: filter.latest_submission ? 1 : 0,
@@ -776,6 +612,18 @@ async function pollExport(id: number, attempt = 0) {
 
                     <div class="flex flex-col gap-1.5">
                         <label class="text-xs font-medium text-slate-600">
+                            {{ t.common.employeeStatus }}
+                        </label>
+                        <SearchableSelect
+                            v-model="filter.employee_status"
+                            :options="employeeStatusOptions"
+                            class="w-full"
+                            @change="applyFilter"
+                        />
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-xs font-medium text-slate-600">
                             {{ t.report.columnFormStatus }}
                         </label>
                         <SearchableSelect
@@ -858,576 +706,23 @@ async function pollExport(id: number, attempt = 0) {
             </div>
         </section>
 
-        <!-- TABLE: form type -->
+        <FormReportTable
+            v-if="isForm"
+            :declarations="declarations"
+            :sort="filter.sort"
+            :direction="filter.direction"
+            @sort="toggleSort"
+            @per-page="changePerPage"
+        />
 
-        <Card v-if="isForm">
-            <div class="table-container">
-                <table class="table-custom min-w-[1100px]">
-                    <thead>
-                        <tr class="border-b border-border text-left text-xs uppercase tracking-wide text-slate-500">
-                            <th
-                                v-for="col in formColumns"
-                                :key="col.label"
-                                :class="['py-3 whitespace-nowrap', col.class]"
-                                :aria-sort="col.key && filter.sort === col.key ? (filter.direction === 'asc' ? 'ascending' : 'descending') : undefined"
-                            >
-                                <button
-                                    v-if="col.key"
-                                    type="button"
-                                    class="inline-flex select-none items-center gap-1.5 uppercase tracking-[inherit] [font:inherit] transition-colors hover:text-slate-700"
-                                    @click="toggleSort(col.key)"
-                                >
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </button>
-
-                                <template v-else>
-                                    {{ col.label }}
-                                </template>
-                            </th>
-                            <th class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]">
-                                {{ t.common.action }}
-                            </th>
-                        </tr>
-                    </thead>
-
-                    <tbody v-if="declarations.data.length">
-                        <tr
-                            v-for="row in (declarations.data as FormRow[])"
-                            :key="row.key"
-                            class="group border-b border-slate-100"
-                        >
-                            <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
-                                <div
-                                    v-if="row.business_unit"
-                                    class="mt-0.5 truncate text-xs text-slate-400"
-                                    :title="row.business_unit"
-                                >
-                                    {{ row.business_unit }}
-                                </div>
-                                <div
-                                    class="truncate font-medium text-slate-800"
-                                    :title="row.name"
-                                >
-                                    {{ row.name }}
-                                </div>
-                                <div class="mt-0.5 truncate text-xs text-slate-400">
-                                    {{ row.employee_id || '-' }}
-                                </div>
-                                <div
-                                    v-if="row.contribution_level"
-                                    class="mt-0.5 truncate text-xs text-slate-400"
-                                    :title="row.contribution_level"
-                                >
-                                    {{ row.contribution_level }}
-                                </div>
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ periodYear(row.period) }}
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ periodMonth(row.period, locale) }}
-                            </td>
-
-                            <td class="py-4">
-                                <span
-                                    class="inline-block whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium"
-                                    :class="row.type === 'employee'
-                                        ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                        : 'border-amber-200 bg-amber-50 text-amber-700'"
-                                >
-                                    {{ row.type === 'employee' ? t.common.employee : t.common.nonEmployee }}
-                                </span>
-                            </td>
-
-                            <td class="py-4">
-                                <FormStatusBadge :status="row.status" />
-                                <div
-                                    v-if="row.resign_required"
-                                    class="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700"
-                                >
-                                    <i class="fa-solid fa-rotate" />
-                                    {{ t.forms.resignRequired }}
-                                </div>
-                            </td>
-
-                            <td class="py-4 text-slate-600">
-                                {{ row.template_title?.[locale] ?? '-' }}
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ row.signed_at ? formatDateTime(row.signed_at) : '-' }}
-                            </td>
-
-                            <td class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]">
-                                <div
-                                    v-if="row.declaration_id || hasOtherVersions(row)"
-                                    class="flex items-center justify-center gap-2"
-                                >
-                                    <template v-if="row.declaration_id">
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadFormPdf(row, 'id')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            ID
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadFormPdf(row, 'en')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            EN
-                                        </button>
-                                    </template>
-
-                                    <!-- Signatures on replaced versions, kept for the record -->
-                                    <button
-                                        v-if="hasOtherVersions(row)"
-                                        type="button"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        :title="t.forms.versionsHint"
-                                        @click="versionsRow = row"
-                                    >
-                                        <i class="fa-solid fa-clock-rotate-left" />
-                                        {{ t.forms.versions }} ({{ row.signed_versions.length }})
-                                    </button>
-                                </div>
-
-                                <span
-                                    v-else
-                                    class="text-xs text-slate-400"
-                                >
-                                    {{ t.common.noSubmission }}
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-
-                    <tbody v-else>
-                        <tr>
-                            <td
-                                :colspan="formColumns.length + 1"
-                                class="py-10 text-center"
-                            >
-                                <div class="flex flex-col items-center">
-                                    <i class="fa-solid fa-file-circle-xmark text-4xl text-slate-300" />
-
-                                    <div class="mt-3 font-semibold text-slate-600">
-                                        {{ t.report.noDeclarationsFound }}
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <Pagination
-                :links="props.declarations.links"
-                :per-page="props.declarations.per_page"
-                :total="props.declarations.total"
-                :from="props.declarations.from"
-                :to="props.declarations.to"
-                @update:per-page="changePerPage"
-            />
-        </Card>
-
-        <!-- TABLE: Conflict of Interest -->
-
-        <Card v-else>
-            <div class="table-container">
-                <table
-                    class="table-custom"
-                    :style="`table-layout: fixed; width: ${1340 + (isLegacyReport ? 120 : 56 * coiQuestions.length)}px`"
-                >
-                    <colgroup>
-                        <col style="width: 260px">
-                        <col style="width: 110px">
-                        <col style="width: 150px">
-                        <col style="width: 180px">
-                        <col style="width: 200px">
-                        <col style="width: 190px">
-                        <template v-if="!isLegacyReport">
-                            <col
-                                v-for="question in coiQuestions"
-                                :key="question.key"
-                                style="width: 56px"
-                            >
-                        </template>
-                        <col v-else style="width: 120px">
-                        <col style="width: 250px">
-                    </colgroup>
-                    <thead>
-                        <tr
-                            class="border-b border-border text-left text-xs uppercase tracking-wide text-slate-500"
-                        >
-                            <th
-                                v-for="col in sortableColumns"
-                                :key="col.key"
-                                :class="[
-                                    'py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700',
-                                    col.class,
-                                ]"
-                                @click="toggleSort(col.key)"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </span>
-                            </th>
-                            <template v-if="!isLegacyReport">
-                                <th
-                                    v-for="(question, i) in coiQuestions"
-                                    :key="question.key"
-                                    class="group/question relative w-12 py-3 text-center"
-                                >
-                                    <span
-                                        class="cursor-help underline decoration-dotted decoration-slate-300 underline-offset-4"
-                                    >
-                                        Q{{ i + 1 }}
-                                    </span>
-                                    <div
-                                        class="pointer-events-none invisible absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-lg bg-slate-800 px-3 py-2 text-left text-xs font-normal normal-case tracking-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/question:visible group-hover/question:opacity-100"
-                                    >
-                                        {{ question.title[locale] }}
-                                    </div>
-                                </th>
-                            </template>
-                            <th
-                                v-else
-                                class="py-3 text-center"
-                                :title="t.report.coiTooltip"
-                            >
-                                COI
-                            </th>
-                            <th
-                                class="py-3 text-center sticky right-0 z-10 bg-slate-50 shadow-[-1px_0_0_0_#e2e8f0]"
-                            >
-                                {{ t.common.action }}
-                            </th>
-                        </tr>
-                    </thead>
-
-                    <tbody v-if="declarations.data.length">
-                        <tr
-                            v-for="declaration in declarations.data"
-                            :key="declaration.row_id"
-                            class="group border-b border-slate-100"
-                        >
-                            <td class="py-4 sticky left-0 z-10 bg-white group-hover:bg-[#fafafa] shadow-[1px_0_0_0_#e2e8f0]">
-                                <!-- Employee / non-employee business unit -->
-                                <div
-                                    v-if="declaration.group_company && declaration.group_company !== '-'"
-                                    class="mt-0.5 truncate text-xs text-slate-400"
-                                    :title="declaration.group_company"
-                                >
-                                    {{ declaration.group_company }}
-                                </div>
-                                <div
-                                    class="truncate font-medium text-slate-800"
-                                    :title="declaration.name"
-                                >
-                                    {{ declaration.name }}
-                                </div>
-                                <div class="mt-0.5 truncate text-xs text-slate-400">
-                                    {{ declaration.employee_id }}
-                                </div>
-                                <div
-                                    v-if="declaration.contribution_level"
-                                    class="mt-0.5 truncate text-xs text-slate-400"
-                                    :title="declaration.contribution_level"
-                                >
-                                    {{ declaration.contribution_level }}
-                                </div>
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ declaration.period }}
-                            </td>
-
-                            <td class="py-4">
-                                <span
-                                    class="inline-block whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium"
-                                    :class="declaration.type === 'employee'
-                                        ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                        : 'border-amber-200 bg-amber-50 text-amber-700'"
-                                >
-                                    {{
-                                        declaration.type === 'employee'
-                                            ? t.common.employee
-                                            : t.common.nonEmployee
-                                    }}
-                                </span>
-                            </td>
-
-                            <td class="py-4">
-                                <StatusBadge
-                                    :status="declaration.status"
-                                    :label="declaration.status === 'pending'
-                                        ? t.common.notSubmitted
-                                        : null"
-                                />
-                            </td>
-
-                            <td class="py-4">
-                                <span
-                                    v-if="declaration.status === 'pending'"
-                                    class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-600"
-                                >
-                                    {{ t.common.na }}
-                                </span>
-
-                                <span
-                                    v-else-if="declaration.has_conflict"
-                                    class="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700"
-                                >
-                                    {{ t.common.hasConflict }}
-                                </span>
-
-                                <span
-                                    v-else
-                                    class="rounded-md border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700"
-                                >
-                                    {{ t.common.clear }}
-                                </span>
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap text-slate-600">
-                                {{ formatDateTime(declaration.submitted_at) }}
-                            </td>
-
-                            <template v-if="!isLegacyReport">
-                                <td
-                                    v-for="question in coiQuestions"
-                                    :key="question.key"
-                                    class="py-4 text-center"
-                                >
-                                    <span
-                                        v-if="questionAnswered(declaration, question.key)"
-                                        class="font-bold text-green-600"
-                                    >
-                                        ✓
-                                    </span>
-
-                                    <span
-                                        v-else
-                                        class="text-slate-300"
-                                    >
-                                        -
-                                    </span>
-                                </td>
-                            </template>
-
-                            <!-- 2025: single merged conflict mark -->
-                            <td
-                                v-else
-                                class="py-4 text-center"
-                            >
-                                <span
-                                    v-if="declaration.has_conflict"
-                                    class="font-bold text-red-600"
-                                    :title="t.common.hasConflict"
-                                >
-                                    ✓
-                                </span>
-
-                                <span
-                                    v-else
-                                    class="text-slate-300"
-                                >
-                                    -
-                                </span>
-                            </td>
-
-                            <td
-                                class="py-4 text-center sticky right-0 z-10 bg-white group-hover:bg-[#fafafa] whitespace-nowrap shadow-[-1px_0_0_0_#e2e8f0]"
-                            >
-                                <!-- 2025: open the uploaded document directly -->
-                                <template v-if="isLegacyReport">
-                                    <button
-                                        v-if="declaration.has_attachment"
-                                        type="button"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        @click="openAttachment(declaration)"
-                                    >
-                                        <i class="fa-solid fa-file-arrow-down" />
-                                        {{ t.common.view }}
-                                    </button>
-
-                                    <span
-                                        v-else
-                                        class="text-xs text-slate-400"
-                                    >
-                                        {{ t.report.noAttachment }}
-                                    </span>
-                                </template>
-
-                                <template v-else>
-                                    <div
-                                        v-if="declaration.status !== 'pending' && declaration.declaration"
-                                        class="flex items-center justify-center gap-2"
-                                    >
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-secondary btn-sm"
-                                            @click="openReview(declaration)"
-                                        >
-                                            <i class="fa-solid fa-eye" />
-                                            {{ t.common.view }}
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadPdf(declaration.declaration.id, 'id')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            ID
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadPdf(declaration.declaration.id, 'en')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            EN
-                                        </button>
-                                    </div>
-
-                                    <span
-                                        v-else
-                                        class="text-xs text-slate-400"
-                                    >
-                                        {{ t.common.noSubmission }}
-                                    </span>
-                                </template>
-                            </td>
-                        </tr>
-                    </tbody>
-
-                    <tbody v-else>
-                        <tr>
-                            <td
-                                :colspan="7 + (isLegacyReport ? 1 : coiQuestions.length)"
-                                class="py-10 text-center"
-                            >
-                                <div class="flex flex-col items-center">
-                                    <i
-                                        class="fa-solid fa-file-circle-xmark text-4xl text-slate-300"
-                                    />
-
-                                    <div
-                                        class="mt-3 font-semibold text-slate-600"
-                                    >
-                                        {{ t.report.noDeclarationsFound }}
-                                    </div>
-
-                                    <div
-                                        class="text-sm text-slate-500"
-                                    >
-                                        {{ t.report.noEmployeeDeclarations }}
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <Pagination
-                :links="props.declarations.links"
-                :per-page="props.declarations.per_page"
-                :total="props.declarations.total"
-                :from="props.declarations.from"
-                :to="props.declarations.to"
-                @update:per-page="changePerPage"
-            />
-        </Card>
+        <CoiReportTable
+            v-else
+            :declarations="declarations"
+            :sort="filter.sort"
+            :direction="filter.direction"
+            :legacy="isLegacyReport"
+            @sort="toggleSort"
+            @per-page="changePerPage"
+        />
     </AdminLayout>
-    <!-- Every signed version of one person in one period -->
-    <Modal
-        :show="versionsRow !== null"
-        max-width="max-w-2xl"
-        @close="versionsRow = null"
-    >
-        <template v-if="versionsRow">
-            <div class="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800">
-                        {{ t.forms.versionsTitle }}
-                    </h3>
-                    <p class="text-sm text-slate-500">
-                        {{ versionsRow.name }} &middot; {{ versionsRow.employee_id || '-' }} &middot; {{ t.common.period }} {{ formatPeriod(versionsRow.period, locale) }}
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    class="text-slate-400 hover:text-primary"
-                    :aria-label="t.common.close"
-                    @click="versionsRow = null"
-                >
-                    <i class="fa-solid fa-xmark text-lg" />
-                </button>
-            </div>
-
-            <ul class="divide-y divide-slate-100">
-                <li
-                    v-for="(version, index) in versionsRow.signed_versions"
-                    :key="version.id"
-                    class="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                    <div class="min-w-0">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="text-xs font-semibold text-slate-400">#{{ versionsRow.signed_versions.length - index }}</span>
-                            <span class="truncate font-medium text-slate-800">{{ version.template_title?.[locale] ?? '-' }}</span>
-                            <span
-                                class="rounded-full border px-2 py-0.5 text-xs font-semibold"
-                                :class="version.current
-                                    ? 'border-green-200 bg-green-50 text-green-700'
-                                    : 'border-slate-200 bg-slate-50 text-slate-500'"
-                            >
-                                {{ version.current ? t.forms.versionCurrent : t.forms.versionReplaced }}
-                            </span>
-                        </div>
-                        <div class="mt-0.5 text-sm text-slate-500">
-                            {{ t.forms.columnSignedAt }}: {{ version.signed_at ? formatDateTime(version.signed_at) : '-' }}
-                        </div>
-                    </div>
-
-                    <div class="flex shrink-0 gap-2">
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary-custom btn-sm"
-                            @click="downloadVersion(version.id, 'id')"
-                        >
-                            <i class="fa-solid fa-file-pdf" />
-                            ID
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary-custom btn-sm"
-                            @click="downloadVersion(version.id, 'en')"
-                        >
-                            <i class="fa-solid fa-file-pdf" />
-                            EN
-                        </button>
-                    </div>
-                </li>
-            </ul>
-        </template>
-    </Modal>
-
-    <DeclarationViewModal
-        v-if="selectedDeclaration"
-        :show="showReviewModal"
-        :declaration="selectedDeclaration"
-        @close="showReviewModal = false"
-    />
 </template>

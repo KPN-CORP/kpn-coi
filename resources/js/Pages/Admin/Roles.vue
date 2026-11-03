@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import { toggleSort as toggleSortState } from '@/Composables/useSort'
 import { ref, watch } from 'vue'
 
 import AdminLayout from '@/Layouts/AdminLayout.vue'
@@ -102,24 +104,9 @@ function applyFilter() {
 }
 
 function toggleSort(column: string) {
-    if (filter.sort === column) {
-        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
-    } else {
-        filter.sort = column
-        filter.direction = 'asc'
-    }
+    toggleSortState(filter, column)
 
     applyFilter()
-}
-
-function sortIcon(column: string) {
-    if (filter.sort !== column) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return filter.direction === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
 }
 
 function changePerPage(value: number) {
@@ -144,7 +131,6 @@ function openEdit(role: Role) {
     selectedRole.value = role
     showModal.value = true
 }
-
 
 function openAssign(role: any) {
     selectedRole.value = role
@@ -229,29 +215,25 @@ function menuCount(role: any): number {
                 >
                     <thead>
                         <tr>
-                            <th
-                                class="cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
-                                @click="toggleSort('name')"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ t.roles.columnRole }}
-                                    <i :class="sortIcon('name')" />
-                                </span>
-                            </th>
+                            <SortableHeader
+                                :label="t.roles.columnRole"
+                                column="name"
+                                :sort="filter.sort"
+                                :direction="filter.direction"
+                                @sort="toggleSort"
+                            />
 
                             <th>
                                 {{ t.roles.columnPermissions }}
                             </th>
 
-                            <th
-                                class="cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
-                                @click="toggleSort('users_count')"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ t.roles.columnTotalUsers }}
-                                    <i :class="sortIcon('users_count')" />
-                                </span>
-                            </th>
+                            <SortableHeader
+                                :label="t.roles.columnTotalUsers"
+                                column="users_count"
+                                :sort="filter.sort"
+                                :direction="filter.direction"
+                                @sort="toggleSort"
+                            />
 
                             <th>
                                 {{ t.common.actions }}

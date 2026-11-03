@@ -5,7 +5,7 @@ import Modal from '@/Components/UI/Modal.vue'
 import DateInput from '@/Components/UI/DateInput.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import countries from '@/Config/countries.json'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 
 const { t } = useLocale()
@@ -378,7 +378,6 @@ async function resetPassword() {
 
         cancelButtonText: t.value.common.cancel,
 
-        confirmButtonColor: '#ab2f2b',
 
         reverseButtons: true,
 

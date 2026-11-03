@@ -30,7 +30,12 @@ export default {
         employeeId: 'Employee ID',
         businessUnit: 'Business Unit',
         status: 'Status',
+        period: 'Period',
         allStatus: 'All Status',
+        employeeStatus: 'Employee Status',
+        employeeActive: 'Active',
+        employeeInactive: 'Inactive',
+        allEmployeeStatus: 'All Employee Status',
         submitted: 'Submitted',
         notSubmitted: 'Not Submitted',
         hasConflict: 'Has Conflict',
@@ -460,6 +465,7 @@ export default {
         duplicate: 'Duplicate',
         deleteTitle: 'Delete template?',
         deleteText: 'This template has not been signed by anyone and will be removed.',
+        viewFailed: 'Could not load the document. Please try again.',
         noTemplates: 'No templates found.',
 
         // Admin: template form

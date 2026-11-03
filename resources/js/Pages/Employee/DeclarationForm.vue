@@ -11,7 +11,7 @@ import ConsentSection from '@/Components/Declaration/ConsentSection.vue'
 import { Link, useForm, usePage, router } from '@inertiajs/vue3'
 import { ref, watch, computed, onMounted } from 'vue'
 import { route } from 'ziggy-js'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 
 interface DeclarationData {
@@ -106,7 +106,6 @@ function showAddressRequiredPopup() {
         title: locale.value.declaration.addressRequiredTitle,
         text: addressRequiredMessage.value,
         confirmButtonText: locale.value.common.ok,
-        confirmButtonColor: '#ab2f2b',
         allowOutsideClick: false,
     })
 }
@@ -137,7 +136,6 @@ const usePreviousData = async () => {
         showCancelButton: true,
         confirmButtonText: locale.value.declaration.yesUseData,
         cancelButtonText: locale.value.common.cancel,
-        confirmButtonColor: '#ab2f2b',
         reverseButtons: true,
     })
 

@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, watch } from 'vue'
+import { useLocale } from '@/Composables/useLocale'
 
 const props = withDefaults(
     defineProps<{
         show: boolean
         maxWidth?: string
+        // Optional title bar with a close button; leave both out to draw
+        // your own header in the slot.
+        title?: string
+        subtitle?: string
     }>(),
     {
         maxWidth: 'max-w-2xl',
@@ -14,6 +19,8 @@ const props = withDefaults(
 const emit = defineEmits<{
     close: []
 }>()
+
+const { t } = useLocale()
 
 function close() {
     emit('close')
@@ -74,6 +81,34 @@ onBeforeUnmount(() => {
                         class="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
                         :class="maxWidth"
                     >
+                        <div
+                            v-if="title || $slots.title"
+                            class="flex items-start justify-between gap-4 border-b border-border px-6 py-4"
+                        >
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-bold text-slate-800">
+                                    <slot name="title">
+                                        {{ title }}
+                                    </slot>
+                                </h3>
+                                <p
+                                    v-if="subtitle"
+                                    class="text-sm text-slate-500"
+                                >
+                                    {{ subtitle }}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="text-slate-400 hover:text-primary"
+                                :aria-label="t.common.close"
+                                @click="close"
+                            >
+                                <i class="fa-solid fa-xmark text-lg" />
+                            </button>
+                        </div>
+
                         <slot />
                     </div>
                 </Transition>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import DocumentActions from '@/Components/UI/DocumentActions.vue'
 
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
@@ -13,7 +15,7 @@ import { formatDateTime } from '@/Utils/date'
 import { Link, router, usePage } from '@inertiajs/vue3'
 import { ref, computed } from 'vue'
 import type { Flash } from '@/Config/inertia'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 
 const { t, locale } = useLocale()
@@ -123,16 +125,6 @@ function toggleSort(column: string) {
     reload()
 }
 
-function sortIcon(column: string) {
-    if (sortKey.value !== column) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return sortDir.value === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
-}
-
 function viewDeclaration(declaration: any) {
     
     selectedDeclaration.value = {
@@ -240,7 +232,6 @@ function onAttachmentChosen(event: Event) {
                     icon: 'success',
                     title: t.value.history.uploadSuccessTitle,
                     text: t.value.history.uploadSuccessText,
-                    confirmButtonColor: '#ab2f2b',
                 })
             },
 
@@ -250,7 +241,6 @@ function onAttachmentChosen(event: Event) {
                     title: t.value.history.uploadFailedTitle,
                     text: errors.attachment
                         ?? t.value.history.uploadFailedText,
-                    confirmButtonColor: '#ab2f2b',
                 })
             },
 
@@ -329,17 +319,16 @@ function downloadAttachment(declaration: Declaration) {
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th
+                            <SortableHeader
                                 v-for="col in sortableColumns"
                                 :key="col.key"
-                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
-                                @click="toggleSort(col.key)"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </span>
-                            </th>
+                                class="py-3"
+                                :label="col.label"
+                                :column="col.key"
+                                :sort="sortKey"
+                                :direction="sortDir"
+                                @sort="toggleSort"
+                            />
                             <th class="py-3">{{ t.common.action }}</th>
                         </tr>
                     </thead>
@@ -420,33 +409,12 @@ function downloadAttachment(declaration: Declaration) {
                                         >
                                             {{ t.common.continue }}
                                         </button>
-                                        <button
+                                        <DocumentActions
                                             v-if="getActions(declaration.status).includes('view')"
-                                            class="btn btn-outline-secondary btn-sm"
-                                            @click="viewDeclaration(declaration)"
-                                        >
-                                            <i class="fa-solid fa-eye" />
-                                            {{ t.common.view }}
-                                        </button>
-
-                                        <button
-                                            v-if="declaration.status === 'submitted'"
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadPdf(declaration.id, declaration, 'id')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            ID
-                                        </button>
-                                        <button
-                                            v-if="declaration.status === 'submitted'"
-                                            type="button"
-                                            class="btn btn-outline-primary-custom btn-sm"
-                                            @click="downloadPdf(declaration.id, declaration, 'en')"
-                                        >
-                                            <i class="fa-solid fa-file-pdf" />
-                                            EN
-                                        </button>
+                                            :pdf="declaration.status === 'submitted'"
+                                            @view="viewDeclaration(declaration)"
+                                            @download="language => downloadPdf(declaration.id, declaration, language)"
+                                        />
                                     </template>
                                 </div>
                             </td>

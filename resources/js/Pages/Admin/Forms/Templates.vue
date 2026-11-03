@@ -14,7 +14,7 @@ import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
 import { useDebounced } from '@/Composables/useFilterQuery'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 
 interface TemplateRow {
     id: number
@@ -101,7 +101,6 @@ async function destroy(template: TemplateRow) {
         showCancelButton: true,
         confirmButtonText: t.value.common.delete,
         cancelButtonText: t.value.common.cancel,
-        confirmButtonColor: '#ab2f2b',
         reverseButtons: true,
     })
 

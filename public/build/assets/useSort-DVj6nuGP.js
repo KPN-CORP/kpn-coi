@@ -1,0 +1,1 @@
+function e(e,t){if(e.sort===t){e.direction=e.direction===`asc`?`desc`:`asc`;return}e.sort=t,e.direction=`asc`}export{e as t};

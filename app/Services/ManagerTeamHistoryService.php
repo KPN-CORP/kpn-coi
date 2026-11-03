@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
+use App\Support\EmployeeStatus;
 use Illuminate\Http\Request;
 
 class ManagerTeamHistoryService
@@ -37,7 +38,7 @@ class ManagerTeamHistoryService
                     $request->user()->employee_id
                 );
             })
-            ->whereNull('deleted_at')
+            ->tap(fn ($query) => EmployeeStatus::apply($query, $request->employee_status))
             ->when(
                 filled($search),
                 fn ($query) => $query->where(

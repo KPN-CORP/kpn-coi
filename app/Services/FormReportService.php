@@ -10,6 +10,7 @@ use App\Models\FormDeclaration;
 use App\Models\FormTemplate;
 use App\Models\NonEmployee;
 use App\Models\User;
+use App\Support\EmployeeStatus;
 use App\Support\FormPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -90,8 +91,8 @@ class FormReportService
         $rows = $this->buildRows(
             $formTypeId,
             $period,
-            $type === 'non_employee' ? null : $narrow(Employee::query()->whereNull('deleted_at')),
-            $type === 'employee' ? null : $narrow(NonEmployee::query()),
+            $type === 'non_employee' ? null : $narrow(EmployeeStatus::apply(Employee::query(), $filters['employee_status'] ?? null)),
+            $type === 'employee' ? null : $narrow(EmployeeStatus::apply(NonEmployee::query(), $filters['employee_status'] ?? null)),
         );
 
         return $this->filterStatus($rows, $filters['status'] ?? null);
@@ -409,7 +410,9 @@ class FormReportService
 
         // One person, one exists() -- not every allowed id in the company.
         return $declaration->type === FormDeclaration::TYPE_EMPLOYEE
-            ? $this->dataScope->applyToPeople(Employee::query()->whereNull('deleted_at'), $viewer)
+            // Any status: the report lists inactive people too (Employee
+            // Status filter), and their signed documents must still open.
+            ? $this->dataScope->applyToPeople(Employee::query(), $viewer)
                 ->whereKey($declaration->user_id)
                 ->exists()
             : $this->dataScope->applyToPeople(NonEmployee::query(), $viewer)

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\FormType;
 use App\Services\FormReportService;
+use App\Support\EmployeeStatus;
 use App\Support\FormPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -45,7 +46,7 @@ class TeamFormController extends Controller
         $search = $request->string('search')->toString();
 
         $team = Employee::query()
-            ->whereNull('deleted_at')
+            ->tap(fn ($query) => EmployeeStatus::apply($query, $request->employee_status))
             ->where(
                 fn ($query) => $query
                     ->where('manager_l1_id', $managerId)
@@ -107,6 +108,7 @@ class TeamFormController extends Controller
                 'search' => $search,
                 'status' => $status,
                 'business_unit' => $request->business_unit,
+                'employee_status' => EmployeeStatus::from($request->employee_status),
                 'latest_submission' => $latestSubmission,
                 'sort' => $sort,
                 'direction' => $direction,

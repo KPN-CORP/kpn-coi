@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CoiDeclaration;
 use App\Models\Employee;
 use App\Services\ManagerTeamHistoryService;
+use App\Support\EmployeeStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -204,6 +205,7 @@ class TeamHistoryController extends Controller
                     'status' => $status,
                     'declaration_status' => $declarationStatus,
                     'business_unit' => $request->business_unit,
+                    'employee_status' => EmployeeStatus::from($request->employee_status),
                     'search' => $search,
                     'latest_submission' => $latestSubmission,
                     'per_page' => $perPage,
@@ -307,7 +309,7 @@ class TeamHistoryController extends Controller
                     $request->user()->employee_id
                 );
             })
-            ->whereNull('deleted_at');
+            ->tap(fn ($query) => EmployeeStatus::apply($query, $request->employee_status));
     }
 
     public function exportExcel(Request $request)

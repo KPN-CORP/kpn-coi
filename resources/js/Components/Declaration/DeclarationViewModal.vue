@@ -96,30 +96,9 @@ const emit = defineEmits<{
     <Modal
         :show="show"
         maxWidth="max-w-5xl"
+        :title="`${t.declarationModal.viewTitle} - ${declaration.type === 'employee' ? t.common.employee : t.common.nonEmployee}`"
         @close="emit('close')"
     >
-        <!-- Header -->
-
-        <div
-            class="flex items-center justify-between border-b border-border px-6 py-4"
-        >
-            <h2 class="text-lg font-bold">
-                {{ t.declarationModal.viewTitle }} -
-                {{
-                    declaration.type === 'employee'
-                        ? t.common.employee
-                        : t.common.nonEmployee
-                }}
-            </h2>
-
-            <button
-                type="button"
-                class="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                @click="emit('close')"
-            >
-                <i class="fa-solid fa-xmark text-lg" />
-            </button>
-        </div>
 
         <!-- Scrollable Body -->
 

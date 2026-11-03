@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import { toggleSort as toggleSortState } from '@/Composables/useSort'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
@@ -12,7 +14,7 @@ import { route } from 'ziggy-js'
 import { formatDate } from '@/Utils/date'
 import Pagination from '@/Components/UI/Pagination.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 
 const { t } = useLocale()
@@ -70,7 +72,6 @@ function uploadUsers(file: File | null) {
 
                     text: t.value.credentials.importCompletedText,
 
-                    confirmButtonColor: '#ab2f2b',
 
                 })
 
@@ -101,7 +102,6 @@ function uploadUsers(file: File | null) {
                         </a>
                     `,
 
-                    confirmButtonColor: '#ab2f2b',
 
                 })
 
@@ -171,7 +171,6 @@ async function saveUser(payload: any) {
 
             cancelButtonText: t.value.common.cancel,
 
-            confirmButtonColor: '#ab2f2b',
 
             reverseButtons: true,
 
@@ -203,7 +202,6 @@ async function saveUser(payload: any) {
                     ? t.value.credentials.userUpdated
                     : t.value.credentials.userCreated,
 
-                confirmButtonColor: '#ab2f2b',
 
             })
 
@@ -217,7 +215,6 @@ async function saveUser(payload: any) {
         icon: 'error',
         title: t.value.credentials.validationFailed,
         text: Object.values(errors)[0],
-        confirmButtonColor: '#ab2f2b',
     })
 },
 
@@ -270,7 +267,6 @@ async function resetPassword() {
 
                     text: t.value.credentials.passwordResetText,
 
-                    confirmButtonColor: '#ab2f2b',
 
                 })
 
@@ -309,7 +305,6 @@ function deleteUser() {
 
                     text: t.value.credentials.userDeleted,
 
-                    confirmButtonColor: '#ab2f2b',
 
                 })
 
@@ -355,7 +350,6 @@ const props = defineProps<{
     }
 }>()
 
-
 const filter = useForm({
     search: props.filters.search ?? '',
     business_unit: props.filters.business_unit ?? '',
@@ -372,24 +366,9 @@ const sortableColumns = computed(() => [
 ])
 
 function toggleSort(column: string) {
-    if (filter.sort === column) {
-        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
-    } else {
-        filter.sort = column
-        filter.direction = 'asc'
-    }
+    toggleSortState(filter, column)
 
     applyFilter()
-}
-
-function sortIcon(column: string) {
-    if (filter.sort !== column) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return filter.direction === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
 }
 
 function changePerPage(value: number) {
@@ -467,17 +446,16 @@ function applyFilter() {
                                 {{ t.credentials.columnNo }}
                             </th>
 
-                            <th
+                            <SortableHeader
                                 v-for="col in sortableColumns"
                                 :key="col.key"
-                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
-                                @click="toggleSort(col.key)"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </span>
-                            </th>
+                                class="py-3"
+                                :label="col.label"
+                                :column="col.key"
+                                :sort="filter.sort"
+                                :direction="filter.direction"
+                                @sort="toggleSort"
+                            />
 
                             <th class="py-3">
                                 {{ t.common.action }}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import Pill, { type PillTone } from '@/Components/UI/Pill.vue'
 import { useLocale } from '@/Composables/useLocale'
 import type { FormStatus } from './types'
 
@@ -9,28 +10,25 @@ const props = defineProps<{
 
 const { t } = useLocale()
 
-const badge = computed(() => {
+const badge = computed((): { label: string, tone: PillTone } => {
     switch (props.status) {
         case 'signed':
-            return { label: t.value.forms.statusSigned, classes: 'bg-green-50 text-green-700 border-green-200' }
+            return { label: t.value.forms.statusSigned, tone: 'success' }
 
         case 'draft':
-            return { label: t.value.forms.statusDraft, classes: 'bg-amber-50 text-amber-700 border-amber-200' }
+            return { label: t.value.forms.statusDraft, tone: 'warning' }
 
         case 'pending':
-            return { label: t.value.forms.statusNotStarted, classes: 'bg-red-50 text-red-700 border-red-200' }
+            return { label: t.value.forms.statusNotStarted, tone: 'danger' }
 
         default:
-            return { label: t.value.forms.statusNoTemplate, classes: 'bg-slate-50 text-slate-500 border-slate-200' }
+            return { label: t.value.forms.statusNoTemplate, tone: 'neutral' }
     }
 })
 </script>
 
 <template>
-    <span
-        class="inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-        :class="badge.classes"
-    >
+    <Pill :tone="badge.tone">
         {{ badge.label }}
-    </span>
+    </Pill>
 </template>

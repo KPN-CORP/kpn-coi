@@ -9,7 +9,7 @@ import type { RenderedForm } from '@/Components/Forms/types'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 
 interface ReadDocument extends RenderedForm {
     id: number
@@ -149,7 +149,6 @@ function saveDraft() {
                     icon: 'success',
                     title: t.value.declaration.draftSaved,
                     text: page.props.flash.success,
-                    confirmButtonColor: '#ab2f2b',
                     returnFocus: false,
                     didClose: () => window.scrollTo({ top: 0, behavior: 'instant' }),
                 })
@@ -191,7 +190,7 @@ function saveDraft() {
             <div>
                 <h1 class="text-xl font-bold text-slate-800 sm:text-2xl">{{ formType.name[locale] }}</h1>
                 <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                    <span><i class="fa-regular fa-calendar mr-1" />{{ t.common.period }} {{ periodYear(document.period) }}</span>
+                    <span><i class="fa-regular fa-calendar mr-1" />{{ periodYear(document.period) }}</span>
                     <span
                         v-if="draft"
                         class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"

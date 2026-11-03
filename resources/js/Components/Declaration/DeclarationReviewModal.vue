@@ -26,25 +26,9 @@ const emit = defineEmits<{
     <Modal
         :show="show"
         maxWidth="max-w-5xl"
+        :title="t.declarationModal.reviewTitle"
         @close="emit('close')"
     >
-        <!-- Header -->
-
-        <div
-            class="flex items-center justify-between border-b border-border px-6 py-4"
-        >
-            <h2 class="text-lg font-bold">
-                {{ t.declarationModal.reviewTitle }}
-            </h2>
-
-            <button
-                type="button"
-                class="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-                @click="emit('close')"
-            >
-                <i class="fa-solid fa-xmark text-lg" />
-            </button>
-        </div>
 
         <!-- Scrollable Body -->
 

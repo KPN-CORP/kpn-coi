@@ -30,7 +30,12 @@ export default {
         employeeId: 'ID Karyawan',
         businessUnit: 'Unit Bisnis',
         status: 'Status',
+        period: 'Periode',
         allStatus: 'Semua Status',
+        employeeStatus: 'Status Karyawan',
+        employeeActive: 'Aktif',
+        employeeInactive: 'Tidak Aktif',
+        allEmployeeStatus: 'Semua Status Karyawan',
         submitted: 'Terkirim',
         notSubmitted: 'Belum Dikirim',
         hasConflict: 'Ada Konflik',
@@ -460,6 +465,7 @@ export default {
         duplicate: 'Duplikasi',
         deleteTitle: 'Hapus template?',
         deleteText: 'Template ini belum ditandatangani siapa pun dan akan dihapus.',
+        viewFailed: 'Dokumen tidak dapat dimuat. Silakan coba lagi.',
         noTemplates: 'Template tidak ditemukan.',
 
         // Admin: template form

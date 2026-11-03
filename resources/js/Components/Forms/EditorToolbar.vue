@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { csrfToken } from '@/Utils/http'
 import type { Editor } from '@tiptap/vue-3'
 import { getAttributes as attributesOf, isActive as activeIn } from '@tiptap/core'
 import { computed, ref } from 'vue'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import ToolbarMenu from './ToolbarMenu.vue'
 import VariablePicker from './VariablePicker.vue'
 import { useLocale } from '@/Composables/useLocale'
@@ -125,10 +126,6 @@ const currentAlignIcon = () =>
 const fileInput = ref<HTMLInputElement | null>(null)
 const uploading = ref(false)
 
-function csrfToken(): string {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? ''
-}
-
 async function onImageChosen(event: Event) {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
@@ -164,7 +161,6 @@ async function onImageChosen(event: Event) {
             icon: 'error',
             title: t.value.forms.imageUploadFailed,
             text: (error as Error).message || t.value.forms.imageRules,
-            confirmButtonColor: '#ab2f2b',
         })
     } finally {
         uploading.value = false
@@ -198,7 +194,6 @@ async function setRowHeight() {
         showCancelButton: true,
         confirmButtonText: t.value.common.save,
         cancelButtonText: t.value.common.cancel,
-        confirmButtonColor: '#ab2f2b',
         reverseButtons: true,
     })
 

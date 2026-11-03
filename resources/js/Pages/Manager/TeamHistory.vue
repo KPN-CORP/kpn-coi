@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import FilterField from '@/Components/UI/FilterField.vue'
+import { DEFAULT_EMPLOYEE_STATUS, useEmployeeStatusOptions } from '@/Composables/useEmployeeStatus'
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import { toggleSort as toggleSortState } from '@/Composables/useSort'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import StatusBadge from '@/Components/UI/StatusBadge.vue'
@@ -86,6 +90,7 @@ const props = defineProps<{
         status?: string
         declaration_status?: string
         business_unit?: string
+        employee_status?: string
         search?: string
         latest_submission?: boolean
         per_page?: number
@@ -104,6 +109,10 @@ const filter = useForm({
     declaration_status: props.filters.declaration_status ?? '',
 
     business_unit: props.filters.business_unit ?? '',
+
+    // Active by default, as on the server: people who have left only show
+    // when asked for.
+    employee_status: props.filters.employee_status ?? DEFAULT_EMPLOYEE_STATUS,
 
     search: props.filters.search ?? '',
 
@@ -140,6 +149,8 @@ const businessUnitSelectOptions = computed(() => [
     ...props.businessUnitOptions.map(unit => ({ value: unit, label: unit })),
 ])
 
+const employeeStatusOptions = useEmployeeStatusOptions()
+
 const statusOptions = computed(() => [
     { value: '', label: t.value.common.allStatus },
     { value: 'submitted', label: t.value.common.submitted },
@@ -153,24 +164,9 @@ const declarationStatusOptions = computed(() => [
 ])
 
 function toggleSort(column: string) {
-    if (filter.sort === column) {
-        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
-    } else {
-        filter.sort = column
-        filter.direction = 'asc'
-    }
+    toggleSortState(filter, column)
 
     applyFilter()
-}
-
-function sortIcon(column: string) {
-    if (filter.sort !== column) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return filter.direction === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
 }
 
 function changePerPage(value: number) {
@@ -230,6 +226,7 @@ function exportExcel() {
                 status: filter.status,
                 declaration_status: filter.declaration_status,
                 business_unit: filter.business_unit,
+                employee_status: filter.employee_status,
                 search: filter.search,
                 latest_submission: filter.latest_submission,
             },
@@ -250,74 +247,76 @@ function exportExcel() {
         <div class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div class="flex flex-wrap items-end gap-4">
 
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.teamHistory.declarationPeriod }}
-                    </label>
-
+                <FilterField
+                    :label="t.teamHistory.declarationPeriod"
+                >
                     <SearchableSelect
                         v-model="filter.period"
                         :options="periodOptions"
                         class="w-48 max-w-full"
                         @change="applyFilter"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Business Unit -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.common.businessUnit }}
-                    </label>
-
+                <FilterField
+                    :label="t.common.businessUnit"
+                >
                     <SearchableSelect
                         v-model="filter.business_unit"
                         :options="businessUnitSelectOptions"
                         class="w-64 max-w-full"
                         @change="applyFilter"
                     />
-                </div>
+                </FilterField>
+
+                <!-- Employee Status -->
+                <FilterField
+                    :label="t.common.employeeStatus"
+                >
+                    <SearchableSelect
+                        v-model="filter.employee_status"
+                        :options="employeeStatusOptions"
+                        class="w-48 max-w-full"
+                        @change="applyFilter"
+                    />
+                </FilterField>
 
                 <!-- Form Status -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.teamHistory.formStatus }}
-                    </label>
-
+                <FilterField
+                    :label="t.teamHistory.formStatus"
+                >
                     <SearchableSelect
                         v-model="filter.status"
                         :options="statusOptions"
                         class="w-48 max-w-full"
                         @change="applyFilter"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Declaration Status -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.teamHistory.columnDeclarationStatus }}
-                    </label>
-
+                <FilterField
+                    :label="t.teamHistory.columnDeclarationStatus"
+                >
                     <SearchableSelect
                         v-model="filter.declaration_status"
                         :options="declarationStatusOptions"
                         class="w-48 max-w-full"
                         @change="applyFilter"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Search -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.common.search }}
-                    </label>
-
+                <FilterField
+                    :label="t.common.search"
+                >
                     <input
                         v-model="filter.search"
                         type="text"
                         :placeholder="t.report.searchPlaceholder"
                         class="rounded-md border border-border px-3 py-2 text-sm min-w-56"
                     >
-                </div>
+                </FilterField>
 
                 <!-- Latest Submission -->
                 <div class="flex flex-col gap-2">
@@ -359,17 +358,16 @@ function exportExcel() {
                         <tr
                             class="border-b border-border text-left text-xs uppercase text-slate-500"
                         >
-                            <th
+                            <SortableHeader
                                 v-for="col in sortableColumns"
                                 :key="col.key"
-                                class="py-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-slate-700"
-                                @click="toggleSort(col.key)"
-                            >
-                                <span class="inline-flex items-center gap-1.5">
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </span>
-                            </th>
+                                class="py-3"
+                                :label="col.label"
+                                :column="col.key"
+                                :sort="filter.sort"
+                                :direction="filter.direction"
+                                @sort="toggleSort"
+                            />
                             <!-- <th class="py-3">Action</th> -->
                         </tr>
                     </thead>

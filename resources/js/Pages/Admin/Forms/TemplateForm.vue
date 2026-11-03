@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { csrfToken } from '@/Utils/http'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import FlashMessage from '@/Components/UI/FlashMessage.vue'
 import MultiSelect from '@/Components/MultiSelect.vue'
@@ -15,7 +16,7 @@ import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 
 interface TemplateData {
     id: number
@@ -115,7 +116,7 @@ async function loadPdf() {
                 'Content-Type': 'application/json',
                 // Validation errors come back as JSON; success is the PDF.
                 Accept: 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '',
+                'X-CSRF-TOKEN': csrfToken(),
             },
             body: JSON.stringify({ ...form.data(), locale: previewLanguage.value }),
         })
@@ -245,7 +246,6 @@ async function copyFromOther(part: 'header' | 'footer', lang: Language, close?: 
             showCancelButton: true,
             confirmButtonText: t.value.forms.copyFrom,
             cancelButtonText: t.value.common.cancel,
-            confirmButtonColor: '#ab2f2b',
             reverseButtons: true,
         })
 
@@ -394,7 +394,6 @@ async function applySample() {
             showCancelButton: true,
             confirmButtonText: t.value.forms.useSample,
             cancelButtonText: t.value.common.cancel,
-            confirmButtonColor: '#ab2f2b',
             reverseButtons: true,
         })
 

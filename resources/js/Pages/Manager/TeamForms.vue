@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import FilterField from '@/Components/UI/FilterField.vue'
+import { DEFAULT_EMPLOYEE_STATUS, useEmployeeStatusOptions } from '@/Composables/useEmployeeStatus'
+import SortableHeader from '@/Components/UI/SortableHeader.vue'
+import { toggleSort as toggleSortState } from '@/Composables/useSort'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
 import Pagination from '@/Components/UI/Pagination.vue'
@@ -23,6 +27,7 @@ const props = defineProps<{
         search: string
         status: FormStatusFilter | null
         business_unit: string | null
+        employee_status: string
         latest_submission: boolean
         sort: SortKey
         direction: 'asc' | 'desc'
@@ -39,6 +44,7 @@ const filter = reactive({
     search: props.filters.search ?? '',
     status: props.filters.status ?? '',
     business_unit: props.filters.business_unit ?? '',
+    employee_status: props.filters.employee_status ?? DEFAULT_EMPLOYEE_STATUS,
     latest_submission: props.filters.latest_submission,
     sort: props.filters.sort,
     direction: props.filters.direction,
@@ -72,6 +78,8 @@ const businessUnitOptions = computed(() => [
     ...props.businessUnitOptions.map(unit => ({ value: unit, label: unit })),
 ])
 
+const employeeStatusOptions = useEmployeeStatusOptions()
+
 const statusOptions = computed(() => [
     { value: '', label: t.value.common.allStatus },
     { value: 'not_signed', label: t.value.forms.statusPending },
@@ -91,25 +99,11 @@ const columns = computed<{ key: SortKey | null, label: string }[]>(() => [
 ])
 
 function toggleSort(key: SortKey) {
-    if (filter.sort === key) {
-        filter.direction = filter.direction === 'asc' ? 'desc' : 'asc'
-    } else {
-        filter.sort = key
-        filter.direction = 'asc'
-    }
+    toggleSortState(filter, key)
 
     applyFilter()
 }
 
-function sortIcon(key: SortKey) {
-    if (filter.sort !== key) {
-        return 'fa-solid fa-sort text-slate-300'
-    }
-
-    return filter.direction === 'asc'
-        ? 'fa-solid fa-sort-up text-slate-600'
-        : 'fa-solid fa-sort-down text-slate-600'
-}
 </script>
 
 <template>
@@ -123,14 +117,10 @@ function sortIcon(key: SortKey) {
 
         <div class="mb-4 flex flex-wrap items-end gap-4">
             <!-- Period -->
-            <div class="flex flex-col gap-2">
-                <label
-                    for="team-form-period"
-                    class="text-sm font-medium text-slate-700"
-                >
-                    {{ t.teamHistory.declarationPeriod }}
-                </label>
-
+            <FilterField
+                :label="t.teamHistory.declarationPeriod"
+                for="team-form-period"
+            >
                 <SearchableSelect
                     id="team-form-period"
                     v-model="filter.period"
@@ -138,17 +128,13 @@ function sortIcon(key: SortKey) {
                     class="w-48 max-w-full"
                     @change="applyFilter()"
                 />
-            </div>
+            </FilterField>
 
             <!-- Business Unit -->
-            <div class="flex flex-col gap-2">
-                <label
-                    for="team-form-unit"
-                    class="text-sm font-medium text-slate-700"
-                >
-                    {{ t.common.businessUnit }}
-                </label>
-
+            <FilterField
+                :label="t.common.businessUnit"
+                for="team-form-unit"
+            >
                 <SearchableSelect
                     id="team-form-unit"
                     v-model="filter.business_unit"
@@ -156,17 +142,27 @@ function sortIcon(key: SortKey) {
                     class="w-64 max-w-full"
                     @change="applyFilter()"
                 />
-            </div>
+            </FilterField>
+
+            <!-- Employee Status -->
+            <FilterField
+                :label="t.common.employeeStatus"
+                for="team-form-employee-status"
+            >
+                <SearchableSelect
+                    id="team-form-employee-status"
+                    v-model="filter.employee_status"
+                    :options="employeeStatusOptions"
+                    class="w-48 max-w-full"
+                    @change="applyFilter()"
+                />
+            </FilterField>
 
             <!-- Form Status -->
-            <div class="flex flex-col gap-2">
-                <label
-                    for="team-form-status"
-                    class="text-sm font-medium text-slate-700"
-                >
-                    {{ t.teamHistory.formStatus }}
-                </label>
-
+            <FilterField
+                :label="t.teamHistory.formStatus"
+                for="team-form-status"
+            >
                 <SearchableSelect
                     id="team-form-status"
                     v-model="filter.status"
@@ -174,17 +170,13 @@ function sortIcon(key: SortKey) {
                     class="w-52 max-w-full"
                     @change="applyFilter()"
                 />
-            </div>
+            </FilterField>
 
             <!-- Search -->
-            <div class="flex flex-col gap-2">
-                <label
-                    for="team-form-search"
-                    class="text-sm font-medium text-slate-700"
-                >
-                    {{ t.common.search }}
-                </label>
-
+            <FilterField
+                :label="t.common.search"
+                for="team-form-search"
+            >
                 <input
                     id="team-form-search"
                     v-model="filter.search"
@@ -193,7 +185,7 @@ function sortIcon(key: SortKey) {
                     class="min-w-56 rounded-md border border-border px-3 py-2 text-sm"
                     @input="onSearch"
                 >
-            </div>
+            </FilterField>
 
             <!-- Latest Submission -->
             <label class="flex cursor-pointer select-none items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm">
@@ -212,26 +204,16 @@ function sortIcon(key: SortKey) {
                 <table class="table-custom">
                     <thead>
                         <tr class="border-b border-border text-left text-xs uppercase text-slate-500">
-                            <th
+                            <SortableHeader
                                 v-for="col in columns"
                                 :key="col.label"
-                                class="whitespace-nowrap py-3"
-                                :aria-sort="col.key && filter.sort === col.key ? (filter.direction === 'asc' ? 'ascending' : 'descending') : undefined"
-                            >
-                                <button
-                                    v-if="col.key"
-                                    type="button"
-                                    class="inline-flex select-none items-center gap-1.5 uppercase tracking-[inherit] [font:inherit] transition-colors hover:text-slate-700"
-                                    @click="toggleSort(col.key)"
-                                >
-                                    {{ col.label }}
-                                    <i :class="sortIcon(col.key)" />
-                                </button>
-
-                                <template v-else>
-                                    {{ col.label }}
-                                </template>
-                            </th>
+                                class="py-3"
+                                :label="col.label"
+                                :column="col.key"
+                                :sort="filter.sort"
+                                :direction="filter.direction"
+                                @sort="column => toggleSort(column as SortKey)"
+                            />
                         </tr>
                     </thead>
 

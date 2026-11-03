@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import FilterField from '@/Components/UI/FilterField.vue'
+import { csrfToken } from '@/Utils/http'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import PageHeader from '@/Components/UI/PageHeader.vue'
 import Card from '@/Components/UI/Card.vue'
@@ -7,18 +9,32 @@ import StatusBadge from '@/Components/UI/StatusBadge.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { Declaration } from '@/Config/declaration'
-import { onMounted, ref, watch, reactive, computed } from 'vue'
-import Chart from 'chart.js/auto'
+import { onMounted, ref, watch, computed } from 'vue'
+import {
+    ArcElement,
+    BarController,
+    BarElement,
+    CategoryScale,
+    Chart,
+    DoughnutController,
+    Legend,
+    LinearScale,
+    Title,
+    Tooltip,
+} from 'chart.js'
 import { useForm, router } from '@inertiajs/vue3'
-import type { Chart as ChartInstance } from 'chart.js'
-import Swal from 'sweetalert2'
+import Swal from '@/Utils/alert'
 import { useLocale } from '@/Composables/useLocale'
 import { formatPeriod } from '@/Utils/date'
 
+// Only what the two charts draw (doughnut + bar), instead of chart.js/auto,
+// which registers every chart type and adds ~30 KB to this page.
+Chart.register(ArcElement, BarController, BarElement, CategoryScale, DoughnutController, Legend, LinearScale, Title, Tooltip)
+
 const { t, locale } = useLocale()
 
-const statusChart = ref<ChartInstance | null>(null)
-const barChart = ref<ChartInstance | null>(null)
+const statusChart = ref<Chart | null>(null)
+const barChart = ref<Chart | null>(null)
 
 // For a form type, submitted/pending are signed/not signed and the fourth
 // card is drafts instead of conflicts (FormDashboardService).
@@ -384,9 +400,7 @@ async function downloadDashboardPdf() {
         form.appendChild(input)
     }
 
-    append('_token', document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content'))
+    append('_token', csrfToken())
 
     append('form', filter.form)
 
@@ -596,46 +610,40 @@ watch(locale, () => {
             <div class="flex flex-wrap items-end gap-4">
 
                 <!-- Form: Conflict of Interest or a form type -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.dashboard.form }}
-                    </label>
-
+                <FilterField
+                    :label="t.dashboard.form"
+                >
                     <SearchableSelect
                         v-model="filter.form"
                         :options="formSelectOptions"
                         class="w-56 max-w-full"
                         @change="onFormChanged"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Reporting Period -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.dashboard.reportingPeriod }}
-                    </label>
-
+                <FilterField
+                    :label="t.dashboard.reportingPeriod"
+                >
                     <SearchableSelect
                         v-model="filter.period"
                         :options="periodOptions"
                         class="w-36 max-w-full"
                         @change="applyFilter"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Declaration Type -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-700">
-                        {{ t.dashboard.declarationType }}
-                    </label>
-
+                <FilterField
+                    :label="t.dashboard.declarationType"
+                >
                     <SearchableSelect
                         v-model="filter.type"
                         :options="typeOptions"
                         class="w-48 max-w-full"
                         @change="onTypeChanged"
                     />
-                </div>
+                </FilterField>
 
                 <!-- Business Unit -->
                 <div :class="[

@@ -70,6 +70,9 @@ class GenerateReportDownload implements ShouldQueue
                 latestSubmission: (bool) ($filters['latest_submission'] ?? true),
                 declarationStatus: $filters['declaration_status'] ?? null,
                 contributionLevel: $filters['contribution_level'] ?? null,
+                // Missing on exports queued before the filter existed: they
+                // were active-only, which is also EmployeeStatus's default.
+                employeeStatus: $filters['employee_status'] ?? null,
             );
 
             // Language marker mirrors the PDF export's filename so a downloaded

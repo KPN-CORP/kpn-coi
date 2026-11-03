@@ -9,9 +9,12 @@ use App\Http\Controllers\Controller;
 use App\Models\FormDeclaration;
 use App\Models\FormType;
 use App\Services\DataScopeService;
+use App\Services\FormDeclarationService;
 use App\Services\FormPdfService;
 use App\Services\FormReportService;
+use App\Support\EmployeeStatus;
 use App\Support\FormPeriod;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -67,14 +70,41 @@ class FormReportController extends Controller
 
     public function pdf(Request $request, FormDeclaration $declaration, FormPdfService $pdf)
     {
+        $this->authorizeDeclaration($request, $declaration);
+
+        return $pdf->download($declaration, $request->string('locale')->toString());
+    }
+
+    /**
+     * One signed declaration for the report's View pop-up, in both languages
+     * and from the values snapshotted at signing -- what the employee's own
+     * history shows.
+     */
+    public function document(Request $request, FormDeclaration $declaration, FormDeclarationService $forms): JsonResponse
+    {
+        $this->authorizeDeclaration($request, $declaration);
+
+        // A draft has no signature or snapshot to show.
+        abort_unless($declaration->isSigned(), 404);
+
+        return response()->json([
+            'id' => $declaration->id,
+            'signed_name' => $declaration->signed_name,
+            'signed_at' => $declaration->signed_at?->toIso8601String(),
+            // The pop-up is headed by the form type, not the template's name.
+            'form_type' => $declaration->formType?->summary()['name'],
+            ...$forms->renderBilingual($declaration->template, $forms->signedValues($declaration)),
+        ]);
+    }
+
+    private function authorizeDeclaration(Request $request, FormDeclaration $declaration): void
+    {
         abort_unless(
             $declaration->formType
                 && $request->user()?->can($declaration->formType->permissionName())
                 && $this->report->canView($request->user(), $declaration),
             403
         );
-
-        return $pdf->download($declaration, $request->string('locale')->toString());
     }
 
     /**
@@ -104,7 +134,7 @@ class FormReportController extends Controller
     }
 
     /**
-     * @return array{type: ?string, business_unit: ?string, contribution_level: ?string, search: ?string, status: ?string}
+     * @return array{type: ?string, business_unit: ?string, contribution_level: ?string, search: ?string, status: ?string, employee_status: string}
      */
     public static function filters(Request $request): array
     {
@@ -114,6 +144,7 @@ class FormReportController extends Controller
             'contribution_level' => $request->input('contribution_level'),
             'search' => $request->input('search'),
             'status' => $request->input('status'),
+            'employee_status' => EmployeeStatus::from($request->input('employee_status')),
         ];
     }
 
