@@ -27,6 +27,13 @@ class FormDeclaration extends Model
     public const SOURCE_IMPORT = 'import';
 
     /**
+     * A past year's signed document uploaded by the employee: no template,
+     * no snapshot -- the file (attachment_path, private `local` disk) is the
+     * declaration.
+     */
+    public const SOURCE_UPLOAD = 'upload';
+
+    /**
      * A row is a draft unless signing says otherwise. The column's database
      * default is `signed`; this keeps a forgotten status (an import, a
      * seeder) from producing a "signature" with no name or snapshot.
@@ -57,6 +64,7 @@ class FormDeclaration extends Model
         'user_agent',
         'source',
         'imported_by',
+        'attachment_path',
     ];
 
     protected $casts = [
@@ -69,8 +77,11 @@ class FormDeclaration extends Model
 
     /**
      * YYYYMM. Computed by the database from period_year and period_month
-     * (never written); worked out here too for a model not saved yet, such
-     * as the template editor's preview.
+     * (never written); worked out here too for a model not saved yet.
+     *
+     * Templates have no period: the year a declaration counts for is the
+     * year it was signed in (or the year an import/upload names), stamped
+     * here. Reports and the yearly obligation go by period_year.
      */
     protected function period(): Attribute
     {
@@ -103,6 +114,11 @@ class FormDeclaration extends Model
     public function isSigned(): bool
     {
         return $this->status === self::STATUS_SIGNED;
+    }
+
+    public function isUpload(): bool
+    {
+        return $this->source === self::SOURCE_UPLOAD;
     }
 
     /**

@@ -92,9 +92,9 @@ class CommitmentController extends Controller
             ->unique('form_type_id')
             ->keyBy('form_type_id');
 
-        // In menu order, newest period first within a type.
+        // In menu order.
         $forms = $types
-            ->flatMap(function (FormType $type) use ($account, $pendingByType, $signedByType, $drafts, $lastSigned) {
+            ->flatMap(function (FormType $type) use ($account, $period, $pendingByType, $signedByType, $drafts, $lastSigned) {
                 $pending = $pendingByType->get($type->id) ?? collect();
 
                 if ($pending->isEmpty()) {
@@ -113,11 +113,10 @@ class CommitmentController extends Controller
                 }
 
                 return $pending
-                    ->sortByDesc('period')
                     ->map(fn (FormTemplate $template) => [
                         'id' => $template->id,
-                        // Forms are shown by year here, like the COI row.
-                        'period' => $template->period_year,
+                        // Pending is always this year's, like the COI row.
+                        'period' => $period,
                         'title' => ['en' => $template->title_en, 'id' => $template->title_id],
                         'form_type' => $type->summary(),
                         'status' => $drafts->has($template->id) ? 'draft' : 'pending',

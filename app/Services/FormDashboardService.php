@@ -33,9 +33,8 @@ class FormDashboardService
             default => 'employee',
         };
 
-        // A year: every month with a template in it, each person counted
-        // once by their newest signature or draft (as the report's Latest
-        // Submission).
+        // A year, each person counted once by their newest signature or
+        // draft (as the report's Latest Submission).
         $year = $request->filled('period')
             ? FormPeriod::yearFrom($request->period)
             : $this->report->defaultYear($formType->id);

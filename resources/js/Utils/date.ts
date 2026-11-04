@@ -116,17 +116,3 @@ export function formatPeriod(period: number | string | null | undefined, locale:
 
     return new Date(year, month - 1, 1).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-GB', { month: 'long', year: 'numeric' })
 }
-
-/** The year of a YYYYMM form period (202610 -> 2026). */
-export function periodYear(period: number | string): number {
-    return Math.floor(Number(period) / 100)
-}
-
-/** The month name of a YYYYMM form period (202610 -> "October" / "Oktober"). */
-export function periodMonth(period: number | string, locale: 'en' | 'id' = 'en'): string {
-    const month = Number(period) % 100
-
-    return month >= 1 && month <= 12
-        ? new Date(2000, month - 1, 1).toLocaleDateString(locale === 'id' ? 'id-ID' : 'en-GB', { month: 'long' })
-        : '-'
-}

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Exports;
 
+use App\Models\FormDeclaration;
 use App\Services\FormReportService;
 use App\Services\FormVariableService;
-use App\Support\FormPeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
@@ -44,7 +44,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
         ];
 
         $sheet = [[
-            'Period',
+            'Year',
             'Employee ID',
             'Full Name',
             'Type',
@@ -60,7 +60,7 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
 
         foreach ($this->rows as $row) {
             $sheet[] = [
-                FormPeriod::label((int) $row['period']),
+                (string) $row['period'],
                 $row['employee_id'] ?: '-',
                 $row['name'],
                 $row['type'] === 'employee' ? 'Employee' : 'Non Employee',
@@ -68,7 +68,8 @@ class FormReportExport implements FromArray, ShouldAutoSize, WithStyles, WithTit
                 $row['contribution_level'] ?? '-',
                 $row['designation'] ?? '-',
                 $row['work_location'] ?? '-',
-                $row['template_title']['en'] ?? '-',
+                // An uploaded past-year document has no template.
+                $row['template_title']['en'] ?? (($row['source'] ?? null) === FormDeclaration::SOURCE_UPLOAD ? 'Uploaded document' : '-'),
                 $statusLabels[$row['status']] ?? $row['status'],
                 $row['signed_name'] ?? '-',
                 $row['signed_at']

@@ -6,10 +6,10 @@ namespace App\Services;
 
 use App\Models\FormDeclaration;
 use App\Models\FormTemplate;
-use App\Support\FormPeriod;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Barryvdh\DomPDF\PDF as DomPdf;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -29,6 +29,25 @@ class FormPdfService
         // A draft has no signature or snapshot to print.
         abort_unless($declaration->isSigned(), 404);
 
+        $slug = fn (string $value) => trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $value), '-');
+
+        // A past year's uploaded document is the declaration itself: hand
+        // the file back as uploaded, in either language.
+        if ($declaration->isUpload()) {
+            $path = (string) $declaration->attachment_path;
+            $disk = Storage::disk(FormDeclarationService::UPLOAD_DISK);
+
+            abort_unless($path !== '' && $disk->exists($path), 404);
+
+            return $disk->download($path, sprintf(
+                '%s-%d-%s.%s',
+                $slug($declaration->formType?->name_en ?? 'Form'),
+                $declaration->period_year,
+                $slug((string) $declaration->signed_name ?: 'signer'),
+                pathinfo($path, PATHINFO_EXTENSION)
+            ));
+        }
+
         if (! in_array($locale, ['en', 'id'], true)) {
             $locale = $declaration->locale ?: 'en';
         }
@@ -39,12 +58,10 @@ class FormPdfService
             $locale
         );
 
-        $slug = fn (string $value) => trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $value), '-');
-
         return $pdf->download(sprintf(
             '%s-%s-%s-%s.pdf',
             $slug($declaration->formType?->name($locale) ?? 'Form'),
-            sprintf('%04d-%02d', FormPeriod::year((int) $declaration->period), FormPeriod::month((int) $declaration->period)),
+            sprintf('%04d-%02d', $declaration->period_year, $declaration->period_month),
             $slug((string) data_get($declaration->variables, 'employee_name', 'signer')),
             strtoupper($locale)
         ));

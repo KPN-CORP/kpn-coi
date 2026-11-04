@@ -16,7 +16,8 @@ type Localized = { en: string, id: string }
 interface ImportFormType {
     code: string
     name: Localized
-    periods: { value: number, label: Localized }[]
+    // An active, published template exists: imported rows sign onto it.
+    has_template: boolean
 }
 
 type ImportStatus = 'processing' | 'completed' | 'partial' | 'failed'
@@ -60,7 +61,7 @@ const formCode = ref<string>(props.formTypes[0]?.code ?? '')
 
 const selectedType = computed(() => props.formTypes.find(type => type.code === formCode.value))
 
-// Year and month are per row in the file; the page only picks the form.
+// The year is per row in the file; the page only picks the form.
 // The signed documents take the language of the top-menu toggle.
 const form = useForm<{ locale: 'en' | 'id', file: File | null }>({
     locale: locale.value,
@@ -75,10 +76,7 @@ const formOptions = computed(() => props.formTypes.map(type => ({
     label: type.name[locale.value],
 })))
 
-// Months with an active template -- what Year/Month in the file can point at.
-const periods = computed(() => (selectedType.value?.periods ?? []).map(period => period.label[locale.value]))
-
-const canImport = computed(() => !!selectedType.value && periods.value.length > 0 && can('import.create'))
+const canImport = computed(() => !!selectedType.value?.has_template && can('import.create'))
 
 function pick(file: File | null | undefined) {
     if (!file) {
@@ -260,16 +258,12 @@ async function submit() {
                                 v-if="selectedType"
                                 class="mt-2 flex flex-wrap items-center gap-1.5 text-xs"
                             >
-                                <template v-if="periods.length">
-                                    <span class="text-slate-500">{{ t.importCenter.activeTemplates }}</span>
-                                    <span
-                                        v-for="period in periods"
-                                        :key="period"
-                                        class="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700"
-                                    >
-                                        {{ period }}
-                                    </span>
-                                </template>
+                                <span
+                                    v-if="selectedType.has_template"
+                                    class="text-slate-500"
+                                >
+                                    {{ t.importCenter.yearHint }}
+                                </span>
 
                                 <span
                                     v-else

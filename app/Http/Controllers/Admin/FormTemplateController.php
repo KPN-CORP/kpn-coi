@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Services\FormPdfService;
 use App\Services\FormTemplateService;
 use App\Services\FormVariableService;
-use App\Support\FormPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,10 +46,6 @@ class FormTemplateController extends Controller
                 fn ($query) => $query->where('form_type_id', (int) $request->form_type)
             )
             ->when(
-                $request->filled('period'),
-                fn ($query) => $query->where('period', (int) $request->period)
-            )
-            ->when(
                 $request->filled('search'),
                 fn ($query) => $query->where(
                     fn ($inner) => $inner
@@ -58,8 +53,8 @@ class FormTemplateController extends Controller
                         ->orWhere('title_id', 'like', '%'.$request->search.'%')
                 )
             )
-            ->orderByDesc('period')
             ->orderByDesc('publish_at')
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString();
 
@@ -72,12 +67,8 @@ class FormTemplateController extends Controller
 
         return Inertia::render('Admin/Forms/Templates', [
             'templates' => $paginated,
-            'filters' => $request->only(['form_type', 'period', 'search']),
+            'filters' => $request->only(['form_type', 'search']),
             'formTypes' => FormType::options(),
-            'periods' => FormTemplate::query()
-                ->distinct()
-                ->orderByDesc('period')
-                ->pluck('period'),
         ]);
     }
 
@@ -149,7 +140,6 @@ class FormTemplateController extends Controller
         if (! $template->is_active) {
             $conflicts = $this->templates->conflicts(
                 $template->form_type_id,
-                $template->period,
                 $template->business_units ?? [],
                 $template->id
             );
@@ -157,7 +147,7 @@ class FormTemplateController extends Controller
             if ($conflicts->isNotEmpty()) {
                 return back()->with(
                     'error',
-                    'Another active template already covers the same business unit for this period: '
+                    'Another active template already covers the same business unit: '
                         .$conflicts->pluck('title_en')->implode(', ').'.'
                 );
             }
@@ -182,8 +172,7 @@ class FormTemplateController extends Controller
     {
         abort_unless($this->templates->canManage($template, $request->user()), 403);
 
-        // `period` is computed by the database from year and month.
-        $copy = $template->replicate(['created_by', 'updated_by', 'period']);
+        $copy = $template->replicate(['created_by', 'updated_by']);
         $copy->is_active = false;
         $copy->title_en = mb_substr($template->title_en.' (Copy)', 0, 255);
         $copy->title_id = mb_substr($template->title_id.' (Salinan)', 0, 255);
@@ -258,18 +247,17 @@ class FormTemplateController extends Controller
             // The admin's own data, already formatted per language by the
             // same code signers get, so the preview reads like a real signed
             // form -- signature included.
-            'previewValues' => $this->previewValues($user, (int) ($template?->period ?? FormPeriod::current())),
-            // A new template starts on the current month.
-            'defaultPeriod' => FormPeriod::current(),
+            // {{period}} is the year a signature counts for: this year's.
+            'previewValues' => $this->previewValues($user, (int) now()->year),
         ]);
     }
 
     /**
      * @return array{en: array<string, string>, id: array<string, string>}
      */
-    private function previewValues(User $user, int $period): array
+    private function previewValues(User $user, int $year): array
     {
-        $values = $this->sampleValues($user, $period);
+        $values = $this->sampleValues($user, $year);
 
         return [
             'en' => $this->variables->displayValues($values, 'en'),
@@ -283,10 +271,10 @@ class FormTemplateController extends Controller
      *
      * @return array<string, string|null>
      */
-    private function sampleValues(User $user, int $period): array
+    private function sampleValues(User $user, int $year): array
     {
         return [
-            ...$this->variables->resolve($user, $period),
+            ...$this->variables->resolve($user, $year),
             'signed_name' => $this->variables->fullNameFor($user),
         ];
     }
@@ -300,8 +288,6 @@ class FormTemplateController extends Controller
     {
         $data = $request->validate([
             'locale' => ['required', Rule::in(['en', 'id'])],
-            'period_year' => FormPeriod::yearRules(),
-            'period_month' => FormPeriod::monthRules(),
             'title_en' => ['nullable', 'string', 'max:255'],
             'title_id' => ['nullable', 'string', 'max:255'],
             'content_en' => ['nullable', 'string', 'max:500000'],
@@ -333,7 +319,7 @@ class FormTemplateController extends Controller
 
         return $pdf->preview(
             $template,
-            $this->sampleValues($request->user(), $template->period),
+            $this->sampleValues($request->user(), (int) now()->year),
             $data['locale']
         );
     }
@@ -349,9 +335,6 @@ class FormTemplateController extends Controller
             'form_type' => $template->formType
                 ? ['en' => $template->formType->name_en, 'id' => $template->formType->name_id]
                 : null,
-            'period' => $template->period,
-            'period_year' => $template->period_year,
-            'period_month' => $template->period_month,
             'title_en' => $template->title_en,
             'title_id' => $template->title_id,
             'business_units' => $template->business_units ?? [],

@@ -41,7 +41,7 @@ class ImportLogReportExport implements FromArray, ShouldAutoSize, WithEvents, Wi
 
     public function headings(): array
     {
-        return ['Employee ID or Email', 'Year', 'Month', 'Signed', 'Signed Date', 'Row', 'Name', 'Result', 'Message'];
+        return ['Employee ID or Email', 'Year', 'Signed', 'Signed Date', 'Row', 'Name', 'Result', 'Message'];
     }
 
     public function array(): array
@@ -49,7 +49,6 @@ class ImportLogReportExport implements FromArray, ShouldAutoSize, WithEvents, Wi
         return array_map(fn (array $row) => [
             $row['identifier'],
             $row['year'],
-            $row['month'],
             $row['signed'],
             $row['signed_date'] ?? '',
             $row['row'],
@@ -70,11 +69,11 @@ class ImportLogReportExport implements FromArray, ShouldAutoSize, WithEvents, Wi
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                $sheet->getStyle('A1:I1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:H1')->getFont()->setBold(true);
                 $sheet->freezePane('A2');
 
                 foreach ($this->log->results ?? [] as $index => $row) {
-                    $sheet->getStyle('H'.($index + 2))->getFill()
+                    $sheet->getStyle('G'.($index + 2))->getFill()
                         ->setFillType(Fill::FILL_SOLID)
                         ->getStartColor()->setRGB(self::COLOURS[$row['status']] ?? 'FFFFFF');
                 }

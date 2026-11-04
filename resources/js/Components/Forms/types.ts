@@ -85,11 +85,17 @@ export interface SignedVersion {
     id: number
     template_title: Localized | null
     signed_at: string | null
+    source: FormSource
     current: boolean
 }
 
+// Where a signature came from: signed in the app, the Import Center, or a
+// past year's document uploaded by the employee (a file, no template).
+export type FormSource = 'app' | 'import' | 'upload'
+
 export interface FormRow {
     key: string
+    // The year the row counts for.
     period: number
     type: 'employee' | 'non_employee'
     user_id: number
@@ -107,9 +113,10 @@ export interface FormRow {
     signed_name: string | null
     signed_at: string | null
     signed_locale: 'en' | 'id' | null
+    source: FormSource | null
     // Signed an earlier version that was replaced: owes a new signature.
     resign_required: boolean
-    // Every signature this person holds for the period, newest first; the
+    // Every signature this person holds for the year, newest first; the
     // `current` one counts, the rest were replaced by a newer template.
     signed_versions: SignedVersion[]
 }

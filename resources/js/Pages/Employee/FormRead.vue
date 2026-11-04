@@ -4,7 +4,7 @@ import EmployeeLayout from '@/Layouts/EmployeeLayout.vue'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import SignatureModal from '@/Components/Forms/SignatureModal.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime, periodYear } from '@/Utils/date'
+import { formatDateTime } from '@/Utils/date'
 import type { RenderedForm } from '@/Components/Forms/types'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
@@ -23,7 +23,7 @@ const props = defineProps<{
     draft: { agreed_at: string | null } | null
     // An earlier version was signed and then replaced by this one.
     resign: boolean
-    // Already signed for this period: submitting adds an updated declaration.
+    // Already signed this year: submitting adds an updated declaration.
     updating: boolean
     fullName: string
     // The wording being read; the signature is refused if it changes.
@@ -190,7 +190,7 @@ function saveDraft() {
             <div>
                 <h1 class="text-xl font-bold text-slate-800 sm:text-2xl">{{ formType.name[locale] }}</h1>
                 <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                    <span><i class="fa-regular fa-calendar mr-1" />{{ periodYear(document.period) }}</span>
+                    <span><i class="fa-regular fa-calendar mr-1" />{{ document.period }}</span>
                     <span
                         v-if="draft"
                         class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"

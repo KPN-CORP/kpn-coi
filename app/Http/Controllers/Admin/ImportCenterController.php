@@ -8,12 +8,12 @@ use App\Exports\FormDeclarationImportTemplateExport;
 use App\Exports\ImportLogReportExport;
 use App\Http\Controllers\Controller;
 use App\Imports\FormDeclarationImport;
+use App\Models\FormTemplate;
 use App\Models\FormType;
 use App\Models\ImportLog;
 use App\Models\User;
 use App\Services\DataScopeService;
 use App\Services\FormDeclarationImportService;
-use App\Support\FormPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,12 +73,9 @@ class ImportCenterController extends Controller
                 ->map(fn (FormType $type) => [
                     'code' => $type->code,
                     'name' => ['en' => $type->name_en, 'id' => $type->name_id],
-                    'periods' => collect($this->imports->periods($type))
-                        ->map(fn (int $period) => [
-                            'value' => $period,
-                            'label' => ['en' => FormPeriod::label($period), 'id' => FormPeriod::label($period, 'id')],
-                        ])
-                        ->values(),
+                    // Rows sign onto the template that applies now, whatever
+                    // their Year -- so all an import needs is one live template.
+                    'has_template' => FormTemplate::query()->available()->where('form_type_id', $type->id)->exists(),
                 ])
                 ->values(),
             'history' => $history,

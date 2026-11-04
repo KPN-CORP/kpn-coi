@@ -31,8 +31,8 @@ class TeamFormController extends Controller
     {
         abort_unless($formType->is_active, 404);
 
-        // The `period` filter is a year (every month with a template in it),
-        // or "all" for every year.
+        // The `period` filter is a year (declarations count for the year they
+        // were signed in), or "all" for every year.
         $allPeriods = $request->input('period') === 'all';
         $year = ! $allPeriods && $request->filled('period')
             ? FormPeriod::yearFrom($request->period)
@@ -53,8 +53,8 @@ class TeamFormController extends Controller
                     ->orWhere('manager_l2_id', $managerId)
             );
 
-        $people = fn (int $forPeriod) => [
-            $this->report->joinedBy(clone $team, $forPeriod)
+        $people = fn (int $forYear) => [
+            $this->report->joinedBy(clone $team, $forYear)
                 ->when(
                     filled($search),
                     fn ($query) => $query->where(
@@ -70,7 +70,7 @@ class TeamFormController extends Controller
             null,
         ];
 
-        $rows = $this->report->buildRowsAcross($formType->id, $this->report->monthsIn($formType->id, $allPeriods ? null : $year), $people);
+        $rows = $this->report->buildRowsAcross($formType->id, $this->report->yearsFor($formType->id, $allPeriods ? null : $year), $people);
 
         $status = FormReportService::statusFilter($request->status);
         $rows = $this->report->filterStatus($rows, $status);

@@ -12,7 +12,6 @@ use App\Models\ImportLog;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
 use App\Models\User;
-use App\Support\FormPeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -25,40 +24,24 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
  * Each row names a person by employee_id or email. Employees are looked up in
  * the HRIS (kpncorp) first, then non-employees in the app database -- a
  * converted non-employee's email can match both and the employee account is
- * the current identity. A "Yes" row becomes a signed declaration on the
- * template that applies to that person for the row's Year and Month, exactly
- * as if they had signed it in the app (same template resolution, same
- * variable snapshot), marked source = import. Month may be left empty: the
- * person is then signed on the latest template of that year that applies to
- * them -- the one the yearly report and dashboard count. A "No" row changes
- * nothing: nothing is ever deleted, so a person who signed stays signed.
+ * the current identity. A "Yes" row becomes a signed declaration for the
+ * row's Year on the template that applies to that person now, exactly as if
+ * they had signed it in the app (same template resolution, same variable
+ * snapshot), marked source = import. Templates have no period, so an earlier
+ * year needs no template of its own -- that is what this import is for. A
+ * "No" row changes nothing: nothing is ever deleted, so a person who signed
+ * stays signed.
  *
  * Row by row: valid rows are imported and invalid ones are reported back with
  * the reason (ImportLog keeps the outcome of every row). Re-uploading the
- * corrected file is safe -- a person who already signed that template is
- * skipped, not signed twice.
+ * corrected file is safe -- a person who already holds a signature for that
+ * year (in the app, imported or uploaded) is skipped, not signed twice.
  */
 class FormDeclarationImportService
 {
     private const YES = ['yes', 'y', 'ya', 'true', '1', 'signed', 'sudah'];
 
     private const NO = ['no', 'n', 'tidak', 'false', '0', 'not signed', 'belum'];
-
-    /** Month names a spreadsheet may carry instead of 1-12 (EN and ID). */
-    private const MONTHS = [
-        'jan' => 1, 'january' => 1, 'januari' => 1,
-        'feb' => 2, 'february' => 2, 'februari' => 2,
-        'mar' => 3, 'march' => 3, 'maret' => 3,
-        'apr' => 4, 'april' => 4,
-        'may' => 5, 'mei' => 5,
-        'jun' => 6, 'june' => 6, 'juni' => 6,
-        'jul' => 7, 'july' => 7, 'juli' => 7,
-        'aug' => 8, 'august' => 8, 'agu' => 8, 'agustus' => 8,
-        'sep' => 9, 'sept' => 9, 'september' => 9,
-        'oct' => 10, 'october' => 10, 'okt' => 10, 'oktober' => 10,
-        'nov' => 11, 'november' => 11,
-        'dec' => 12, 'december' => 12, 'des' => 12, 'desember' => 12,
-    ];
 
     public function __construct(
         private readonly DataScopeService $dataScope,
@@ -67,43 +50,22 @@ class FormDeclarationImportService
     ) {}
 
     /**
-     * Periods (YYYYMM) that have an available template of this type, newest
-     * first -- the only periods an import can sign against. Shown on the
-     * page as a hint for filling in Year and Month.
-     *
-     * @return list<int>
-     */
-    public function periods(FormType $formType): array
-    {
-        return FormTemplate::query()
-            ->available()
-            ->where('form_type_id', $formType->id)
-            ->distinct()
-            ->orderByDesc('period')
-            ->pluck('period')
-            ->map(fn ($period) => (int) $period)
-            ->all();
-    }
-
-    /**
      * Import what can be imported and report every row.
      *
      * @param  Collection<int, Collection|array>  $rows  heading-keyed spreadsheet rows
-     * @return list<array{row: int, identifier: string, name: ?string, year: string, month: string, signed: string, signed_date: string, status: string, message: string}>
+     * @return list<array{row: int, identifier: string, name: ?string, year: string, signed: string, signed_date: string, status: string, message: string}>
      */
     public function import(Collection $rows, FormType $formType, User $importer, string $locale = 'en'): array
     {
         $rows = $rows->map(fn ($row) => collect($row));
 
-        // Every available template of the type, grouped by period, newest
-        // period first -- resolved per row without querying again.
-        $templatesByPeriod = FormTemplate::query()
+        // Every available template of the type -- resolved per row without
+        // querying again.
+        $available = FormTemplate::query()
             ->select(FormTemplate::SUMMARY_COLUMNS)
             ->available()
             ->where('form_type_id', $formType->id)
-            ->orderByDesc('period')
-            ->get()
-            ->groupBy(fn (FormTemplate $template) => (int) $template->period);
+            ->get();
 
         $accounts = $this->lookUp($rows, $importer);
 
@@ -123,7 +85,6 @@ class FormDeclarationImportService
                 'identifier' => $identifier,
                 'name' => null,
                 'year' => trim((string) ($row['year'] ?? '')),
-                'month' => trim((string) ($row['month'] ?? '')),
                 'signed' => $signedText,
                 'signed_date' => $this->displayCell($row['signed_date'] ?? null),
                 'status' => ImportLog::ROW_FAILED,
@@ -161,23 +122,27 @@ class FormDeclarationImportService
             $year = $this->parseYear($row['year'] ?? null);
 
             if ($year === null) {
-                $fail('Year is required, as a 4-digit year (e.g. 2026).');
+                $fail('Year is required, as a 4-digit year (e.g. 2025).');
 
                 continue;
             }
 
-            $month = $this->parseMonth($row['month'] ?? null);
-
-            if ($month === false) {
-                $fail('Month must be 1-12 (or a month name), or left empty.');
+            if ($year > FormDeclarationService::currentYear()) {
+                $fail('Year cannot be in the future.');
 
                 continue;
             }
 
-            $key = FormDeclarationService::typeOf($account).'-'.$account->id.'-'.$year.'-'.($month ?? '*');
+            if ($year < FormDeclarationService::FIRST_UPLOAD_YEAR) {
+                $fail('Year cannot be earlier than '.FormDeclarationService::FIRST_UPLOAD_YEAR.'.');
+
+                continue;
+            }
+
+            $key = FormDeclarationService::typeOf($account).'-'.$account->id.'-'.$year;
 
             if (isset($seen[$key])) {
-                $fail("Same person, year and month as row {$seen[$key]}.");
+                $fail("Same person and year as row {$seen[$key]}.");
 
                 continue;
             }
@@ -199,28 +164,24 @@ class FormDeclarationImportService
                 continue;
             }
 
-            $template = $this->templateFor($templatesByPeriod, $account, $year, $month);
+            $template = $this->templates->resolve($available, $this->variables->businessUnitFor($account));
 
             if ($template === null) {
-                $fail(sprintf(
-                    'No active %s template applies to this person for %s.',
-                    $formType->name_en,
-                    $month ? FormPeriod::label(FormPeriod::make($year, $month)) : $year,
-                ));
+                $fail(sprintf('No active %s template applies to this person.', $formType->name_en));
 
                 continue;
             }
 
-            $toSign[] = compact('line', 'account', 'template', 'signedAt', 'locale');
+            $toSign[] = compact('line', 'account', 'template', 'year', 'signedAt', 'locale');
         }
 
         foreach ($this->sign($toSign, $formType, $importer) as $line => $imported) {
-            $period = FormPeriod::label((int) collect($toSign)->firstWhere('line', $line)['template']->period);
+            $year = collect($toSign)->firstWhere('line', $line)['year'];
 
             $results[$line]['status'] = $imported ? ImportLog::ROW_IMPORTED : ImportLog::ROW_ALREADY_SIGNED;
             $results[$line]['message'] = $imported
-                ? "Signed for {$period}."
-                : "Already signed for {$period}: skipped.";
+                ? "Signed for {$year}."
+                : "Already signed for {$year}: skipped.";
         }
 
         return array_values($results);
@@ -230,10 +191,11 @@ class FormDeclarationImportService
      * Write the signatures with the templates' rows locked -- the same lock
      * signing in the app and editing a template take (FormDeclarationService::
      * locked(), FormTemplateController), so an import cannot interleave with
-     * either. Someone who already signed the very template is skipped; a
-     * draft of it becomes the signature, as when signing in the app.
+     * either. Someone who already holds a signature for that year is skipped;
+     * a draft of the template saved that year becomes the signature, as when
+     * signing in the app.
      *
-     * @param  list<array{line: int, account: User|NonEmployeeUser, template: FormTemplate, signedAt: ?Carbon, locale: string}>  $toSign
+     * @param  list<array{line: int, account: User|NonEmployeeUser, template: FormTemplate, year: int, signedAt: ?Carbon, locale: string}>  $toSign
      * @return array<int, bool> per spreadsheet line: signed now (true) or already signed (false)
      */
     private function sign(array $toSign, FormType $formType, User $importer): array
@@ -249,22 +211,23 @@ class FormDeclarationImportService
 
             $existing = FormDeclaration::query()
                 ->where('form_type_id', $formType->id)
-                ->whereIn('template_id', $templateIds)
-                ->get(['id', 'user_id', 'type', 'template_id', 'status', 'agreed_at']);
+                ->whereIn('period_year', collect($toSign)->pluck('year')->unique()->values())
+                ->whereIn('user_id', collect($toSign)->map(fn (array $item) => $item['account']->id)->unique()->values())
+                ->get(['id', 'user_id', 'type', 'template_id', 'period_year', 'status', 'agreed_at']);
 
-            $keyOf = fn (string $type, int $userId, int $templateId) => "{$type}-{$userId}-{$templateId}";
+            $keyOf = fn (string $type, int $userId, int $year) => "{$type}-{$userId}-{$year}";
 
             $signed = $existing->filter->isSigned()
-                ->mapWithKeys(fn (FormDeclaration $row) => [$keyOf($row->type, (int) $row->user_id, (int) $row->template_id) => true]);
+                ->mapWithKeys(fn (FormDeclaration $row) => [$keyOf($row->type, (int) $row->user_id, (int) $row->period_year) => true]);
 
             $drafts = $existing->reject->isSigned()
-                ->keyBy(fn (FormDeclaration $row) => $keyOf($row->type, (int) $row->user_id, (int) $row->template_id));
+                ->keyBy(fn (FormDeclaration $row) => $keyOf($row->type, (int) $row->user_id, (int) $row->period_year).'-'.$row->template_id);
 
             $outcome = [];
 
-            foreach ($toSign as ['line' => $line, 'account' => $account, 'template' => $template, 'signedAt' => $signedAt, 'locale' => $locale]) {
+            foreach ($toSign as ['line' => $line, 'account' => $account, 'template' => $template, 'year' => $year, 'signedAt' => $signedAt, 'locale' => $locale]) {
                 $type = FormDeclarationService::typeOf($account);
-                $key = $keyOf($type, $account->id, $template->id);
+                $key = $keyOf($type, $account->id, $year);
 
                 if ($signed->has($key)) {
                     $outcome[$line] = false;
@@ -274,22 +237,24 @@ class FormDeclarationImportService
 
                 $signedAt ??= now();
 
-                $declaration = $drafts->get($key) ?? new FormDeclaration([
+                $declaration = $drafts->get($key.'-'.$template->id) ?? new FormDeclaration([
                     'template_id' => $template->id,
                     'form_type_id' => $template->form_type_id,
-                    'period_year' => $template->period_year,
-                    'period_month' => $template->period_month,
                     'user_id' => $account->id,
                     'type' => $type,
                 ]);
 
                 $declaration->fill([
+                    'period_year' => $year,
+                    // The signing month when the date falls in that year;
+                    // otherwise the year's last month.
+                    'period_month' => $signedAt->year === $year ? $signedAt->month : 12,
                     'status' => FormDeclaration::STATUS_SIGNED,
                     'business_unit' => $this->variables->businessUnitFor($account),
                     'locale' => $locale,
                     'agreed_at' => $declaration->agreed_at ?? $signedAt,
                     'signed_name' => FormDeclarationService::normalizeName($this->variables->fullNameFor($account)),
-                    'variables' => $this->variables->resolve($account, $template->period, $signedAt),
+                    'variables' => $this->variables->resolve($account, $year, $signedAt),
                     'signed_at' => $signedAt,
                     'ip_address' => null,
                     'user_agent' => null,
@@ -297,10 +262,7 @@ class FormDeclarationImportService
                     'imported_by' => $importer->id,
                 ])->save();
 
-                // Two rows of one person can land on the same template (one
-                // with the month, one without): sign it once.
                 $signed->put($key, true);
-                $drafts->forget($key);
 
                 $outcome[$line] = true;
             }
@@ -412,31 +374,6 @@ class FormDeclarationImportService
         return $found;
     }
 
-    /**
-     * The template this person signs for the row: that month's, or with no
-     * month the latest period of the year that has one applying to them.
-     *
-     * @param  Collection<int, Collection<int, FormTemplate>>  $templatesByPeriod  newest period first
-     */
-    private function templateFor(Collection $templatesByPeriod, User|NonEmployeeUser $account, int $year, ?int $month): ?FormTemplate
-    {
-        $businessUnit = $this->variables->businessUnitFor($account);
-
-        $periods = $month
-            ? [FormPeriod::make($year, $month)]
-            : $templatesByPeriod->keys()->filter(fn (int $period) => FormPeriod::year($period) === $year)->all();
-
-        foreach ($periods as $period) {
-            $template = $this->templates->resolve($templatesByPeriod->get($period, collect()), $businessUnit);
-
-            if ($template) {
-                return $template;
-            }
-        }
-
-        return null;
-    }
-
     private function parseYear(mixed $value): ?int
     {
         $value = trim((string) $value);
@@ -453,23 +390,6 @@ class FormDeclarationImportService
     /**
      * Null when empty (the whole year), false when unusable.
      */
-    private function parseMonth(mixed $value): int|false|null
-    {
-        $value = mb_strtolower(trim((string) $value));
-
-        if ($value === '') {
-            return null;
-        }
-
-        if (preg_match('/^\d{1,2}$/', $value)) {
-            $month = (int) $value;
-
-            return $month >= 1 && $month <= 12 ? $month : false;
-        }
-
-        return self::MONTHS[$value] ?? false;
-    }
-
     private function parseSigned(string $value): ?bool
     {
         $value = mb_strtolower($value);

@@ -10,7 +10,7 @@ import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
 import ManagerLayout from '@/Layouts/ManagerLayout.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime, formatPeriod, periodMonth, periodYear } from '@/Utils/date'
+import { formatDateTime, formatPeriod } from '@/Utils/date'
 import type { Paginated, FormRow, FormStatusFilter } from '@/Components/Forms/types'
 import { Head, router } from '@inertiajs/vue3'
 import { computed, reactive } from 'vue'
@@ -89,7 +89,6 @@ const statusOptions = computed(() => [
 
 const columns = computed<{ key: SortKey | null, label: string }[]>(() => [
     { key: 'period', label: t.value.forms.periodYear },
-    { key: null, label: t.value.forms.periodMonth },
     { key: 'name', label: t.value.common.name },
     { key: null, label: t.value.teamHistory.columnDesignation },
     { key: 'level', label: t.value.teamHistory.columnLevel },
@@ -224,11 +223,7 @@ function toggleSort(key: SortKey) {
                             class="border-b border-slate-100"
                         >
                             <td class="py-4 font-semibold">
-                                {{ periodYear(row.period) }}
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap">
-                                {{ periodMonth(row.period, locale) }}
+                                {{ row.period }}
                             </td>
 
                             <td class="py-4">

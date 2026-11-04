@@ -72,6 +72,12 @@ Route::middleware(['auth:web,non_employee'])->prefix('employee')
             [FormController::class, 'index']
         )->name('forms.show');
 
+        // A past year's signed document, uploaded instead of signed.
+        Route::post(
+            '/forms/{formType}/upload',
+            [FormController::class, 'upload']
+        )->name('forms.upload');
+
         Route::get(
             '/forms/{formType}/read/{template}',
             [FormController::class, 'read']

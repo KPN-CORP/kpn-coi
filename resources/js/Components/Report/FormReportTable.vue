@@ -11,12 +11,13 @@ import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
 import PersonCell from '@/Components/Report/PersonCell.vue'
 import TypeBadge from '@/Components/Report/TypeBadge.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatDateTime, formatPeriod, periodMonth, periodYear } from '@/Utils/date'
+import { formatDateTime } from '@/Utils/date'
 import type { FormRow, Localized, RenderedForm } from '@/Components/Forms/types'
 
 /**
  * The Admin Report's table for a form type (FormReportService rows): one row
- * per person and period, with the signed document's View pop-up and PDFs.
+ * per person and year, with the signed document's View pop-up and PDFs (or
+ * the uploaded file, for a past year signed outside the app).
  */
 defineProps<{
     declarations: {
@@ -43,14 +44,13 @@ const { t, locale } = useLocale()
 const formColumns = computed(() => [
     { label: t.value.common.fullName, key: 'name', class: 'sticky left-0 z-20 bg-slate-50 shadow-[1px_0_0_0_#e2e8f0]' },
     { label: t.value.forms.periodYear, key: 'period', class: '' },
-    { label: t.value.forms.periodMonth, key: '', class: '' },
     { label: t.value.report.columnType, key: 'type', class: '' },
     { label: t.value.report.columnFormStatus, key: 'status', class: '' },
     { label: t.value.forms.columnSignedAt, key: 'signed_at', class: '' },
 ])
 
 // A person who re-signed after the template was replaced holds several
-// signatures in one period; admins can download each of them.
+// signatures in one year; admins can download each of them.
 const versionsRow = ref<FormRow | null>(null)
 
 // Hidden for now (not needed yet); set to true to bring the Versions
@@ -149,11 +149,7 @@ function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
                         />
 
                         <td class="py-4 whitespace-nowrap text-slate-600">
-                            {{ periodYear(row.period) }}
-                        </td>
-
-                        <td class="py-4 whitespace-nowrap text-slate-600">
-                            {{ periodMonth(row.period, locale) }}
+                            {{ row.period }}
                         </td>
 
                         <td class="py-4">
@@ -182,6 +178,7 @@ function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
                             >
                                 <DocumentActions
                                     v-if="row.declaration_id"
+                                    :file="row.source === 'upload'"
                                     @view="viewForm(row)"
                                     @download="language => downloadFormPdf(row, language)"
                                 />
@@ -238,7 +235,7 @@ function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
     </Card>
 
 
-    <!-- Every signed version of one person in one period -->
+    <!-- One signed declaration, as the signer's own history shows it -->
     <Modal
         :show="viewingFormOpen"
         max-width="max-w-4xl"
@@ -277,7 +274,7 @@ function downloadFormPdf(row: FormRow, language: 'id' | 'en') {
         :show="versionsRow !== null"
         max-width="max-w-2xl"
         :title="t.forms.versionsTitle"
-        :subtitle="versionsRow ? `${versionsRow.name} · ${versionsRow.employee_id || '-'} · ${t.common.period} ${formatPeriod(versionsRow.period, locale)}` : ''"
+        :subtitle="versionsRow ? `${versionsRow.name} · ${versionsRow.employee_id || '-'} · ${t.common.period} ${versionsRow.period}` : ''"
         @close="versionsRow = null"
     >
         <template v-if="versionsRow">

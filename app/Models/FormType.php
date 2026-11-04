@@ -14,8 +14,8 @@ use Spatie\Permission\PermissionRegistrar;
 /**
  * A kind of form people sign (Pakta Integritas, ...). Each active type gets
  * its own employee menu item and page; templates and declarations belong to
- * exactly one type, and the "one active template per business unit per
- * period" and "one signature per period" rules apply within a type.
+ * exactly one type, and the "one active template per business unit" and
+ * "one signature per year" rules apply within a type.
  */
 class FormType extends Model
 {

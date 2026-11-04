@@ -6,13 +6,12 @@ import Pagination from '@/Components/UI/Pagination.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { useLocale } from '@/Composables/useLocale'
 import { usePermission } from '@/Composables/usePermission'
-import { formatDateTime, formatPeriod } from '@/Utils/date'
+import { formatDateTime } from '@/Utils/date'
 import FormTypeSelect from '@/Components/Forms/FormTypeSelect.vue'
 import type { FormTypeOption, Localized, Paginated } from '@/Components/Forms/types'
-import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { Flash } from '@/Config/inertia'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useDebounced } from '@/Composables/useFilterQuery'
 import Swal from '@/Utils/alert'
 
@@ -20,9 +19,6 @@ interface TemplateRow {
     id: number
     form_type_id: number
     form_type: Localized | null
-    period: number
-    period_year: number
-    period_month: number
     title_en: string
     title_id: string
     business_units: string[]
@@ -36,9 +32,8 @@ interface TemplateRow {
 
 const props = defineProps<{
     templates: Paginated<TemplateRow>
-    filters: { form_type?: string, period?: string, search?: string }
+    filters: { form_type?: string, search?: string }
     formTypes: FormTypeOption[]
-    periods: number[]
 }>()
 
 const { t, locale } = useLocale()
@@ -46,23 +41,13 @@ const { can } = usePermission()
 const page = usePage<{ flash: Flash }>()
 
 const formType = ref(props.filters.form_type ? Number(props.filters.form_type) : '')
-const period = ref(props.filters.period ?? '')
 const search = ref(props.filters.search ?? '')
-
-const monthName = (month: number) =>
-    new Date(2000, month - 1, 1).toLocaleDateString(locale.value === 'id' ? 'id-ID' : 'en-GB', { month: 'long' })
-
-const periodOptions = computed(() => [
-    { value: '', label: t.value.forms.allPeriods },
-    ...props.periods.map(item => ({ value: String(item), label: formatPeriod(item, locale.value) })),
-])
 
 function reload(overrides: Record<string, unknown> = {}) {
     router.get(
         route('admin.master.templates.index'),
         {
             form_type: formType.value || undefined,
-            period: period.value || undefined,
             search: search.value || undefined,
             per_page: props.templates.per_page,
             ...overrides,
@@ -150,14 +135,6 @@ async function destroy(template: TemplateRow) {
                 />
             </div>
 
-            <SearchableSelect
-                v-model="period"
-                :options="periodOptions"
-                class="w-48 max-w-full"
-                :aria-label="t.common.period"
-                @change="reload({ page: 1 })"
-            />
-
             <input
                 v-model="search"
                 type="search"
@@ -172,8 +149,6 @@ async function destroy(template: TemplateRow) {
                 <table class="table-custom">
                     <thead>
                         <tr>
-                            <th class="py-3">{{ t.forms.periodYear }}</th>
-                            <th class="py-3">{{ t.forms.periodMonth }}</th>
                             <th class="py-3 text-left">{{ t.forms.columnTitle }}</th>
                             <th class="py-3">{{ t.forms.formType }}</th>
                             <th class="py-3">{{ t.forms.columnBusinessUnit }}</th>
@@ -190,9 +165,6 @@ async function destroy(template: TemplateRow) {
                             :key="template.id"
                             class="border-b border-slate-100 text-center"
                         >
-                            <td class="py-4 font-semibold">{{ template.period_year }}</td>
-                            <td class="py-4 whitespace-nowrap">{{ monthName(template.period_month) }}</td>
-
                             <td class="py-4 text-left">
                                 <div class="font-medium text-slate-800">
                                     {{ locale === 'id' ? template.title_id : template.title_en }}
@@ -302,7 +274,7 @@ async function destroy(template: TemplateRow) {
 
                         <tr v-if="!templates.data.length">
                             <td
-                                colspan="9"
+                                colspan="7"
                                 class="py-8 text-center text-slate-500"
                             >
                                 {{ t.forms.noTemplates }}

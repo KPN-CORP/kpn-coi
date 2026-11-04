@@ -10,11 +10,10 @@ use App\Services\FormHtmlSanitizer;
 use Illuminate\Database\Seeder;
 
 /**
- * Inserts the sample templates from config/form_template_samples.php for the
- * current period. They go in **inactive** so they never collide with the
+ * Inserts the sample templates from config/form_template_samples.php. They go in **inactive** so they never collide with the
  * "one active template per business unit" rule nor reach signers before an
  * admin has reviewed and switched one on. Re-running skips titles that already
- * exist for the period.
+ * exist for the form type.
  *
  *   php artisan db:seed --class=FormTemplateSampleSeeder
  */
@@ -22,9 +21,6 @@ class FormTemplateSampleSeeder extends Seeder
 {
     public function run(FormHtmlSanitizer $sanitizer): void
     {
-        $year = (int) now()->year;
-        $month = (int) now()->month;
-
         foreach (config('form_template_samples', []) as $sample) {
             $formType = FormType::query()->where('code', $sample['form_type'] ?? '')->first();
 
@@ -35,7 +31,7 @@ class FormTemplateSampleSeeder extends Seeder
             }
 
             FormTemplate::query()->firstOrCreate(
-                ['form_type_id' => $formType->id, 'period_year' => $year, 'period_month' => $month, 'title_en' => $sample['title_en']],
+                ['form_type_id' => $formType->id, 'title_en' => $sample['title_en']],
                 [
                     'title_id' => $sample['title_id'],
                     'content_en' => $sanitizer->clean($sample['content_en']),

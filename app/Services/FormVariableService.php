@@ -87,13 +87,14 @@ class FormVariableService
 
     /**
      * Raw values, locale-independent. Dates (LOCALIZED_DATES) stay ISO and
-     * are formatted per language in render().
+     * are formatted per language in render(). {{period}} is the year the
+     * declaration counts for (templates have none of their own).
      *
      * @return array<string, string|null>
      */
     public function resolve(
         User|NonEmployeeUser $account,
-        int $period,
+        int $year,
         ?Carbon $signedAt = null
     ): array {
         $profile = $this->profileFor($account);
@@ -124,7 +125,7 @@ class FormVariableService
             'date_of_joining' => $profile?->date_of_joining
                 ? Carbon::parse($profile->date_of_joining)->toDateString()
                 : null,
-            'period' => (string) $period,
+            'period' => (string) $year,
             // Date and time; before signing it is "now", i.e. what it would say.
             'sign_date' => ($signedAt ?? now())->toIso8601String(),
         ];
@@ -169,6 +170,7 @@ class FormVariableService
             $display[$key] = match (true) {
                 $key === self::SIGNATURE => $this->signatureHtml($values, $locale),
                 isset(self::PAGING[$key]) => '<span class="'.self::PAGING[$key].'"></span>',
+                // Older snapshots hold a month (YYYYMM); newer ones a year.
                 $key === 'period' && FormPeriod::isValid($value) => e(FormPeriod::label((int) $value, $locale)),
                 $key === 'sign_date' && filled($value) => e($this->dateTime((string) $value, $locale)),
                 in_array($key, self::LOCALIZED_DATES, true) && filled($value) => e($this->date((string) $value, $locale)),

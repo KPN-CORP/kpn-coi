@@ -9,8 +9,12 @@ import { useLocale } from '@/Composables/useLocale'
 withDefaults(defineProps<{
     // No PDF for a replaced form version (FormController::pdf refuses it).
     pdf?: boolean
+    // A past year's uploaded document: nothing to render, one button that
+    // downloads the file as uploaded (emitted as a download).
+    file?: boolean
 }>(), {
     pdf: true,
+    file: false,
 })
 
 const emit = defineEmits<{
@@ -23,6 +27,18 @@ const { t } = useLocale()
 
 <template>
     <button
+        v-if="file"
+        type="button"
+        class="btn btn-outline-primary-custom btn-sm"
+        :title="t.forms.uploadedDocument"
+        @click="emit('download', 'en')"
+    >
+        <i class="fa-solid fa-paperclip" />
+        {{ t.forms.document }}
+    </button>
+
+    <button
+        v-if="!file"
         type="button"
         class="btn btn-outline-secondary btn-sm"
         @click="emit('view')"
@@ -31,7 +47,7 @@ const { t } = useLocale()
         {{ t.common.view }}
     </button>
 
-    <template v-if="pdf">
+    <template v-if="pdf && !file">
         <button
             type="button"
             class="btn btn-outline-primary-custom btn-sm"

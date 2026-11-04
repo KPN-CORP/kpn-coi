@@ -17,6 +17,7 @@ use App\Services\FormPdfService;
 use App\Services\FormVariableService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -58,50 +59,86 @@ class FormController extends Controller
         // Kept, but replaced by a newer version of the template.
         $superseded = $this->forms->supersededIds($signedRows);
 
-        $resignPeriods = $signedRows
-            ->filter(fn (FormDeclaration $declaration) => isset($superseded[$declaration->id]))
-            ->pluck('period')
-            ->unique();
+        $year = FormDeclarationService::currentYear();
 
+        // Pending is always this year's: a signature counts for the year it
+        // is made in.
         $pending = $this->forms->pendingFor($account, $formType->id)
             ->map(fn (FormTemplate $template) => [
                 'id' => $template->id,
-                'period' => $template->period,
+                'period' => $year,
                 'publish_at' => $template->publish_at?->toIso8601String(),
                 'title' => ['en' => $template->title_en, 'id' => $template->title_id],
                 'draft_saved_at' => $drafts->get($template->id)?->agreed_at?->toIso8601String(),
                 // When the draft row was first saved; nothing yet without one.
                 'created_at' => $drafts->get($template->id)?->created_at?->toIso8601String(),
                 // Pending again: an earlier version was signed, then replaced.
-                'resign' => $resignPeriods->contains($template->period),
+                'resign' => $this->forms->mustSignAgain($account, $template),
             ])
             ->values();
 
         $signed = $signedRows
             ->map(fn (FormDeclaration $declaration) => [
                 'id' => $declaration->id,
-                'period' => $declaration->period,
+                'period' => $declaration->period_year,
                 'signed_name' => $declaration->signed_name,
                 'signed_at' => $declaration->signed_at?->toIso8601String(),
                 // The row's first save: the draft, or the signature itself.
                 'created_at' => $declaration->created_at?->toIso8601String(),
                 'locale' => $declaration->locale,
                 'superseded' => isset($superseded[$declaration->id]),
+                // A past year's uploaded document: a file, nothing to render.
+                'upload' => $declaration->isUpload(),
                 // From the values snapshotted at signing, not today's profile.
-                ...$this->forms->renderBilingual($declaration->template, $this->forms->signedValues($declaration)),
+                ...($declaration->template
+                    ? $this->forms->renderBilingual($declaration->template, $this->forms->signedValues($declaration))
+                    : ['title' => null]),
             ])
             ->values();
 
         // "Add / Update": signing again is always possible; it opens the
-        // template that applies now (the latest period's).
+        // template that applies now.
         $update = $this->forms->updateTarget($account, $formType->id);
 
         return Inertia::render('Employee/Form', [
             'formType' => $formType->summary(),
             'pending' => $pending,
             'signed' => $signed,
-            'updateTarget' => $update ? ['id' => $update->id, 'period' => $update->period] : null,
+            'updateTarget' => $update ? ['id' => $update->id, 'period' => $year] : null,
+            // Past years are not signed in the app: their signed document is
+            // uploaded instead (like the COI 2025 attachment).
+            'uploadYears' => $this->forms->uploadableYears($account, $formType->id),
         ]);
+    }
+
+    /**
+     * A past year's signed document. Counts as signed at once; uploading
+     * again for the same year replaces the file.
+     */
+    public function upload(Request $request, FormType $formType): RedirectResponse
+    {
+        abort_unless($formType->is_active, 404);
+
+        $account = $request->user();
+
+        $request->validate([
+            'year' => ['required', 'integer', Rule::in($this->forms->uploadableYears($account, $formType->id))],
+            // extensions (not mimes), as the COI attachment: scans come as
+            // PDF or photos. 5 MB cap.
+            'document' => ['required', 'file', 'extensions:pdf,jpg,jpeg,png', 'max:5120'],
+        ], [], [
+            'document' => $request->input('locale') === 'id' ? 'dokumen' : 'document',
+            'year' => $request->input('locale') === 'id' ? 'tahun' : 'year',
+        ]);
+
+        $this->forms->upload($account, $formType, (int) $request->input('year'), $request->file('document'));
+
+        return back()->with(
+            'success',
+            $request->input('locale') === 'id'
+                ? "Dokumen {$formType->name_id} tahun {$request->input('year')} berhasil diunggah."
+                : "{$formType->name_en} document for {$request->input('year')} uploaded successfully."
+        );
     }
 
     /**
@@ -126,19 +163,19 @@ class FormController extends Controller
             'formType' => $formType->summary(),
             'document' => [
                 'id' => $applicable->id,
-                'period' => $applicable->period,
+                'period' => FormDeclarationService::currentYear(),
                 'publish_at' => $applicable->publish_at?->toIso8601String(),
                 // The route-bound model carries the full body; the pending
                 // lookup only loads the columns it needs to decide.
                 ...$this->forms->renderBilingual(
                     $template,
-                    $this->variables->resolve($account, $template->period)
+                    $this->variables->resolve($account, FormDeclarationService::currentYear())
                 ),
             ],
             'draft' => $draft ? ['agreed_at' => $draft->agreed_at?->toIso8601String()] : null,
             // An earlier version was signed and then replaced by this one.
             'resign' => $this->forms->mustSignAgain($account, $applicable),
-            // Already signed for this period: submitting adds an updated
+            // Already signed this year: submitting adds an updated
             // declaration, which then becomes the valid one.
             'updating' => $this->forms->hasSigned($account, $applicable),
             'version' => self::version($template),

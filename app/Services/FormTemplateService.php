@@ -11,15 +11,20 @@ use Illuminate\Support\Collection;
 
 /**
  * Form templates: which one applies to whom, and the "one active template per
- * business unit per period" rule. Every rule here holds *within one form type*
- * -- an Integrity Pact template never competes with another type's template.
+ * business unit" rule. Every rule here holds *within one form type* -- an
+ * Integrity Pact template never competes with another type's template.
+ *
+ * Templates have no period: one applies from its publish date for as long as
+ * it is switched on, and the year a signature counts for is stamped on the
+ * declaration (FormDeclaration). A new wording is a new template that
+ * replaces the old one (duplicate, switch the old off, the copy on).
  *
  * A template either names business units or names none, meaning "every unit".
- * Within a period, each unit may be covered by at most one active unit-specific
- * template, plus at most one active all-units template acting as the default.
- * A signer gets their unit's specific template when one exists, otherwise the
- * all-units default -- so a unit can be given its own wording without having to
- * switch the group-wide template off.
+ * Each unit may be covered by at most one active unit-specific template, plus
+ * at most one active all-units template acting as the default. A signer gets
+ * their unit's specific template when one exists, otherwise the all-units
+ * default -- so a unit can be given its own wording without having to switch
+ * the group-wide template off.
  */
 class FormTemplateService
 {
@@ -29,13 +34,13 @@ class FormTemplateService
     ) {}
 
     /**
-     * Every available template that applies to this unit -- one per form type
-     * per period, specific beating all-units. Pass a form type id to narrow to
-     * that type.
+     * The available template that applies to this unit now -- at most one
+     * per form type, specific beating all-units. Pass a form type id to
+     * narrow to that type.
      *
      * @return Collection<int, FormTemplate>
      */
-    public function applicableAcrossPeriods(?string $businessUnit, ?int $formTypeId = null): Collection
+    public function applicable(?string $businessUnit, ?int $formTypeId = null): Collection
     {
         return FormTemplate::query()
             // Runs for the menu badge on every page: only what resolution and
@@ -43,23 +48,28 @@ class FormTemplateService
             ->select(FormTemplate::SUMMARY_COLUMNS)
             ->available()
             ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
-            ->orderByDesc('period')
             ->get()
-            ->groupBy(fn (FormTemplate $template) => $template->form_type_id.'-'.$template->period)
+            ->groupBy('form_type_id')
             ->map(fn (Collection $templates) => $this->resolve($templates, $businessUnit))
             ->filter()
             ->values();
     }
 
     /**
-     * Pick from one form type's templates for one period without querying
-     * again -- used by the report, which resolves thousands of people against
-     * the same handful.
+     * Pick from one form type's available templates without querying again --
+     * used by the report, which resolves thousands of people against the same
+     * handful. Should two overlap (saved before the one-per-unit rule held
+     * without periods), the latest published wins.
      *
      * @param  Collection<int, FormTemplate>  $templates
      */
     public function resolve(Collection $templates, ?string $businessUnit): ?FormTemplate
     {
+        $templates = $templates->sortByDesc(fn (FormTemplate $template) => [
+            $template->publish_at?->getTimestamp() ?? 0,
+            $template->id,
+        ]);
+
         if (filled($businessUnit)) {
             $specific = $templates->first(
                 fn (FormTemplate $template) => ! $template->appliesToAllUnits()
@@ -83,11 +93,10 @@ class FormTemplateService
      * @param  list<string>  $businessUnits
      * @return Collection<int, FormTemplate>
      */
-    public function conflicts(int $formTypeId, int $period, array $businessUnits, ?int $ignoreId = null): Collection
+    public function conflicts(int $formTypeId, array $businessUnits, ?int $ignoreId = null): Collection
     {
         return FormTemplate::query()
             ->where('form_type_id', $formTypeId)
-            ->where('period', $period)
             ->where('is_active', true)
             ->when($ignoreId, fn (Builder $query) => $query->whereKeyNot($ignoreId))
             ->get()
@@ -121,8 +130,6 @@ class FormTemplateService
     {
         return $template->fill([
             'form_type_id' => (int) $data['form_type_id'],
-            'period_year' => (int) $data['period_year'],
-            'period_month' => (int) $data['period_month'],
             'title_en' => trim($data['title_en']),
             'title_id' => trim($data['title_id']),
             'content_en' => $this->sanitizer->clean($data['content_en']),

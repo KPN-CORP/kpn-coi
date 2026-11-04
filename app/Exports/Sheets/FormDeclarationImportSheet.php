@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exports\Sheets;
 
+use App\Services\FormDeclarationService;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
@@ -27,7 +28,6 @@ class FormDeclarationImportSheet implements FromArray, WithColumnWidths, WithEve
         return [
             'Employee ID or Email',
             'Year',
-            'Month',
             'Signed',
             'Signed Date',
         ];
@@ -40,7 +40,7 @@ class FormDeclarationImportSheet implements FromArray, WithColumnWidths, WithEve
 
     public function columnWidths(): array
     {
-        return ['A' => 32, 'B' => 10, 'C' => 10, 'D' => 12, 'E' => 20];
+        return ['A' => 32, 'B' => 10, 'C' => 12, 'D' => 20];
     }
 
     public function title(): string
@@ -55,12 +55,12 @@ class FormDeclarationImportSheet implements FromArray, WithColumnWidths, WithEve
                 $sheet = $event->sheet->getDelegate();
                 $last = self::ROWS + 1;
 
-                $sheet->getStyle('A1:E1')->getFont()->setBold(true);
+                $sheet->getStyle('A1:D1')->getFont()->setBold(true);
                 $sheet->freezePane('A2');
 
                 // Keep IDs as text: numeric NIKs would otherwise lose leading
                 // zeros. Dates as text too, so dd-mm-yyyy is read as typed.
-                foreach (['A', 'E'] as $column) {
+                foreach (['A', 'D'] as $column) {
                     $sheet->getStyle("{$column}2:{$column}{$last}")
                         ->getNumberFormat()
                         ->setFormatCode(NumberFormat::FORMAT_TEXT);
@@ -69,13 +69,12 @@ class FormDeclarationImportSheet implements FromArray, WithColumnWidths, WithEve
                 $year = new DataValidation;
                 $year->setType(DataValidation::TYPE_WHOLE);
                 $year->setOperator(DataValidation::OPERATOR_BETWEEN);
-                $year->setFormula1('2000');
+                $year->setFormula1((string) FormDeclarationService::FIRST_UPLOAD_YEAR);
                 $year->setFormula2('2100');
-                $this->configure($year, 'Year', 'Required, e.g. 2026.');
+                $this->configure($year, 'Year', 'Required: the year the signature counts for, e.g. 2025.');
                 $sheet->setDataValidation("B2:B{$last}", $year);
 
-                $this->dropdown($sheet, "C2:C{$last}", range(1, 12), 'Month', 'Optional: 1-12. Empty = the whole year.');
-                $this->dropdown($sheet, "D2:D{$last}", ['Yes', 'No'], 'Signed', 'Choose Yes or No.');
+                $this->dropdown($sheet, "C2:C{$last}", ['Yes', 'No'], 'Signed', 'Choose Yes or No.');
             },
         ];
     }

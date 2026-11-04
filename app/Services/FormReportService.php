@@ -11,13 +11,14 @@ use App\Models\FormTemplate;
 use App\Models\NonEmployee;
 use App\Models\User;
 use App\Support\EmployeeStatus;
-use App\Support\FormPeriod;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Who has and has not signed one form type for a period -- one row per
- * person. Shared by the admin report, its Excel export, the form dashboard and
+ * Who has and has not signed one form type for a year -- one row per person.
+ * A declaration counts for the year stamped on it (period_year: the year it
+ * was signed, or the year an import/upload names); templates have no period.
+ * Shared by the admin report, its Excel export, the form dashboard and
  * the manager's team view; each caller decides which people are in scope by
  * handing over its own people queries.
  *
@@ -62,14 +63,14 @@ class FormReportService
      *
      * @param  array{type?: ?string, business_unit?: ?string, contribution_level?: ?string, search?: ?string, status?: ?string}  $filters
      */
-    public function adminRows(?User $viewer, int $formTypeId, int $period, array $filters = []): Collection
+    public function adminRows(?User $viewer, int $formTypeId, int $year, array $filters = []): Collection
     {
         $type = $filters['type'] ?? null;
 
-        $narrow = function (Builder $query) use ($viewer, $period, $filters): Builder {
+        $narrow = function (Builder $query) use ($viewer, $year, $filters): Builder {
             return $query
                 ->tap(fn (Builder $q) => $this->dataScope->applyToPeople($q, $viewer))
-                ->tap(fn (Builder $q) => $this->joinedBy($q, $period))
+                ->tap(fn (Builder $q) => $this->joinedBy($q, $year))
                 ->when(
                     filled($filters['business_unit'] ?? null),
                     fn (Builder $q) => $q->where('group_company', $filters['business_unit'])
@@ -90,7 +91,7 @@ class FormReportService
 
         $rows = $this->buildRows(
             $formTypeId,
-            $period,
+            $year,
             $type === 'non_employee' ? null : $narrow(EmployeeStatus::apply(Employee::query(), $filters['employee_status'] ?? null)),
             $type === 'employee' ? null : $narrow(EmployeeStatus::apply(NonEmployee::query(), $filters['employee_status'] ?? null)),
         );
@@ -99,16 +100,16 @@ class FormReportService
     }
 
     /**
-     * The admin report's rows: one period, or every period when $period is
-     * null, and with $latest one row per person (latestPerPerson()) -- the
+     * The admin report's rows: one year, or every year when $year is null,
+     * and with $latest one row per person (latestPerPerson()) -- the
      * report's "Latest Submission" toggle.
      */
     public function adminReportRows(?User $viewer, int $formTypeId, ?int $year, array $filters, bool $latest): Collection
     {
         $rows = collect();
 
-        foreach ($this->monthsIn($formTypeId, $year) as $period) {
-            $rows = $rows->concat($this->adminRows($viewer, $formTypeId, $period, $filters));
+        foreach ($this->yearsFor($formTypeId, $year) as $one) {
+            $rows = $rows->concat($this->adminRows($viewer, $formTypeId, $one, $filters));
         }
 
         return $latest ? $this->latestPerPerson($rows) : $rows->values();
@@ -159,20 +160,20 @@ class FormReportService
     }
 
     /**
-     * Rows for several periods at once (an "All Periods" view): buildRows()
-     * per period, newest first.
+     * Rows for several years at once (an "All Periods" view): buildRows()
+     * per year, newest first.
      *
-     * @param  iterable<int>  $periods
-     * @param  callable(int): array{0: ?Builder, 1: ?Builder}  $people  the employee / non-employee queries for a period
+     * @param  iterable<int>  $years
+     * @param  callable(int): array{0: ?Builder, 1: ?Builder}  $people  the employee / non-employee queries for a year
      */
-    public function buildRowsAcross(int $formTypeId, iterable $periods, callable $people): Collection
+    public function buildRowsAcross(int $formTypeId, iterable $years, callable $people): Collection
     {
         $rows = collect();
 
-        foreach ($periods as $period) {
-            [$employees, $nonEmployees] = $people((int) $period);
+        foreach ($years as $year) {
+            [$employees, $nonEmployees] = $people((int) $year);
 
-            $rows = $rows->concat($this->buildRows($formTypeId, (int) $period, $employees, $nonEmployees));
+            $rows = $rows->concat($this->buildRows($formTypeId, (int) $year, $employees, $nonEmployees));
         }
 
         return $rows->values();
@@ -180,7 +181,7 @@ class FormReportService
 
     /**
      * "Latest submission": one row per person -- their most recent signature
-     * or draft, or, with neither, their newest period. Same idea as the COI
+     * or draft, or, with neither, their newest year. Same idea as the COI
      * Team History toggle, which keeps each person's newest submission.
      */
     public function latestPerPerson(Collection $rows): Collection
@@ -195,50 +196,50 @@ class FormReportService
     }
 
     /**
-     * Only people who had joined by the end of the period count toward it --
+     * Only people who had joined by the end of the year count toward it --
      * the same rule as the COI report and dashboard. Unknown join dates stay.
      */
-    public function joinedBy(Builder $query, int $period): Builder
+    public function joinedBy(Builder $query, int $year): Builder
     {
         return $query->where(
             fn (Builder $inner) => $inner
                 ->whereNull('date_of_joining')
-                ->orWhereDate('date_of_joining', '<=', FormPeriod::end($period)->toDateString())
+                ->orWhereDate('date_of_joining', '<=', "{$year}-12-31")
         );
     }
 
-    public function buildRows(int $formTypeId, int $period, ?Builder $employees, ?Builder $nonEmployees): Collection
+    public function buildRows(int $formTypeId, int $year, ?Builder $employees, ?Builder $nonEmployees): Collection
     {
+        // What a person without a declaration owes: the template that applies
+        // now. A past year is filled in by import or upload, not by a
+        // template of its own.
         $available = FormTemplate::query()
             ->select(FormTemplate::SUMMARY_COLUMNS)
             ->available()
             ->where('form_type_id', $formTypeId)
-            ->where('period', $period)
             ->get();
 
-        $titles = FormTemplate::withTrashed()
+        // Only what a row shows -- never the `variables` snapshot. A person
+        // can hold several rows in a year: one per signature.
+        $declarations = FormDeclaration::query()
             ->where('form_type_id', $formTypeId)
-            ->where('period', $period)
+            ->where('period_year', $year)
+            ->get(['id', 'type', 'user_id', 'status', 'template_id', 'period_year', 'signed_name', 'signed_at', 'agreed_at', 'locale', 'source'])
+            ->groupBy(fn (FormDeclaration $declaration) => $declaration->type.'-'.$declaration->user_id);
+
+        $titles = FormTemplate::withTrashed()
+            ->whereKey($declarations->flatten()->pluck('template_id')->filter()->unique()->merge($available->modelKeys())->unique()->values())
             ->get(['id', 'title_en', 'title_id', 'is_active', 'deleted_at'])
             ->keyBy('id');
 
-        // Only what a row shows -- never the `variables` snapshot. A person
-        // can hold several rows in a period: one per template version.
-        $declarations = FormDeclaration::query()
-            ->where('form_type_id', $formTypeId)
-            ->where('period', $period)
-            ->get(['id', 'type', 'user_id', 'status', 'template_id', 'signed_name', 'signed_at', 'agreed_at', 'locale'])
-            ->groupBy(fn (FormDeclaration $declaration) => $declaration->type.'-'.$declaration->user_id);
-
-        // Same rule as FormDeclarationService::isSuperseded(): a row stops
-        // counting once its template is switched off and another applies.
-        $replaced = function (FormDeclaration $declaration, ?FormTemplate $applicable) use ($titles): bool {
-            $template = $titles->get($declaration->template_id);
-
-            $stillOn = $template && $template->is_active && ! $template->trashed();
-
-            return $applicable !== null && $applicable->id !== $declaration->template_id && ! $stillOn;
-        };
+        // Same rule as FormDeclarationService::isSuperseded(): a row of this
+        // year stops counting once its template is switched off and another
+        // applies.
+        $replaced = fn (FormDeclaration $declaration, ?FormTemplate $applicable): bool => FormDeclarationService::replacedBy(
+            $declaration,
+            $applicable,
+            $titles->get($declaration->template_id)
+        );
 
         $companyNames = Companies::query()
             ->whereNotNull('contribution_level_code')
@@ -249,7 +250,7 @@ class FormReportService
         $templateFor = [];
 
         $row = function (string $type, int $userId, object $person, ?string $workLocation) use (
-            $period, $declarations, $available, $titles, $companyNames, $replaced, &$templateFor
+            $year, $declarations, $available, $titles, $companyNames, $replaced, &$templateFor
         ): array {
             $unit = $person->group_company ?: null;
 
@@ -276,7 +277,7 @@ class FormReportService
             $declaration = $valid->firstWhere('status', FormDeclaration::STATUS_SIGNED)
                 ?? $valid->firstWhere('status', FormDeclaration::STATUS_DRAFT);
 
-            // Every signature this person holds for the period, newest first:
+            // Every signature this person holds for the year, newest first:
             // the valid one plus any on versions replaced since. Admins can
             // download each; the signer only sees the valid one as a PDF.
             $signedVersions = $mine
@@ -284,13 +285,14 @@ class FormReportService
                 ->sortByDesc('signed_at')
                 ->values();
 
+            // An upload has no template: its row shows no template title.
             $template = $declaration
                 ? $titles->get($declaration->template_id)
                 : $applicable;
 
             return [
-                'key' => $type.'-'.$userId.'-'.$period,
-                'period' => $period,
+                'key' => $type.'-'.$userId.'-'.$year,
+                'period' => $year,
                 'type' => $type,
                 'user_id' => $userId,
                 'name' => $person->fullname,
@@ -304,7 +306,7 @@ class FormReportService
                 'status' => match (true) {
                     $declaration?->isSigned() === true => self::STATUS_SIGNED,
                     $declaration !== null => self::STATUS_DRAFT,
-                    $template !== null => self::STATUS_PENDING,
+                    $applicable !== null => self::STATUS_PENDING,
                     default => self::STATUS_NO_TEMPLATE,
                 },
                 'template_id' => $template?->id,
@@ -317,6 +319,8 @@ class FormReportService
                 'signed_at' => $declaration?->signed_at?->toIso8601String(),
                 'agreed_at' => $declaration?->agreed_at?->toIso8601String(),
                 'signed_locale' => $declaration?->locale,
+                // app / import / upload; an upload is a file, not a rendered form.
+                'source' => $declaration?->isSigned() ? ($declaration->source ?: FormDeclaration::SOURCE_APP) : null,
                 // Signed an older version that was replaced: owes a new one.
                 'resign_required' => ! $declaration?->isSigned() && $signedVersions->isNotEmpty(),
                 'signed_versions' => $signedVersions
@@ -326,6 +330,7 @@ class FormReportService
                             ? ['en' => $title->title_en, 'id' => $title->title_id]
                             : null,
                         'signed_at' => $row->signed_at?->toIso8601String(),
+                        'source' => $row->source ?: FormDeclaration::SOURCE_APP,
                         // The one that counts now; the others were replaced.
                         'current' => $row->id === $declaration?->id,
                     ])
@@ -421,81 +426,47 @@ class FormReportService
     }
 
     /**
-     * Periods worth offering in a filter: every template period (YYYYMM) of
-     * the form type plus the current month.
-     *
-     * @return Collection<int, int>
-     */
-    public function periods(?int $formTypeId = null): Collection
-    {
-        return FormTemplate::query()
-            ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
-            ->distinct()
-            ->pluck('period')
-            ->map(fn ($period) => (int) $period)
-            ->push(FormPeriod::current())
-            ->unique()
-            ->sortDesc()
-            ->values();
-    }
-
-    /**
-     * The period a report opens on: the latest month that has a template and
-     * has started, so a monthly form does not open on an empty month.
-     */
-    /**
-     * Years worth offering in a report filter (reports filter by year): every
-     * year with a template of the form type, plus this year.
+     * Years worth offering in a report filter: from the first year anything
+     * was declared for (signed, imported or uploaded) or a template was
+     * published, up to this year.
      *
      * @return Collection<int, int>
      */
     public function years(?int $formTypeId = null): Collection
     {
-        return FormTemplate::query()
+        $current = (int) now()->year;
+
+        $firstDeclared = FormDeclaration::query()
             ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
-            ->distinct()
-            ->pluck('period_year')
-            ->map(fn ($year) => (int) $year)
-            ->push((int) now()->year)
-            ->unique()
-            ->sortDesc()
-            ->values();
+            ->min('period_year');
+
+        $firstPublished = FormTemplate::query()
+            ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
+            ->min('publish_at');
+
+        $first = min(
+            $current,
+            $firstDeclared ? (int) $firstDeclared : $current,
+            $firstPublished ? (int) substr((string) $firstPublished, 0, 4) : $current,
+        );
+
+        return collect(range($current, $first))->values();
     }
 
     /**
-     * The months (YYYYMM) that have a template of the form type in a year --
-     * or in any year when $year is null -- newest first. A year report is
-     * built from these.
+     * The years a report covers: the one asked for, or every year when $year
+     * is null -- newest first.
      *
      * @return Collection<int, int>
      */
-    public function monthsIn(int $formTypeId, ?int $year): Collection
+    public function yearsFor(int $formTypeId, ?int $year): Collection
     {
-        return FormTemplate::query()
-            ->where('form_type_id', $formTypeId)
-            ->when($year !== null, fn (Builder $query) => $query->where('period_year', $year))
-            ->distinct()
-            ->orderByDesc('period')
-            ->pluck('period')
-            ->map(fn ($period) => (int) $period)
-            ->values();
+        return $year !== null ? collect([$year]) : $this->years($formTypeId);
     }
 
-    /** The year a report opens on: that of the latest started month with a template. */
+    /** The year a report opens on: this one -- the year being signed. */
     public function defaultYear(?int $formTypeId = null): int
     {
-        return FormPeriod::year($this->defaultPeriod($formTypeId));
-    }
-
-    public function defaultPeriod(?int $formTypeId = null): int
-    {
-        $current = FormPeriod::current();
-
-        $withTemplate = FormTemplate::query()
-            ->when($formTypeId, fn (Builder $query) => $query->where('form_type_id', $formTypeId))
-            ->where('period', '<=', $current)
-            ->max('period');
-
-        return $withTemplate ? (int) $withTemplate : $current;
+        return (int) now()->year;
     }
 }

@@ -84,8 +84,9 @@ class FormReportController extends Controller
     {
         $this->authorizeDeclaration($request, $declaration);
 
-        // A draft has no signature or snapshot to show.
-        abort_unless($declaration->isSigned(), 404);
+        // A draft has no signature or snapshot to show; an upload is a file,
+        // opened through pdf().
+        abort_unless($declaration->isSigned() && ! $declaration->isUpload(), 404);
 
         return response()->json([
             'id' => $declaration->id,
@@ -108,11 +109,8 @@ class FormReportController extends Controller
     }
 
     /**
-     * The report period; null = "all" (every period). This year by default.
-     */
-    /**
      * The report year (the `period` filter is a year); null = every year.
-     * Defaults to the year of the latest started month with a template.
+     * This year by default.
      */
     public static function period(Request $request, ?int $formTypeId = null): ?int
     {

@@ -7,7 +7,6 @@ import Modal from '@/Components/UI/Modal.vue'
 import DocumentEditor from '@/Components/Forms/DocumentEditor.vue'
 import AdminLayout from '@/Layouts/AdminLayout.vue'
 import { useLocale } from '@/Composables/useLocale'
-import { formatPeriod } from '@/Utils/date'
 import { usePermission } from '@/Composables/usePermission'
 import FormDocument from '@/Components/Forms/FormDocument.vue'
 import FormTypeSelect from '@/Components/Forms/FormTypeSelect.vue'
@@ -21,9 +20,6 @@ import Swal from '@/Utils/alert'
 interface TemplateData {
     id: number
     form_type_id: number
-    period: number
-    period_year: number
-    period_month: number
     title_en: string
     title_id: string
     content_en: string
@@ -57,8 +53,6 @@ const props = defineProps<{
     // Each variable as display HTML per language, formatted by the server
     // (FormVariableService::displayValues), signature included.
     previewValues: Record<Language, Record<string, string>>
-    // YYYYMM a new template starts on (the current month).
-    defaultPeriod: number
     samples: FormSample[]
     formTypes: FormTypeOption[]
     defaultFormType: number | null
@@ -160,15 +154,6 @@ watch([showPreview, previewMode, previewLanguage], ([open, mode]) => {
 
 onBeforeUnmount(clearPdf)
 
-// The period is a year and a month, saved as two columns.
-const monthOptions = computed(() => Array.from({ length: 12 }, (_, index) => ({
-    value: index + 1,
-    label: new Date(2000, index, 1).toLocaleDateString(locale.value === 'id' ? 'id-ID' : 'en-GB', { month: 'long' }),
-})))
-
-// YYYYMM, for display and the preview's {{period}}.
-const formPeriod = computed(() => Number(form.period_year) * 100 + Number(form.period_month))
-
 function defaultPublishAt(): string {
     const now = new Date()
     const pad = (value: number) => String(value).padStart(2, '0')
@@ -178,8 +163,6 @@ function defaultPublishAt(): string {
 
 const form = useForm({
     form_type_id: props.template?.form_type_id ?? props.defaultFormType ?? props.formTypes[0]?.id ?? null,
-    period_year: props.template?.period_year ?? Math.floor(props.defaultPeriod / 100),
-    period_month: props.template?.period_month ?? props.defaultPeriod % 100,
     title_en: props.template?.title_en ?? '',
     title_id: props.template?.title_id ?? '',
     content_en: props.template?.content_en ?? '',
@@ -264,17 +247,12 @@ const tabs = computed(() => [
 
 // --- Preview: the admin's own data in place of each {{variable}} ---------
 
-const escapeHtml = (value: string) => value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-
 // Mirrors FormVariableService::render() so the preview matches what
 // signers get. Only the admin's own input is shown here; what employees see is
 // sanitised and rendered on the server.
 function renderPreview(html: string, lang: Language): string {
-    const values: Record<string, string> = { ...props.previewValues[lang], period: escapeHtml(formatPeriod(formPeriod.value, lang)) }
+    // {{period}} is the year a signature counts for: this year's here.
+    const values: Record<string, string> = { ...props.previewValues[lang] }
 
     // The chip styling is editor-only; the server strips it on save.
     return html.replaceAll(' class="form-variable"', '').replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (match, key: string) => values[key] ?? match)
@@ -587,36 +565,6 @@ function duplicate() {
                                 {{ form.errors.form_type_id }}
                             </p>
                         </div>
-
-                        <!-- Period: year and month, stored as two columns -->
-                        <div class="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
-                            <div>
-                                <label class="form-side-label">{{ t.forms.periodYear }}</label>
-                                <input
-                                    v-model.number="form.period_year"
-                                    type="number"
-                                    min="2000"
-                                    max="2100"
-                                    class="form-side-input"
-                                    :disabled="readOnly"
-                                >
-                            </div>
-                            <div>
-                                <label class="form-side-label">{{ t.forms.periodMonth }}</label>
-                                <SearchableSelect
-                                    v-model="form.period_month"
-                                    :options="monthOptions"
-                                    class="w-full"
-                                    :disabled="readOnly"
-                                />
-                            </div>
-                        </div>
-                        <p
-                            v-if="form.errors.period_year || form.errors.period_month"
-                            class="form-side-error"
-                        >
-                            {{ form.errors.period_year ?? form.errors.period_month }}
-                        </p>
 
                         <div>
                             <label class="form-side-label">{{ t.forms.formPublishAt }}</label>

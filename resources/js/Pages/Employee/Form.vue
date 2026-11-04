@@ -10,14 +10,16 @@ import FormDocument from '@/Components/Forms/FormDocument.vue'
 import FormStatusBadge from '@/Components/Forms/FormStatusBadge.vue'
 import SearchableSelect from '@/Components/UI/SearchableSelect.vue'
 import type { FormStatus, Localized, RenderedForm } from '@/Components/Forms/types'
-import { formatDateTime, periodMonth, periodYear } from '@/Utils/date'
+import { formatDateTime } from '@/Utils/date'
 import { useLocale } from '@/Composables/useLocale'
-import { Head, Link, usePage } from '@inertiajs/vue3'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import Swal from '@/Utils/alert'
 import { computed, ref } from 'vue'
 import type { Flash } from '@/Config/inertia'
 
 interface PendingItem {
     id: number
+    // The year it is owed for: always this year.
     period: number
     publish_at: string | null
     title: Localized
@@ -27,27 +29,35 @@ interface PendingItem {
     resign: boolean
 }
 
-interface SignedForm extends RenderedForm {
+interface SignedForm extends Omit<RenderedForm, 'title'> {
     id: number
+    // The year the signature counts for.
     period: number
+    // Null for an upload, which has no template.
+    title: Localized | null
     signed_name: string
     signed_at: string | null
     created_at: string | null
     locale: 'en' | 'id'
     // Kept, but its template was replaced by a newer version: not valid.
     superseded: boolean
+    // A past year's signed document uploaded by the employee: a file,
+    // nothing to render.
+    upload: boolean
 }
 
-// One table row: a form still to sign (template) or a signed one.
+// One table row: a form still to sign (template), a past year still to
+// upload, or a signed one.
 interface Row {
     key: string
     period: number
-    title: Localized
     status: FormStatus
     date: string | null
     createdAt: string | null
     pending?: PendingItem
     signed?: SignedForm
+    // A past year with nothing on record yet: upload its signed document.
+    uploadYear?: number
 }
 
 const props = defineProps<{
@@ -63,6 +73,9 @@ const props = defineProps<{
     // What "Add / Update" opens: the template that applies now. Signing it
     // again adds a new declaration, which becomes the valid one.
     updateTarget: { id: number, period: number } | null
+    // Past years (from 2025) still open for an upload of the signed
+    // document; one already uploaded stays open to replace it.
+    uploadYears: number[]
 }>()
 
 const { t, locale } = useLocale()
@@ -73,7 +86,6 @@ const rows = computed<Row[]>(() => [
     ...props.pending.map(item => ({
         key: `pending-${item.id}`,
         period: item.period,
-        title: item.title,
         status: (item.draft_saved_at ? 'draft' : 'pending') as FormStatus,
         date: null,
         createdAt: item.created_at,
@@ -82,7 +94,6 @@ const rows = computed<Row[]>(() => [
     ...props.signed.map(item => ({
         key: `signed-${item.id}`,
         period: item.period,
-        title: item.title,
         // An older declaration (replaced by a newer one) is still a
         // signature: shown as Signed, viewable, but without a PDF.
         status: 'signed' as FormStatus,
@@ -90,28 +101,39 @@ const rows = computed<Row[]>(() => [
         createdAt: item.created_at,
         signed: item,
     })),
+    // Past years are not signed in the app: like the COI 2025 row, each one
+    // gets a row of its own, uploaded from the table.
+    ...props.uploadYears
+        .filter(year => !props.signed.some(item => item.upload && item.period === year))
+        .map(year => ({
+            key: `upload-${year}`,
+            period: year,
+            status: 'pending' as FormStatus,
+            date: null,
+            createdAt: null,
+            uploadYear: year,
+        })),
 ])
 
 // --- Filter and sort (a person has a handful of rows: done in the browser) ---
 
 const period = ref('')
 
-// The filter is by year, like the reports; rows keep their month.
-const periods = computed(() => [...new Set(rows.value.map(row => periodYear(row.period)))].sort((a, b) => b - a))
+// The filter is by year, like the reports.
+const periods = computed(() => [...new Set(rows.value.map(row => row.period))].sort((a, b) => b - a))
 
 const periodOptions = computed(() => [
     { value: '', label: t.value.history.allPeriods },
     ...periods.value.map(item => ({ value: String(item), label: String(item) })),
 ])
 
-type SortKey = 'period' | 'month' | 'status' | 'date' | 'createdAt'
+type SortKey = 'period' | 'status' | 'date' | 'createdAt'
 
 const sortKey = ref<SortKey>('period')
 const sortDir = ref<'asc' | 'desc'>('desc')
 
 const columns = computed<{ key: SortKey, label: string }[]>(() => [
     { key: 'period', label: t.value.forms.periodYear },
-    { key: 'month', label: t.value.forms.periodMonth },
     { key: 'status', label: t.value.history.columnFormStatus },
     { key: 'date', label: t.value.forms.columnSignedAt },
     { key: 'createdAt', label: t.value.history.columnCreatedDate },
@@ -123,8 +145,6 @@ const STATUS_ORDER: Record<string, number> = { pending: 0, draft: 1, signed: 2 }
 const visibleRows = computed(() => {
     const value = (row: Row): number | string => {
         switch (sortKey.value) {
-            case 'month':
-                return row.period % 100
             case 'status':
                 return STATUS_ORDER[row.status] ?? 9
             case 'date':
@@ -139,12 +159,12 @@ const visibleRows = computed(() => {
     const direction = sortDir.value === 'asc' ? 1 : -1
 
     return rows.value
-        .filter(row => !period.value || periodYear(row.period) === Number(period.value))
+        .filter(row => !period.value || row.period === Number(period.value))
         .sort((a, b) => {
             const x = value(a)
             const y = value(b)
 
-            // Unsigned rows go above signed ones within the same period.
+            // Unsigned rows go above signed ones within the same year.
             return x < y ? -direction : x > y ? direction : (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
         })
 })
@@ -166,6 +186,51 @@ function downloadPdf(id: number, language: 'en' | 'id') {
     window.open(
         route('employee.forms.pdf', { declaration: id, locale: language }),
         '_blank',
+    )
+}
+
+// --- Past year: upload the signed document ---------------------------------
+
+const canReplace = (signed: SignedForm) => signed.upload && props.uploadYears.includes(signed.period)
+
+const uploadingYear = ref<number | null>(null)
+const documentInput = ref<HTMLInputElement | null>(null)
+
+function chooseDocument(year: number) {
+    uploadingYear.value = year
+    documentInput.value?.click()
+}
+
+function onDocumentChosen(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    const year = uploadingYear.value
+
+    if (!file || !year) {
+        return
+    }
+
+    router.post(
+        route('employee.forms.upload', { formType: props.formType.code }),
+        { year, document: file, locale: locale.value },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+
+            // Success shows as the page's flash message.
+            onError: (errors) => {
+                Swal.fire({
+                    icon: 'error',
+                    title: t.value.history.uploadFailedTitle,
+                    text: errors.document ?? errors.year ?? t.value.history.uploadFailedText,
+                })
+            },
+
+            onFinish: () => {
+                uploadingYear.value = null
+                input.value = ''
+            },
+        },
     )
 }
 </script>
@@ -246,15 +311,18 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                             class="border-b border-slate-100 text-center"
                         >
                             <td class="py-4 font-semibold">
-                                {{ periodYear(row.period) }}
-                            </td>
-
-                            <td class="py-4 whitespace-nowrap">
-                                {{ periodMonth(row.period, locale) }}
+                                {{ row.period }}
                             </td>
 
                             <td class="py-4">
                                 <FormStatusBadge :status="row.status" />
+                                <div
+                                    v-if="row.signed?.upload"
+                                    class="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-slate-500"
+                                >
+                                    <i class="fa-solid fa-paperclip" />
+                                    {{ t.forms.uploadedDocument }}
+                                </div>
                                 <div
                                     v-if="row.pending?.resign"
                                     class="mt-1 flex items-center justify-center gap-1 text-xs font-medium text-amber-700"
@@ -288,9 +356,32 @@ function downloadPdf(id: number, language: 'en' | 'id') {
 
                                     <!-- A replaced version has no PDF for the signer
                                          (admins keep it in the Form Report). -->
+                                    <!-- Past year with nothing yet: upload, as the COI 2025 row -->
+                                    <button
+                                        v-if="row.uploadYear"
+                                        type="button"
+                                        class="btn btn-primary-custom btn-sm"
+                                        :title="t.forms.uploadPastYearHint"
+                                        @click="chooseDocument(row.uploadYear)"
+                                    >
+                                        <i class="fa-solid fa-upload" />
+                                        {{ t.forms.upload }}
+                                    </button>
+
+                                    <button
+                                        v-if="row.signed && canReplace(row.signed)"
+                                        type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        @click="chooseDocument(row.signed.period)"
+                                    >
+                                        <i class="fa-solid fa-arrows-rotate" />
+                                        {{ t.common.replace }}
+                                    </button>
+
                                     <DocumentActions
                                         v-if="row.signed"
                                         :pdf="!row.signed.superseded"
+                                        :file="row.signed.upload"
                                         @view="viewing = row.signed"
                                         @download="language => downloadPdf(row.signed!.id, language)"
                                     />
@@ -300,7 +391,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
 
                         <tr v-if="!visibleRows.length">
                             <td
-                                colspan="6"
+                                colspan="5"
                                 class="py-8 text-center text-slate-500"
                             >
                                 {{ t.history.noRecords }}
@@ -317,7 +408,7 @@ function downloadPdf(id: number, language: 'en' | 'id') {
             :title="formType.name[locale]"
             @close="viewing = null"
         >
-            <template v-if="viewing">
+            <template v-if="viewing && viewing.page">
 
                 <div class="overflow-y-auto">
                     <FormDocument
@@ -329,5 +420,14 @@ function downloadPdf(id: number, language: 'en' | 'id') {
                 </div>
             </template>
         </Modal>
+
+        <!-- Shared hidden picker for a past year's signed document -->
+        <input
+            ref="documentInput"
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            class="hidden"
+            @change="onDocumentChosen"
+        >
     </EmployeeLayout>
 </template>
