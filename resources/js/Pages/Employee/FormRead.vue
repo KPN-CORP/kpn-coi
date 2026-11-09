@@ -246,14 +246,6 @@ function saveDraft() {
         </div>
 
         <div
-            v-else-if="updating"
-            class="mb-4 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-800"
-        >
-            <i class="fa-solid fa-pen-to-square mt-0.5" />
-            <span>{{ t.forms.updateBanner }}</span>
-        </div>
-
-        <div
             v-if="!reachedEnd"
             class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800"
         >

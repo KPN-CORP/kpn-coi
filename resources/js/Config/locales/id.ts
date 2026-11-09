@@ -603,7 +603,6 @@ export default {
         statusNoTemplate: 'Tidak Ada Template',
         resignRequired: 'Perlu tanda tangan ulang',
         addUpdate: 'Tambah / Perbarui',
-        updateBanner: 'Anda sudah menandatangani periode ini. Mengirim lagi akan menambah deklarasi baru yang menjadi deklarasi Anda yang berlaku; deklarasi sebelumnya tetap tersimpan di riwayat.',
         resignBanner: 'Dokumen ini telah diperbarui sejak Anda menandatanganinya. Silakan baca dan tanda tangani versi terbaru.',
         versions: 'Versi',
         versionsHint: 'Semua tanda tangan di periode ini, termasuk versi yang digantikan template yang diperbarui',

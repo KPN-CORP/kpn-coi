@@ -603,7 +603,6 @@ export default {
         statusNoTemplate: 'No Template',
         resignRequired: 'Re-sign required',
         addUpdate: 'Add / Update',
-        updateBanner: 'You have already signed this period. Submitting again adds an updated declaration, which becomes your valid one; the earlier one is kept in your history.',
         resignBanner: 'This document has been updated since you signed it. Please read and sign the new version.',
         versions: 'Versions',
         versionsHint: 'Every signature in this period, including versions replaced by an updated template',
