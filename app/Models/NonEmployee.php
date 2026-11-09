@@ -22,6 +22,8 @@ class NonEmployee extends Model
         'ktp',
         'nationality',
         'group_company',
+        'company_name',
+        'contribution_level_code',
         'location_id',
         'work_area_code',
         'office_area',

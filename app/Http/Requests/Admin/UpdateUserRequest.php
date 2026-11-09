@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\Location;
+use App\Http\Requests\Concerns\ValidatesNonEmployeeCompany;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
+    use ValidatesNonEmployeeCompany;
+
     public function authorize(): bool
     {
         return true;
@@ -59,7 +61,7 @@ class UpdateUserRequest extends FormRequest
                 'nullable',
                 'string',
                 Rule::when(
-                   $this->nationality_type === 'indonesian' || $this->nationality_type === 'Indonesian',
+                    $this->nationality_type === 'indonesian' || $this->nationality_type === 'Indonesian',
                     ['min:15'],
                     ['max:10']
                 ),
@@ -80,6 +82,10 @@ class UpdateUserRequest extends FormRequest
             'business_unit' => [
                 'required',
             ],
+
+            // Company Name -> non_employees.contribution_level_code, one of the
+            // chosen business unit's companies.
+            'company' => $this->companyRules(),
 
             // Office area (locations.area). Free-form so the dropdown selection
             // is accepted; the work_area code is resolved from it at save time.

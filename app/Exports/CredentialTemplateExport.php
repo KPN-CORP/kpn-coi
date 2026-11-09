@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Exports;
 
+use App\Services\DataScopeService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -12,9 +14,7 @@ use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class CredentialTemplateExport implements WithEvents,
-    FromCollection,
-    WithHeadings
+class CredentialTemplateExport implements FromCollection, WithEvents, WithHeadings
 {
     protected array $businessUnits = [
         'KPN Corporation',
@@ -44,6 +44,10 @@ class CredentialTemplateExport implements WithEvents,
 
             'Business Unit',
 
+            // Read back as the company_name slug; one of the Business Unit's
+            // companies (see the Companies sheet), by name or code.
+            'Company Name',
+
             'Office Location',
 
             'Date of Join',
@@ -72,6 +76,8 @@ class CredentialTemplateExport implements WithEvents,
 
                 'KPN Corporation',
 
+                'PT TH Indo Plantations',
+
                 'Head Office',
 
                 '17-01-2020',
@@ -95,6 +101,8 @@ class CredentialTemplateExport implements WithEvents,
                 'A12345678',
 
                 'Plantations',
+
+                'PT Agrinusa Persada Mulia',
 
                 'Estate Office',
 
@@ -136,10 +144,68 @@ class CredentialTemplateExport implements WithEvents,
                     $validation->setShowInputMessage(true);
                     $validation->setShowErrorMessage(true);
                     $validation->setFormula1(
-                        '"' . implode(',', $this->businessUnits) . '"'
+                        '"'.implode(',', $this->businessUnits).'"'
                     );
                 }
+
+                $this->addCompanies($event);
             },
         ];
+    }
+
+    /**
+     * A "Companies" reference sheet (Business Unit, Company Name, Code) and a
+     * Company Name dropdown on column H fed from it. 100+ names are far past
+     * the 255 characters an inline list validation allows, hence the sheet.
+     * The dropdown lists every company; which unit a company belongs to is
+     * checked on import (KPN Corporation may take any of them).
+     */
+    private function addCompanies(AfterSheet $event): void
+    {
+        $companies = app(DataScopeService::class)
+            ->contributionLevelOptions(Auth::guard('web')->user())
+            ->sortBy([['business_unit', 'asc'], ['name', 'asc']])
+            ->values();
+
+        $main = $event->sheet->getDelegate();
+        $spreadsheet = $main->getParent();
+
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Companies');
+        $sheet->fromArray(['Business Unit', 'Company Name', 'Code'], null, 'A1');
+        $sheet->fromArray(
+            $companies->map(fn (array $company) => [
+                $company['business_unit'],
+                $company['name'],
+                $company['code'],
+            ])->all(),
+            null,
+            'A2'
+        );
+        $sheet->getStyle('A1:C1')->getFont()->setBold(true);
+
+        foreach (['A', 'B', 'C'] as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        // Opening the file should land on the sheet to fill in.
+        $spreadsheet->setActiveSheetIndex($spreadsheet->getIndex($main));
+
+        if ($companies->isEmpty()) {
+            return;
+        }
+
+        $range = '\'Companies\'!$B$2:$B$'.($companies->count() + 1);
+
+        for ($row = 2; $row <= 1000; $row++) {
+            $validation = $main->getCell("H{$row}")->getDataValidation();
+
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true);
+            $validation->setShowDropDown(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setFormula1($range);
+        }
     }
 }

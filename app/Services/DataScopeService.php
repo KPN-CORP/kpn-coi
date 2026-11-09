@@ -201,6 +201,26 @@ class DataScopeService
     }
 
     /**
+     * The companies a person in $businessUnit can be assigned to (the
+     * Credentials form's Company Name), from contributionLevelOptions() so a
+     * restricted admin only gets the ones their role allows. KPN Corporation
+     * is the group head and owns every company, so it is offered them all --
+     * same cascade as the report's contribution-level filter.
+     */
+    public function companyOptionsFor(?User $user, ?string $businessUnit): Collection
+    {
+        if (blank($businessUnit)) {
+            return collect();
+        }
+
+        $options = $this->contributionLevelOptions($user);
+
+        return $businessUnit === self::GROUP_HEAD
+            ? $options
+            : $options->where('business_unit', $businessUnit)->values();
+    }
+
+    /**
      * The business unit a companies row belongs to. company_name is stored as
      * "KPN Corporation,<Unit>", and the people tables / BU filter carry the unit
      * as "Plantations", never "KPN Plantations", so normalise that one case.

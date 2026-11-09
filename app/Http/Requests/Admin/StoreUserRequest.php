@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\Location;
+use App\Http\Requests\Concerns\ValidatesNonEmployeeCompany;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreUserRequest extends FormRequest
 {
+    use ValidatesNonEmployeeCompany;
+
     public function authorize(): bool
     {
         return true;
@@ -79,6 +81,10 @@ class StoreUserRequest extends FormRequest
             'business_unit' => [
                 'required',
             ],
+
+            // Company Name -> non_employees.contribution_level_code, one of the
+            // chosen business unit's companies.
+            'company' => $this->companyRules(),
 
             // Office area (locations.area). Free-form so the dropdown selection
             // is accepted; the work_area code is resolved from it at save time.

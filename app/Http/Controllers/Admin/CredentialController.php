@@ -13,6 +13,7 @@ use App\Imports\NonEmployeeUserImport;
 use App\Mail\NonEmployeeCredentialMail;
 use App\Mail\ResetPasswordMail;
 use App\Models\CoiDeclaration;
+use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\NonEmployee;
@@ -47,6 +48,27 @@ class CredentialController extends Controller
         return strtolower((string) $request->nationality_type) === 'foreigner'
             ? (string) $request->nationality
             : 'Indonesia';
+    }
+
+    /**
+     * Company Name is stored the way kpncorp.employees stores it: the code
+     * (what the Contribution Level restriction and filters match on) plus the
+     * readable name. The request already checked the code belongs to the
+     * chosen business unit; the name is looked up here rather than trusted
+     * from the form.
+     *
+     * @return array{contribution_level_code: ?string, company_name: ?string}
+     */
+    private function companyAttributes(Request $request): array
+    {
+        $code = $request->filled('company') ? (string) $request->company : null;
+
+        return [
+            'contribution_level_code' => $code,
+            'company_name' => $code === null ? null : Companies::query()
+                ->where('contribution_level_code', $code)
+                ->value('contribution_level'),
+        ];
     }
 
     public function index(Request $request, DataScopeService $dataScope): Response
@@ -138,6 +160,8 @@ class CredentialController extends Controller
                 'email' => $user->email,
                 'citizen_number' => $user?->employee?->ktp,
                 'business_unit' => $user?->employee?->group_company,
+                'company' => $user?->employee?->contribution_level_code,
+                'company_name' => $user?->employee?->company_name,
                 // Fall back to the legacy location's area so records still on
                 // location_id show their office area on edit; saving then
                 // migrates them onto office_area + work_area_code.
@@ -194,12 +218,18 @@ class CredentialController extends Controller
             ])
             ->values();
 
+        // Company Name choices, each tagged with its business unit so the form
+        // can cascade (unit first, then its companies). Scoped to the viewer's
+        // Contribution Level restriction, like the report filter.
+        $companyOptions = $dataScope->contributionLevelOptions($viewer);
+
         return Inertia::render(
             'Admin/Credentials',
             [
                 'users' => $paginated,
                 'businessUnitOptions' => $businessUnitOptions,
                 'officeAreaOptions' => $officeAreaOptions,
+                'companyOptions' => $companyOptions,
 
                 // Only resolved when the convert dialog asks for it by name --
                 // there are thousands of employees, far too many to ship with
@@ -432,6 +462,7 @@ class CredentialController extends Controller
                 'ktp' => $request->citizen_number,
                 'permanent_address' => $request->address,
                 'group_company' => $request->business_unit,
+                ...$this->companyAttributes($request),
                 'office_area' => $request->office_area,
                 'work_area_code' => Location::workAreaFor(
                     $request->business_unit,
@@ -491,6 +522,8 @@ class CredentialController extends Controller
                 'permanent_address' => $request->address,
 
                 'group_company' => $request->business_unit,
+
+                ...$this->companyAttributes($request),
 
                 'office_area' => $request->office_area,
 

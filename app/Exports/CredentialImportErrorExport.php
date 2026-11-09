@@ -8,14 +8,11 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 
-class CredentialImportErrorExport implements
-    FromCollection,
-    WithHeadings
+class CredentialImportErrorExport implements FromCollection, WithHeadings
 {
     public function __construct(
         protected Collection $errors
-    ) {
-    }
+    ) {}
 
     public function headings(): array
     {
@@ -30,6 +27,8 @@ class CredentialImportErrorExport implements
             'Citizenship Number / Passport Number',
 
             'Business Unit',
+
+            'Company Name',
 
             'Date Of Join',
 

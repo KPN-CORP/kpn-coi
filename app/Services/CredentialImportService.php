@@ -8,8 +8,10 @@ use App\Mail\NonEmployeeCredentialMail;
 use App\Models\Location;
 use App\Models\NonEmployee;
 use App\Models\NonEmployeeUser;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -19,6 +21,58 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class CredentialImportService
 {
+    public function __construct(
+        protected DataScopeService $dataScope
+    ) {}
+
+    /**
+     * The admin running the import: their role's Contribution Level
+     * restriction limits which companies a row may name, as on the form.
+     */
+    private function importer(): ?User
+    {
+        $user = Auth::guard('web')->user();
+
+        return $user instanceof User ? $user : null;
+    }
+
+    /**
+     * A company from $companies matching the cell by readable name or by
+     * code, ignoring case and surrounding spaces.
+     *
+     * @param  Collection<int, array{code: string, name: string, business_unit: string}>  $companies
+     * @return array{code: string, name: string, business_unit: string}|null
+     */
+    private function findCompany(Collection $companies, string $value): ?array
+    {
+        $needle = mb_strtolower(trim($value));
+
+        return $companies->first(
+            fn (array $company) => mb_strtolower((string) $company['name']) === $needle
+                || mb_strtolower((string) $company['code']) === $needle
+        );
+    }
+
+    /**
+     * Stored like kpncorp.employees: the code plus the readable name.
+     *
+     * @return array{contribution_level_code: ?string, company_name: ?string}
+     */
+    private function companyAttributes(string $businessUnit, string $value): array
+    {
+        $company = $value === ''
+            ? null
+            : $this->findCompany(
+                $this->dataScope->companyOptionsFor($this->importer(), $businessUnit),
+                $value
+            );
+
+        return [
+            'contribution_level_code' => $company['code'] ?? null,
+            'company_name' => $company['name'] ?? null,
+        ];
+    }
+
     /**
      * Read a Date of Join from a spreadsheet cell. Excel stores date-formatted
      * cells as a serial number (e.g. 45582), so a plain text parse fails; that
@@ -46,7 +100,7 @@ class CredentialImportService
 
         foreach (['d-m-Y', 'd/m/Y', 'd.m.Y', 'Y-m-d'] as $format) {
             try {
-                $date = Carbon::createFromFormat('!' . $format, $text);
+                $date = Carbon::createFromFormat('!'.$format, $text);
             } catch (\Throwable) {
                 continue;
             }
@@ -99,292 +153,107 @@ class CredentialImportService
 
             $line = $index + 2;
 
-            $email = trim(
-                (string) $row['email']
-            );
+            $email = trim((string) $row['email']);
 
-            $name = trim(
-                (string) $row['fullname']
-            );
+            $citizenNumber = trim((string) $row['citizen_number_passport_number']);
 
-            $citizenNumber = trim(
-                (string) $row['citizen_number_passport_number']
-            );
+            $businessUnit = trim((string) $row['business_unit']);
 
-            $businessUnit = trim(
-                (string) $row['business_unit']
-            );
+            $companyName = trim((string) ($row['company_name'] ?? ''));
+
             $parsedDoj = $this->parseDate($row['date_of_join'] ?? null);
 
-            // Show a readable date in error reports even when the cell held an
+            // One error-report row per failed line, in CredentialImportErrorExport's
+            // column order. Show a readable date even when the cell held an
             // Excel serial number.
-            $doj = $parsedDoj
-                ? $parsedDoj->format('d-m-Y')
-                : trim((string) $row['date_of_join']);
-
-            $address = trim(
-                (string) $row['permanent_address']
-            );
+            $fail = fn (string $message) => $errors->push([
+                'row' => $line,
+                'name' => trim((string) $row['fullname']),
+                'email' => $email,
+                'citizen_number' => $citizenNumber,
+                'business_unit' => $businessUnit,
+                'company_name' => $companyName,
+                'date_of_join' => $parsedDoj
+                    ? $parsedDoj->format('d-m-Y')
+                    : trim((string) $row['date_of_join']),
+                'address' => trim((string) $row['permanent_address']),
+                'error' => $message,
+            ]);
 
             if (blank($row['fullname'])) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Email already exists.',
-
-                ]);
+                $fail('Fullname is required.');
 
                 continue;
-
             }
 
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Invalid email.',
-
-                ]);
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $fail('Invalid email.');
 
                 continue;
-
             }
 
             if (blank($row['business_unit'])) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Select Business Unit.',
-
-                ]);
+                $fail('Select Business Unit.');
 
                 continue;
+            }
 
+            // Same rule as the Add User form: required when the unit has any
+            // company, and it must be one of that unit's (or, for KPN
+            // Corporation, any company). Matched by name or code.
+            $companies = $this->dataScope->companyOptionsFor($this->importer(), $businessUnit);
+
+            if ($companyName === '' && $companies->isNotEmpty()) {
+                $fail('Company Name is required.');
+
+                continue;
+            }
+
+            if ($companyName !== '' && $this->findCompany($companies, $companyName) === null) {
+                $fail('Company Name does not belong to this Business Unit.');
+
+                continue;
             }
 
             if (blank($row['date_of_join'])) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'DOJ Cannot be Empty.',
-
-                ]);
-
-                continue;
-
-            }
-
-            if ($parsedDoj === null) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Date of Joining must be a valid date (dd-mm-yyyy or dd/mm/yyyy).',
-
-                ]);
+                $fail('DOJ Cannot be Empty.');
 
                 continue;
             }
 
-            if (
-                isset(
-                    $emails[$email]
-                )
-            ) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Duplicate email in uploaded file.',
-
-                ]);
+            if ($parsedDoj === null) {
+                $fail('Date of Joining must be a valid date (dd-mm-yyyy or dd/mm/yyyy).');
 
                 continue;
-
             }
 
-            if (
-                isset(
-                    $citizenNumbers[$citizenNumber]
-                )
-            ) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Duplicate Citizenship Number / Passport ID in uploaded file.',
-
-                ]);
+            if (isset($emails[$email])) {
+                $fail('Duplicate email in uploaded file.');
 
                 continue;
+            }
 
+            if (isset($citizenNumbers[$citizenNumber])) {
+                $fail('Duplicate Citizenship Number / Passport ID in uploaded file.');
+
+                continue;
             }
 
             $emails[$email] = true;
 
             $citizenNumbers[$citizenNumber] = true;
 
-            if (
-                NonEmployeeUser::query()
-                    ->where(
-                        'email',
-                        $email
-                    )
-                    ->exists()
-            ) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Email already exists.',
-
-                ]);
+            if (NonEmployeeUser::query()->where('email', $email)->exists()) {
+                $fail('Email already exists.');
 
                 continue;
-
             }
 
-            if (
-                NonEmployee::query()
-                    ->where(
-                        'ktp',
-                        $citizenNumber
-                    )
-                    ->exists()
-            ) {
-
-                $errors->push([
-
-                    'row' => $line,
-
-                    'name' => $name,
-
-                    'email' => $email,
-
-                    'citizen_number' => $citizenNumber,
-
-                    'business_unit' => $businessUnit,
-                    
-                    'date_of_join' => $doj,
-
-                    'address' => $address,
-
-                    'error' => 'Citizenship Number / Passport ID already exists.',
-
-                ]);
+            if (NonEmployee::query()->where('ktp', $citizenNumber)->exists()) {
+                $fail('Citizenship Number / Passport ID already exists.');
 
                 continue;
-
             }
-
         }
 
         if ($errors->isNotEmpty()) {
@@ -395,7 +264,6 @@ class CredentialImportService
             );
 
             throw ValidationException::withMessages([
-
                 'file' => sprintf(
                     '%d row(s) failed validation. Please download the error report.',
                     $errors->count(),
@@ -448,6 +316,12 @@ class CredentialImportService
                     'nationality' => $this->resolveNationality($row['nationality'] ?? null),
 
                     'group_company' => trim($row['business_unit']),
+
+                    // Validated above, so the lookup always finds it when set.
+                    ...$this->companyAttributes(
+                        trim($row['business_unit']),
+                        trim((string) ($row['company_name'] ?? '')),
+                    ),
 
                     // Office location the importer typed. Kept as-is; the
                     // work_area code is only filled when the area matches a

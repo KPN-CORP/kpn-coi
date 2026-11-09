@@ -36,6 +36,7 @@ interface User {
     citizen_number: string
     address: string
     business_unit: string
+    company?: string | null
     office_area: string | null
     date_of_joining: string
     nationality: string
@@ -46,6 +47,16 @@ interface OfficeAreaOption {
     office_area: string
 }
 
+interface CompanyOption {
+    code: string
+    name: string
+    business_unit: string
+}
+
+// The group head owns every company, so it is offered all of them -- same rule
+// as DataScopeService::companyOptionsFor(), which validates the choice.
+const GROUP_HEAD = 'KPN Corporation'
+
 const props = defineProps<{
     show: boolean
     title: string
@@ -53,7 +64,34 @@ const props = defineProps<{
     serverErrors: Record<string, string>
     businessUnitOptions: string[]
     officeAreaOptions: OfficeAreaOption[]
+    companyOptions: CompanyOption[]
 }>()
+
+// Company Name depends on the business unit: nothing to pick before one is
+// chosen, then only that unit's companies.
+const companiesForBusinessUnit = computed(() => {
+    if (!form.business_unit) {
+        return []
+    }
+
+    const options = props.companyOptions
+        .filter(option => form.business_unit === GROUP_HEAD || option.business_unit === form.business_unit)
+        .map(option => ({
+            value: option.code,
+            label: option.name,
+        }))
+
+    // A saved company the viewer is not offered (e.g. outside their role's
+    // restriction) still shows selected on edit rather than blank.
+    if (form.company && !options.some(option => option.value === form.company)) {
+        options.unshift({
+            value: form.company,
+            label: form.company,
+        })
+    }
+
+    return options
+})
 
 // Office areas belong to a business unit, so the list only makes sense once one
 // is picked. The server already translated company_name into the app's
@@ -106,6 +144,7 @@ const form = useForm({
     role: 'employee',
     address: '',
     business_unit: '',
+    company: props.user?.company ?? null,
     office_area: props.user?.office_area ?? null,
     date_of_joining: '',
     nationality_type: isIndonesian(props.user?.nationality)
@@ -128,6 +167,7 @@ const errors = reactive({
     citizen_number: '',
     address: '',
     business_unit: '',
+    company: '',
     office_area: '',
     nationality_type: '',
     nationality: '',
@@ -161,6 +201,7 @@ function resetFromUser(user?: User | null) {
         citizen_number: user?.citizen_number ?? '',
         address: user?.address ?? '',
         business_unit: user?.business_unit ?? '',
+        company: user?.company ?? null,
         office_area: user?.office_area ?? null,
         date_of_joining: user?.date_of_joining ?? '',
         nationality_type: isLocal ? 'Indonesian' : 'foreigner',
@@ -216,6 +257,7 @@ function validate() {
     errors.citizen_number = ''
     errors.address = ''
     errors.business_unit = ''
+    errors.company = ''
     errors.date_of_joining = ''
     errors.nationality_type = ''
     errors.nationality = ''
@@ -318,6 +360,15 @@ function validate() {
 
         errors.business_unit =
             t.value.userForm.businessUnitRequired
+
+        valid = false
+
+    }
+
+    if (companiesForBusinessUnit.value.length && !form.company) {
+
+        errors.company =
+            t.value.userForm.companyNameRequired
 
         valid = false
 
@@ -460,6 +511,11 @@ watch(() => form.date_of_joining, () => {
     form.clearErrors('date_of_joining')
 })
 
+watch(() => form.company, () => {
+    errors.company = ''
+    form.clearErrors('company')
+})
+
 watch(() => form.address, () => {
     errors.address = ''
     form.clearErrors('address')
@@ -482,13 +538,16 @@ function setBusinessUnit(value: string) {
 
     form.business_unit = value
 
-    // An office area from the previous unit would not be valid under the new one.
+    // An office area or company from the previous unit would not be valid
+    // under the new one.
     form.office_area = null
+    form.company = null
 
     errors.business_unit = ''
     errors.office_area = ''
+    errors.company = ''
 
-    form.clearErrors('business_unit', 'office_area')
+    form.clearErrors('business_unit', 'office_area', 'company')
 }
 
 /**
@@ -827,6 +886,31 @@ watch(() => form.date_of_joining, () => errors.date_of_joining = '')
                         class="text-xs text-red-500"
                     >
                         {{ getError('business_unit') }}
+                    </p>
+                </div>
+
+                <!--
+                    Company Name is scoped to the selected business unit, and
+                    hidden until one is picked (or when it has no companies).
+                -->
+                <div v-if="companiesForBusinessUnit.length">
+                    <label class="mb-1 block text-sm font-medium">
+                        {{ t.userForm.companyName }}
+                        <span class="text-red-500">*</span>
+                    </label>
+
+                    <SearchableSelect
+                        v-model="form.company"
+                        :options="companiesForBusinessUnit"
+                        :placeholder="t.userForm.selectCompanyName"
+                        append-to-body
+                    />
+
+                    <p
+                        v-if="getError('company')"
+                        class="mt-1 text-xs text-red-500"
+                    >
+                        {{ getError('company') }}
                     </p>
                 </div>
 

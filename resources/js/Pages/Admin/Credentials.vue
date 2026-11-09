@@ -133,6 +133,8 @@ interface User {
     citizen_number: string
     address: string
     business_unit: string
+    company: string | null
+    company_name: string | null
     office_area: string | null
     date_of_joining: string
 }
@@ -332,6 +334,13 @@ const props = defineProps<{
         office_area: string
     }[]
 
+    // Company Name choices (kpncorp.companies), each tagged with its unit.
+    companyOptions: {
+        code: string
+        name: string
+        business_unit: string
+    }[]
+
     // Optional prop: only sent when the convert dialog asks for it by name.
     employeeOptions?: {
         employee_id: string
@@ -492,6 +501,13 @@ function applyFilter() {
 
                             <td class="py-4">
                                 {{ user.business_unit || '-' }}
+
+                                <div
+                                    v-if="user.company_name"
+                                    class="text-xs text-slate-500"
+                                >
+                                    {{ user.company_name }}
+                                </div>
                             </td>
 
                             <td class="py-4 whitespace-nowrap">
@@ -565,6 +581,7 @@ function applyFilter() {
             :user="selectedUser"
             :businessUnitOptions="businessUnitOptions"
             :officeAreaOptions="officeAreaOptions"
+            :companyOptions="companyOptions"
             @close="showUserModal = false"
             @save="saveUser"
             @reset-password="resetPassword"
