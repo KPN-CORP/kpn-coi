@@ -428,9 +428,10 @@ function applyFilter() {
                         @input="applyFilter"
                     />
                     <button
-                        class="rounded-md border border-primary px-4 py-2 text-sm font-medium text-primary"
+                        class="inline-flex items-center gap-2 rounded-md border border-[#ab2f2b] bg-[#fcebeb] px-4 py-2 text-sm font-semibold text-[#ab2f2b] transition hover:bg-[#f7c1c1]"
                         @click="showUploadModal = true"
                     >
+                        <i class="fa-solid fa-file-arrow-up" />
                         {{ t.credentials.uploadUsers }}
                     </button>
 

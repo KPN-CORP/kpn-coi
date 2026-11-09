@@ -1,0 +1,1 @@
+import{_ as e}from"./app-BJSUyLX8.js";import{n as t}from"./LanguageSwitcher-CJrsY69K.js";var n=`active`;function r(){let{t:n}=t();return e(()=>[{value:`active`,label:n.value.common.employeeActive},{value:`inactive`,label:n.value.common.employeeInactive},{value:`all`,label:n.value.common.allEmployeeStatus}])}export{r as n,n as t};
