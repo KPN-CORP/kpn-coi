@@ -127,7 +127,7 @@
         stepAgree: 'Agree',
         stepSign: 'Sign',
         readingProgress: 'Reading progress',
-        readHint: 'Please read the whole document. The agreement below unlocks once you reach the end.',
+        readHint: 'Please read the Integrity Pact carefully before proceeding to sign.',
         readToUnlock: 'Read to the end to unlock',
         endOfDocument: 'End of document',
         saveDraft: 'Save as draft',

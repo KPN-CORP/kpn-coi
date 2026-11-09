@@ -12,6 +12,7 @@ use App\Models\NonEmployee;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\FormMasterAccess;
+use App\Services\ImportCenterAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -105,16 +106,20 @@ class RoleController extends Controller
                     ->orderBy('name')
                     ->get(),
 
-                // Master Settings is only offered to the accounts listed in
-                // FORM_MASTER_ADMIN_EMAILS (FormMasterAccess).
-                'availablePermissions' => FormMasterAccess::visiblePermissions(
+                // Master Settings and Import Center are only offered to the
+                // accounts listed in FORM_MASTER_ADMIN_EMAILS (FormMasterAccess)
+                // and IMPORT_CENTER_ADMIN_EMAILS (ImportCenterAccess).
+                'availablePermissions' => ImportCenterAccess::visiblePermissions(
                     $request->user(),
-                    Permission::query()
-                        ->orderBy('name')
-                        ->get([
-                            'id',
-                            'name',
-                        ])
+                    FormMasterAccess::visiblePermissions(
+                        $request->user(),
+                        Permission::query()
+                            ->orderBy('name')
+                            ->get([
+                                'id',
+                                'name',
+                            ])
+                    )
                 ),
 
                 // Each form type is its own permission module (form_type.{code}),
@@ -242,7 +247,7 @@ class RoleController extends Controller
         ]);
 
         $role->syncPermissions(
-            FormMasterAccess::permissionsToSave($request->user(), $validated['permissions'] ?? [], [])
+            $this->permissionsToSave($request->user(), $validated['permissions'] ?? [], [])
         );
 
         return back()->with(
@@ -300,7 +305,7 @@ class RoleController extends Controller
         ]);
 
         $role->syncPermissions(
-            FormMasterAccess::permissionsToSave(
+            $this->permissionsToSave(
                 $request->user(),
                 $validated['permissions'] ?? [],
                 $role->permissions()->pluck('name')->all()
@@ -385,6 +390,24 @@ class RoleController extends Controller
         return back()->with(
             'success',
             'Role assignments updated.'
+        );
+    }
+
+    /**
+     * A role's permissions after saving: the email-listed modules (Master
+     * Settings, Import Center) can only be changed by their listed accounts;
+     * for anyone else the role keeps what it had.
+     *
+     * @param  list<string>  $requested
+     * @param  list<string>  $current
+     * @return list<string>
+     */
+    private function permissionsToSave(?object $user, array $requested, array $current): array
+    {
+        return ImportCenterAccess::permissionsToSave(
+            $user,
+            FormMasterAccess::permissionsToSave($user, $requested, $current),
+            $current
         );
     }
 }

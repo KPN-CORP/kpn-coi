@@ -146,7 +146,8 @@ export function useNavigation() {
             })
         }
 
-        if (can('import.view')) {
+        // Also limited to the accounts in IMPORT_CENTER_ADMIN_EMAILS.
+        if (can('import.view') && navigation.import_center) {
             items.push({
                 section: t.value.nav.administration,
                 label: t.value.nav.importCenter,

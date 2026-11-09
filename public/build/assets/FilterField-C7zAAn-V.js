@@ -1,1 +1,0 @@
-import{$ as e,E as t,F as n,L as r,v as i,x as a}from"./app-BzC3A3H1.js";var o={class:`flex flex-col gap-2`},s=[`for`],c=t({__name:`FilterField`,props:{label:{},for:{}},setup(t){return(c,l)=>(n(),a(`div`,o,[i(`label`,{for:c.$props.for,class:`text-sm font-medium text-slate-700`},e(t.label),9,s),r(c.$slots,`default`)]))}});export{c as t};

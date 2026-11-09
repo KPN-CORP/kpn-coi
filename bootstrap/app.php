@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'manager' => \App\Http\Middleware\EnsureManager::class,
             'form_master_admin' => \App\Http\Middleware\EnsureFormMasterAdmin::class,
+            'import_center_admin' => \App\Http\Middleware\EnsureImportCenterAdmin::class,
         ]);
         //
     })

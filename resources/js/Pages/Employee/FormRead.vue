@@ -247,9 +247,9 @@ function saveDraft() {
 
         <div
             v-if="!reachedEnd"
-            class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800"
+            class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 border-l-4 border-l-amber-500 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900 shadow-sm"
         >
-            <i class="fa-solid fa-book-open-reader" />
+            <i class="fa-solid fa-book-open-reader text-amber-600" />
             <span>{{ t.forms.readHint }}</span>
         </div>
 

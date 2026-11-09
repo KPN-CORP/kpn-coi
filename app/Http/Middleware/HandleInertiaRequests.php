@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\FormType;
 use App\Services\FormDeclarationService;
 use App\Services\FormMasterAccess;
+use App\Services\ImportCenterAccess;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -57,6 +58,10 @@ class HandleInertiaRequests extends Middleware
                 // Master Settings menu: listed accounts only, see
                 // FormMasterAccess (the permission is checked client-side too).
                 'form_master' => FormMasterAccess::isListed($request->user()),
+
+                // Import Center menu: listed accounts only, see
+                // ImportCenterAccess (the permission is checked client-side too).
+                'import_center' => ImportCenterAccess::isListed($request->user()),
 
                 // Conflict of Interest's place among the form types in the
                 // employee menu (Master Settings -> Form Type).

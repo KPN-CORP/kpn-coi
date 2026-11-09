@@ -30,6 +30,19 @@ return [
         explode(',', (string) env('FORM_MASTER_ADMIN_EMAILS', ''))
     ))),
 
+    /*
+    | Accounts allowed to open Import Center and to grant/revoke its
+    | permissions (import.*) in Role Management, by email -- same rule as
+    | Master Settings above. Comma-separated in .env, e.g.
+    |   IMPORT_CENTER_ADMIN_EMAILS=hc.admin@kpn-corp.com,it.admin@kpn-corp.com
+    | Empty = Import Center is closed to everyone (existing grants stay).
+    | See App\Services\ImportCenterAccess.
+    */
+    'import_admin_emails' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('IMPORT_CENTER_ADMIN_EMAILS', ''))
+    ))),
+
     'variables' => [
         'employee_name' => ['en' => 'Full Name', 'id' => 'Nama Lengkap'],
         'employee_id' => ['en' => 'Employee ID', 'id' => 'ID Karyawan'],

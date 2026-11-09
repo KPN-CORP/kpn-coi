@@ -127,7 +127,7 @@
         stepAgree: 'Setuju',
         stepSign: 'Tanda tangan',
         readingProgress: 'Progres membaca',
-        readHint: 'Silakan baca seluruh dokumen. Persetujuan di bawah akan terbuka setelah Anda sampai di akhir.',
+        readHint: 'Baca seluruh isi Pakta Integritas untuk melanjutkan ke proses persetujuan.',
         readToUnlock: 'Baca sampai akhir untuk membuka',
         endOfDocument: 'Akhir dokumen',
         saveDraft: 'Simpan draf',

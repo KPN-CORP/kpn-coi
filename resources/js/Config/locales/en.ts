@@ -434,7 +434,7 @@ export default {
         // Employee
         description: 'Your :form signing records.',
         // :form is the form type's name, e.g. "Integrity Pact".
-        agree: "I have personally read and agree to this :form, and I am willing to be accountable for my conduct throughout my employment and to align it with the Company's applicable policies and provisions.",
+        agree: "I have personally read and agree to this :form, and I am willing to be accountable for my conduct throughout my employment and to align it with the Company's applicable policies and provisions",
         typeNameLabel: 'Type your full name as your signature',
         caseHint: 'Uppercase and lowercase letters must match.',
         sign: 'Sign',
@@ -572,7 +572,7 @@ export default {
         stepAgree: 'Agree',
         stepSign: 'Sign',
         readingProgress: 'Reading progress',
-        readHint: 'Please read the whole document. The agreement below unlocks once you reach the end.',
+        readHint: 'Please read the Integrity Pact carefully before proceeding to sign.',
         readToUnlock: 'Read to the end to unlock',
         endOfDocument: 'End of document',
         saveDraft: 'Save as draft',

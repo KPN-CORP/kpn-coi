@@ -246,7 +246,9 @@ Route::middleware(['auth:web'])->prefix('admin')
 
     // Import Center: bulk loads from spreadsheets. A form import also needs
     // that form type's own permission, checked in the controller.
-    Route::prefix('import-center')->name('import-center.')->group(function () {
+    // Listed accounts only (IMPORT_CENTER_ADMIN_EMAILS), and each route still
+    // checks its import.* permission.
+    Route::prefix('import-center')->name('import-center.')->middleware('import_center_admin')->group(function () {
 
         Route::get('/', [ImportCenterController::class, 'index'])
             ->middleware('permission:import.view')
