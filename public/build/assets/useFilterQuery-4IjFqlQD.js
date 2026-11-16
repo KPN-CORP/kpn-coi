@@ -1,0 +1,1 @@
+import{M as e,tt as t}from"./app-d3qNlKRK.js";import{t as n}from"./debounce-BV8cKa9U.js";var r=t(n(),1);function i(e){return Object.fromEntries(Object.entries(e).filter(([,e])=>e!==``&&e!=null))}function a(t,n=400){let i=(0,r.default)(t,n);return e(()=>i.cancel()),i}export{a as n,i as t};

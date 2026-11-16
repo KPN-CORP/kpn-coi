@@ -238,14 +238,6 @@ function saveDraft() {
         />
 
         <div
-            v-if="resign"
-            class="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
-        >
-            <i class="fa-solid fa-rotate mt-0.5" />
-            <span>{{ t.forms.resignBanner }}</span>
-        </div>
-
-        <div
             v-if="!reachedEnd"
             class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-amber-300 border-l-4 border-l-amber-500 bg-amber-100 px-4 py-3 text-sm font-semibold text-amber-900 shadow-sm"
         >
@@ -328,7 +320,7 @@ function saveDraft() {
         <SignatureModal
             :show="showSignature"
             :template-id="document.id"
-            :document-title="document.title[locale]"
+            :document-title="formType.name[locale]"
             :full-name="fullName"
             :version="version"
             @close="showSignature = false"

@@ -191,10 +191,6 @@ async function upload() {
                     {{ t.uploadModal.templateHint }}
                 </p>
 
-                <p class="mt-1 text-sm text-slate-600">
-                    {{ t.uploadModal.updateHint }}
-                </p>
-
                 <a
                     :href="route('admin.credentials.template')"
                     class="mt-4 inline-flex items-center rounded-md border border-blue-500 px-4 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
