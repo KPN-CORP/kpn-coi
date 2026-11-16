@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 class Location extends Model
 {
     use HasFactory;
 
     protected $connection = 'kpncorp';
+
     protected $table = 'locations';
 
     /**
@@ -46,6 +48,30 @@ class Location extends Model
         $flipped = array_flip(self::BUSINESS_UNIT_ALIASES);
 
         return $flipped[$companyName] ?? $companyName;
+    }
+
+    /**
+     * Office areas (locations.area) offered per business unit, with
+     * company_name translated to the app's business unit naming. Shared by the
+     * Credentials form, its XLSX template and the import, so all three offer
+     * and accept the same list.
+     *
+     * @return Collection<int, array{business_unit: string, office_area: string}>
+     */
+    public static function officeAreaOptions(): Collection
+    {
+        return self::query()
+            ->select(['company_name', 'area'])
+            ->whereNotNull('area')
+            ->where('area', '!=', '')
+            ->distinct()
+            ->orderBy('area')
+            ->get()
+            ->map(fn (Location $location) => [
+                'business_unit' => self::businessUnitFor($location->company_name),
+                'office_area' => $location->area,
+            ])
+            ->values();
     }
 
     public function scopeForBusinessUnit(Builder $query, ?string $businessUnit): Builder

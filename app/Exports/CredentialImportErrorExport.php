@@ -22,6 +22,8 @@ class CredentialImportErrorExport implements FromCollection, WithHeadings
 
             'Fullname',
 
+            'NIK',
+
             'Email',
 
             'Citizenship Number / Passport Number',
@@ -29,6 +31,8 @@ class CredentialImportErrorExport implements FromCollection, WithHeadings
             'Business Unit',
 
             'Company Name',
+
+            'Office Location',
 
             'Date Of Join',
 

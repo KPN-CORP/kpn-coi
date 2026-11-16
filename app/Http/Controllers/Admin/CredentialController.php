@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\CredentialImportService;
 use App\Services\DataScopeService;
 use App\Services\IdentityLinkService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -201,22 +202,11 @@ class CredentialController extends Controller
         // not the units the existing rows happen to use.
         $businessUnitOptions = $dataScope->businessUnitOptions($viewer);
 
-        // Office areas (locations.area) offered per business unit. company_name
-        // is translated to the app's business unit naming so the frontend can
-        // match it against the selected unit directly. The work_area code is
-        // resolved from the chosen area at save time.
-        $officeAreaOptions = Location::query()
-            ->select(['company_name', 'area'])
-            ->whereNotNull('area')
-            ->where('area', '!=', '')
-            ->distinct()
-            ->orderBy('area')
-            ->get()
-            ->map(fn (Location $location) => [
-                'business_unit' => Location::businessUnitFor($location->company_name),
-                'office_area' => $location->area,
-            ])
-            ->values();
+        // Office areas (locations.area) offered per business unit, already in
+        // the app's business unit naming so the frontend can match it against
+        // the selected unit directly. The work_area code is resolved from the
+        // chosen area at save time.
+        $officeAreaOptions = Location::officeAreaOptions();
 
         // Company Name choices, each tagged with its business unit so the form
         // can cascade (unit first, then its companies). Scoped to the viewer's
@@ -595,9 +585,14 @@ class CredentialController extends Controller
         );
     }
 
+    /**
+     * JSON rather than an Inertia redirect: the upload dialog stays open to
+     * show the per-row outcome (created / updated / unchanged, or the rows
+     * that failed) and to take a corrected file without a page reload.
+     */
     public function import(
         Request $request
-    ): RedirectResponse {
+    ): JsonResponse {
         $request->validate([
             'file' => [
                 'required',
@@ -606,17 +601,36 @@ class CredentialController extends Controller
             ],
         ]);
 
-        Excel::import(
-            new NonEmployeeUserImport(
-                app(CredentialImportService::class)
-            ),
-            $request->file('file')
+        $import = new NonEmployeeUserImport(
+            app(CredentialImportService::class)
         );
 
-        return back()->with(
-            'success',
-            'Users imported successfully.'
-        );
+        Excel::import($import, $request->file('file'));
+
+        ['errors' => $errors, 'results' => $results] = $import->outcome;
+
+        if ($errors !== []) {
+            return response()->json([
+                'status' => 'failed',
+                'message' => sprintf(
+                    '%d row(s) failed validation. Nothing was imported.',
+                    count($errors),
+                ),
+                'errors' => $errors,
+            ], 422);
+        }
+
+        $counts = collect($results)->countBy('status');
+
+        return response()->json([
+            'status' => 'completed',
+            'summary' => [
+                'created' => $counts->get('created', 0),
+                'updated' => $counts->get('updated', 0),
+                'unchanged' => $counts->get('unchanged', 0),
+            ],
+            'results' => $results,
+        ]);
     }
 
     public function downloadImportError()

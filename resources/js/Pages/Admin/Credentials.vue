@@ -39,75 +39,10 @@ const showConvertModal = ref(false)
 
 const serverErrors = ref<Record<string, string>>({})
 
-function uploadUsers(file: File | null) {
-
-    if (!file) {
-        return
-    }
-
-    const form = new FormData()
-
-    form.append(
-        'file',
-        file,
-    )
-
-    router.post(
-        route('admin.credentials.import'),
-        form,
-        {
-            forceFormData: true,
-
-            preserveScroll: true,
-
-            onSuccess: () => {
-
-                showUploadModal.value = false
-
-                Swal.fire({
-
-                    icon: 'success',
-
-                    title: t.value.credentials.importCompletedTitle,
-
-                    text: t.value.credentials.importCompletedText,
-
-
-                })
-
-            },
-
-            onError: (errors) => {
-
-                const message =
-                    errors.file ??
-                    Object.values(errors)[0]
-
-                Swal.fire({
-
-                    icon: 'error',
-
-                    title: t.value.credentials.importFailedTitle,
-
-                    html: `
-                        <p>${message}</p>
-
-                        <br>
-
-                        <a
-                            href="${route('admin.credentials.import.error')}"
-                            class="text-primary underline"
-                        >
-                            ${t.value.credentials.downloadErrorReport}
-                        </a>
-                    `,
-
-
-                })
-
-            },
-        },
-    )
+// The upload dialog shows its own per-row outcome and stays open, so only the
+// list behind it needs refreshing.
+function reloadUsers() {
+    router.reload({ only: ['users'] })
 }
 
 function openDeleteModal(user: any) {
@@ -591,7 +526,7 @@ function applyFilter() {
         <UploadUserModal
             :show="showUploadModal"
             @close="showUploadModal = false"
-            @upload="uploadUsers"
+            @imported="reloadUsers"
         />
         <DeleteUserModal
             :show="showDeleteModal"
